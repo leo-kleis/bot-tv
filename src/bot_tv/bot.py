@@ -11,7 +11,6 @@ from bot_tv.env import (
     BOT_ID,
     CLIENT_ID,
     CLIENT_SECRET,
-    CONDUIT_ID,
     OWNER_ID,
 )
 
@@ -29,19 +28,15 @@ class Bot(commands.AutoBot):
     ) -> None:
         self.token_database = token_database
 
-        kwargs: dict[str, object] = {
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "bot_id": BOT_ID,
-            "owner_id": OWNER_ID,
-            "prefix": "?",
-            "subscriptions": subs,
-            "force_subscribe": True,
-        }
-        if CONDUIT_ID:
-            kwargs["conduit_id"] = CONDUIT_ID
-
-        super().__init__(**kwargs)  # type: ignore[arg-type]
+        super().__init__(
+            client_id=CLIENT_ID,
+            client_secret=CLIENT_SECRET,
+            bot_id=BOT_ID,
+            owner_id=OWNER_ID,
+            prefix="?",
+            subscriptions=subs,
+            force_subscribe=True,
+        )
 
     async def setup_hook(self) -> None:
         """Registra los componentes del bot."""
