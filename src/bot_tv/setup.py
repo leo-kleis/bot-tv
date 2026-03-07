@@ -57,21 +57,21 @@ class SetupBot(commands.AutoBot):
         LOGGER.info("SETUP: Servidor OAuth listo en http://localhost:4343")
         LOGGER.info("=" * 60)
         LOGGER.info("")
-        LOGGER.info("Paso 1 - Autorizar cuenta BOT:")
-        LOGGER.info(
-            "  Abrí en tu navegador 1: "
+        url_bot = (
             "http://localhost:4343/oauth?scopes="
-            "user:read:chat%%20user:write:chat%%20user:bot"
+            "user:read:chat%20user:write:chat%20user:bot"
             "&force_verify=true"
         )
+        url_canal = (
+            "http://localhost:4343/oauth?scopes="
+            "channel:bot%20user:read:chat"
+            "&force_verify=true"
+        )
+        LOGGER.info("Paso 1 - Autorizar cuenta BOT:")
+        LOGGER.info("  Abrí en tu navegador 1: %s", url_bot)
         LOGGER.info("")
         LOGGER.info("Paso 2 - Autorizar cuenta CANAL:")
-        LOGGER.info(
-            "  Abrí en tu navegador 2: "
-            "http://localhost:4343/oauth?scopes="
-            "channel:bot%%20user:read:chat"
-            "&force_verify=true"
-        )
+        LOGGER.info("  Abrí en tu navegador 2: %s", url_canal)
         LOGGER.info("")
         LOGGER.info("Cuando termines, presioná Ctrl+C para salir.")
         LOGGER.info("=" * 60)

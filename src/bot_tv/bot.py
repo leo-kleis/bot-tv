@@ -93,8 +93,18 @@ class Bot(commands.AutoBot):
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
         async with self.token_database.acquire() as connection:
-            row = await connection.fetchone(
-                "SELECT username FROM tokens WHERE user_id = ?", (self.bot_id,)
-            )
-        bot_name = row["username"] if row else self.bot_id
+            rows = await connection.fetchall("SELECT user_id, username FROM tokens")
+
+        bot_name = self.bot_id
+        canales: list[str] = []
+        for row in rows:
+            if row["user_id"] == self.bot_id:
+                bot_name = row["username"]
+            else:
+                canales.append(row["username"])
+
         LOGGER.info("Bot conectado como: %s (ID: %s)", bot_name, self.bot_id)
+        if canales:
+            LOGGER.info("Escuchando en canales: %s", ", ".join(canales))
+        else:
+            LOGGER.warning("No hay canales configurados.")
