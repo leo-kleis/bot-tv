@@ -7,8 +7,85 @@ from twitchio.ext import commands
 
 from bot_tv.database import DB_DIR, DB_PATH, save_token, setup_database
 from bot_tv.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
+from bot_tv.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
+
+# ── Scopes para la cuenta BOT ──────────────────────────────────────
+# Permisos que el bot necesita para actuar (user:*, chat:*, moderator:*)
+BOT_SCOPES: list[str] = [
+    # Chat y bot
+    "user:read:chat",
+    "user:write:chat",
+    "user:bot",
+    "chat:read",
+    "chat:edit",
+    # Broadcast (usuario)
+    "user:read:broadcast",
+    "user:edit:broadcast",
+    # Moderación (el bot actúa como moderador)
+    "moderation:read",
+    "moderator:manage:announcements",
+    "moderator:read:chat_settings",
+    "moderator:manage:chat_settings",
+    "moderator:read:chatters",
+    "moderator:read:moderators",
+    "moderator:manage:moderators",
+    "moderator:read:shield_mode",
+    "moderator:manage:shield_mode",
+    "moderator:read:guest_star",
+    "moderator:manage:guest_star",
+    # Clips
+    "clips:edit",
+    # Otros
+    "user:read:email",
+]
+
+# ── Scopes para la cuenta CANAL ─────────────────────────────────────
+# Permisos que el dueño del canal concede (channel:*, analytics:*, bits:*)
+CHANNEL_SCOPES: list[str] = [
+    # Chat y bot
+    "channel:bot",
+    "user:read:chat",
+    "channel:moderate",
+    # Anuncios y ads
+    "channel:manage:ads",
+    "channel:read:ads",
+    # Broadcast (canal)
+    "channel:manage:broadcast",
+    # Predicciones y encuestas
+    "channel:read:predictions",
+    "channel:manage:predictions",
+    "channel:read:polls",
+    "channel:manage:polls",
+    # Redenciones y recompensas
+    "channel:read:redemptions",
+    "channel:manage:redemptions",
+    # Suscripciones
+    "channel:read:subscriptions",
+    # VIPs
+    "channel:read:vips",
+    "channel:manage:vips",
+    # Videos y clips
+    "channel:manage:videos",
+    # Programación
+    "channel:manage:schedule",
+    # Extensiones
+    "channel:manage:extensions",
+    # Analíticas
+    "analytics:read:extensions",
+    "analytics:read:games",
+    "bits:read",
+    # Otros
+    "channel:read:charity",
+    "channel:edit:commercial",
+    "channel:read:editors",
+    "channel:read:goals",
+    "channel:read:guest_star",
+    "channel:manage:guest_star",
+    "channel:read:hype_train",
+    "channel:read:stream_key",
+]
 
 
 class SetupBot(commands.AutoBot):
@@ -53,25 +130,25 @@ class SetupBot(commands.AutoBot):
 
     async def event_ready(self) -> None:
         """Muestra las instrucciones de autorización."""
+        bot_scopes_str = "%20".join(BOT_SCOPES)
+        channel_scopes_str = "%20".join(CHANNEL_SCOPES)
+
+        url_bot = (
+            f"http://localhost:4343/oauth?scopes={bot_scopes_str}&force_verify=true"
+        )
+        url_canal = (
+            f"http://localhost:4343/oauth?scopes={channel_scopes_str}&force_verify=true"
+        )
+
         LOGGER.info("=" * 60)
         LOGGER.info("SETUP: Servidor OAuth listo en http://localhost:4343")
         LOGGER.info("=" * 60)
         LOGGER.info("")
-        url_bot = (
-            "http://localhost:4343/oauth?scopes="
-            "user:read:chat%20user:write:chat%20user:bot"
-            "&force_verify=true"
-        )
-        url_canal = (
-            "http://localhost:4343/oauth?scopes="
-            "channel:bot%20user:read:chat"
-            "&force_verify=true"
-        )
-        LOGGER.info("Paso 1 - Autorizar cuenta BOT:")
-        LOGGER.info("  Abrí en tu navegador 1: %s", url_bot)
+        LOGGER.info("Paso 1 - Autorizar cuenta BOT (%d scopes):", len(BOT_SCOPES))
+        LOGGER.info("  %s", url_bot)
         LOGGER.info("")
-        LOGGER.info("Paso 2 - Autorizar cuenta CANAL:")
-        LOGGER.info("  Abrí en tu navegador 2: %s", url_canal)
+        LOGGER.info("Paso 2 - Autorizar cuenta CANAL (%d scopes):", len(CHANNEL_SCOPES))
+        LOGGER.info("  %s", url_canal)
         LOGGER.info("")
         LOGGER.info("Cuando termines, presioná Ctrl+C para salir.")
         LOGGER.info("=" * 60)
@@ -79,7 +156,7 @@ class SetupBot(commands.AutoBot):
 
 def setup() -> None:
     """Punto de entrada del script de configuración."""
-    twitchio.utils.setup_logging(level=logging.INFO)
+    setup_logging(level=logging.INFO)
     DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
