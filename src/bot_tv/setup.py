@@ -44,9 +44,11 @@ class SetupBot(commands.AutoBot):
     ) -> twitchio.authentication.ValidateTokenPayload:
         """Añade y persiste un token de acceso en la base de datos."""
         resp = await super().add_token(token, refresh)
-        if resp.user_id:
-            await save_token(self.token_database, resp.user_id, token, refresh)
-            LOGGER.info("Token guardado para el usuario: %s", resp.user_id)
+        if resp.user_id and resp.login:
+            await save_token(
+                self.token_database, resp.user_id, resp.login, token, refresh
+            )
+            LOGGER.info("Token guardado para: %s (ID: %s)", resp.login, resp.user_id)
         return resp
 
     async def event_ready(self) -> None:
@@ -57,7 +59,7 @@ class SetupBot(commands.AutoBot):
         LOGGER.info("")
         LOGGER.info("Paso 1 - Autorizar cuenta BOT:")
         LOGGER.info(
-            "  Abrí en modo incógnito: "
+            "  Abrí en tu navegador 1: "
             "http://localhost:4343/oauth?scopes="
             "user:read:chat%%20user:write:chat%%20user:bot"
             "&force_verify=true"
@@ -65,7 +67,7 @@ class SetupBot(commands.AutoBot):
         LOGGER.info("")
         LOGGER.info("Paso 2 - Autorizar cuenta CANAL:")
         LOGGER.info(
-            "  Abrí en tu navegador: "
+            "  Abrí en tu navegador 2: "
             "http://localhost:4343/oauth?scopes="
             "channel:bot%%20user:read:chat"
             "&force_verify=true"

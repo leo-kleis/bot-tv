@@ -21,9 +21,10 @@ async def setup_database(
 ) -> tuple[list[tuple[str, str]], list[eventsub.SubscriptionPayload]]:
     """Crea las tablas necesarias y carga los tokens existentes."""
     query = """CREATE TABLE IF NOT EXISTS tokens(
-        user_id TEXT PRIMARY KEY,
-        token   TEXT NOT NULL,
-        refresh TEXT NOT NULL
+        user_id  TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        token    TEXT NOT NULL,
+        refresh  TEXT NOT NULL
     )"""
     async with db.acquire() as connection:
         await connection.execute(query)
@@ -42,13 +43,17 @@ async def setup_database(
     return tokens, subs
 
 
-async def save_token(db: asqlite.Pool, user_id: str, token: str, refresh: str) -> None:
+async def save_token(
+    db: asqlite.Pool, user_id: str, username: str, token: str, refresh: str
+) -> None:
     """Inserta o actualiza un token en la base de datos."""
     query = """
-        INSERT INTO tokens (user_id, token, refresh)
-        VALUES (?, ?, ?)
+        INSERT INTO tokens (user_id, username, token, refresh)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT(user_id)
-        DO UPDATE SET token = excluded.token, refresh = excluded.refresh;
+        DO UPDATE SET username = excluded.username,
+                      token    = excluded.token,
+                      refresh  = excluded.refresh;
     """
     async with db.acquire() as connection:
-        await connection.execute(query, (user_id, token, refresh))
+        await connection.execute(query, (user_id, username, token, refresh))

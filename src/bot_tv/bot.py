@@ -11,6 +11,7 @@ from bot_tv.env import (
     BOT_ID,
     CLIENT_ID,
     CLIENT_SECRET,
+    CONDUIT_ID,
     OWNER_ID,
 )
 
@@ -28,15 +29,19 @@ class Bot(commands.AutoBot):
     ) -> None:
         self.token_database = token_database
 
-        super().__init__(
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
-            bot_id=BOT_ID,
-            owner_id=OWNER_ID,
-            prefix="?",
-            subscriptions=subs,
-            force_subscribe=True,
-        )
+        kwargs: dict[str, object] = {
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "bot_id": BOT_ID,
+            "owner_id": OWNER_ID,
+            "prefix": "?",
+            "subscriptions": subs,
+            "force_subscribe": True,
+        }
+        if CONDUIT_ID:
+            kwargs["conduit_id"] = CONDUIT_ID
+
+        super().__init__(**kwargs)  # type: ignore[arg-type]
 
     async def setup_hook(self) -> None:
         """Registra los componentes del bot."""
@@ -78,11 +83,18 @@ class Bot(commands.AutoBot):
         resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
             token, refresh
         )
-        if resp.user_id:
-            await save_token(self.token_database, resp.user_id, token, refresh)
-            LOGGER.info("Token almacenado para el usuario: %s", resp.user_id)
+        if resp.user_id and resp.login:
+            await save_token(
+                self.token_database, resp.user_id, resp.login, token, refresh
+            )
+            LOGGER.info("Token almacenado para: %s (ID: %s)", resp.login, resp.user_id)
         return resp
 
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
-        LOGGER.info("Bot conectado como: %s", self.bot_id)
+        async with self.token_database.acquire() as connection:
+            row = await connection.fetchone(
+                "SELECT username FROM tokens WHERE user_id = ?", (self.bot_id,)
+            )
+        bot_name = row["username"] if row else self.bot_id
+        LOGGER.info("Bot conectado como: %s (ID: %s)", bot_name, self.bot_id)
