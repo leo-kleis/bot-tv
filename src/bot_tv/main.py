@@ -3,17 +3,17 @@ import logging
 import sys
 
 import asqlite
-import twitchio
 
 from bot_tv.bot import Bot
 from bot_tv.database import DB_DIR, DB_PATH, setup_database
+from bot_tv.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
 
 
 def main() -> None:
     """Punto de entrada de la aplicación."""
-    twitchio.utils.setup_logging(level=logging.INFO)
+    setup_logging(level=logging.INFO)
     DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
