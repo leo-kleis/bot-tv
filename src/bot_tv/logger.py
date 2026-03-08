@@ -17,8 +17,13 @@ LEVEL_COLORS: dict[int, str] = {
     logging.CRITICAL: "\033[1;31m",  # Rojo brillante
 }
 
-# Color para el nombre del módulo (cyan — no se usa en ningún nivel)
+# Color por defecto para el nombre del módulo (cyan)
 NAME_COLOR = "\033[36m"
+
+# Colores específicos por módulo
+MODULE_COLORS: dict[str, str] = {
+    "bot_tv.components.followers_component": "\033[38;2;198;120;221m",  # #C678DD
+}
 
 
 class ColorFormatter(logging.Formatter):
@@ -27,7 +32,8 @@ class ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         level_color = LEVEL_COLORS.get(record.levelno, RESET)
         level = f"{level_color}{record.levelname:<8}{RESET}"
-        name = f"{NAME_COLOR}{record.name}{RESET}"
+        name_color = MODULE_COLORS.get(record.name, NAME_COLOR)
+        name = f"{name_color}{record.name}{RESET}"
         timestamp = self.formatTime(record, self.datefmt)
         message = record.getMessage()
 
