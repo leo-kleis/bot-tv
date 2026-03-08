@@ -23,10 +23,9 @@ class FollowersComponent(commands.Component):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
-        self._initial_followers: dict[str, set[str]] = {}
 
     async def component_load(self) -> None:
-        """Al cargar: obtiene y guarda el snapshot inicial de seguidores."""
+        """Al cargar: obtiene seguidores, compara con la DB y actualiza."""
         async with self.bot.token_database.acquire() as conn:
             rows = await conn.fetchall("SELECT user_id, username FROM tokens")
 
@@ -37,12 +36,12 @@ class FollowersComponent(commands.Component):
 
             LOGGER.info("Obteniendo seguidores del canal %s...", row["username"])
             try:
-                await self._fetch_and_sync(channel_id)
+                await self._check_and_sync(channel_id)
             except Exception:
                 LOGGER.exception("Error al obtener seguidores de %s", row["username"])
 
     async def component_teardown(self) -> None:
-        """Al cerrar: compara seguidores y reporta cambios."""
+        """Al cerrar: obtiene seguidores, compara con la DB y actualiza."""
         async with self.bot.token_database.acquire() as conn:
             rows = await conn.fetchall("SELECT user_id, username FROM tokens")
 
@@ -53,47 +52,58 @@ class FollowersComponent(commands.Component):
 
             LOGGER.info("Verificando seguidores de %s al cerrar...", row["username"])
             try:
-                await self._fetch_and_sync(channel_id)
-
-                # Obtener estado final de la DB (recién sincronizado)
-                final = await get_follower_ids(self.bot.app_database, channel_id)
-                initial = self._initial_followers.get(channel_id, set())
-
-                nuevos = final - initial
-                perdidos = initial - final
-
-                if nuevos:
-                    LOGGER.info(
-                        "[+] Nuevos seguidores (%d): %s",
-                        len(nuevos),
-                        ", ".join(nuevos),
-                    )
-                if perdidos:
-                    LOGGER.warning(
-                        "[-] Dejaron de seguir (%d): %s",
-                        len(perdidos),
-                        ", ".join(perdidos),
-                    )
-                if not nuevos and not perdidos:
-                    LOGGER.info("Sin cambios en seguidores de %s", row["username"])
-
+                await self._check_and_sync(channel_id)
             except Exception:
                 LOGGER.exception("Error al verificar seguidores de %s", row["username"])
 
-    async def _fetch_and_sync(self, channel_id: str) -> None:
-        """Consulta la API de Twitch y sincroniza seguidores en la DB."""
-        # fetch_user usa keyword argument 'id'
+    async def _check_and_sync(self, channel_id: str) -> None:
+        """Obtiene seguidores de la API, compara con la DB y reporta cambios."""
+        # 1. Obtener seguidores actuales desde la API
+        current = await self._fetch_followers(channel_id)
+        current_ids = {t[0] for t in current}
+
+        # 2. Obtener seguidores previos desde la DB
+        previous_ids = await get_follower_ids(self.bot.app_database, channel_id)
+
+        # 3. Comparar
+        if previous_ids:
+            # Ya teniamos datos → comparar
+            nuevos = current_ids - previous_ids
+            perdidos = previous_ids - current_ids
+
+            if nuevos:
+                LOGGER.info(
+                    "[+] Nuevos seguidores (%d): %s",
+                    len(nuevos),
+                    ", ".join(nuevos),
+                )
+            if perdidos:
+                LOGGER.warning(
+                    "[-] Dejaron de seguir (%d): %s",
+                    len(perdidos),
+                    ", ".join(perdidos),
+                )
+            if not nuevos and not perdidos:
+                LOGGER.info("Sin cambios en seguidores (%d total)", len(current_ids))
+        else:
+            # Primera vez → solo informar
+            LOGGER.info("Primera carga: %d seguidores registrados", len(current_ids))
+
+        # 4. Actualizar la DB con los datos actuales
+        await sync_followers(self.bot.app_database, channel_id, current)
+
+    async def _fetch_followers(
+        self, channel_id: str
+    ) -> list[tuple[str, str, str | None]]:
+        """Consulta la API de Twitch y devuelve la lista de seguidores."""
         user = await self.bot.fetch_user(id=int(channel_id))
         if not user:
             LOGGER.warning("No se encontró el usuario con ID %s", channel_id)
-            return
+            return []
 
-        # fetch_followers devuelve ChannelFollowers con .followers (async iterator)
         channel_followers = await user.fetch_followers()
         total = channel_followers.total
 
-        # Preparar datos para la DB: (user_id, username, followed_at)
-        # .followers es un HTTPAsyncIterator, se itera con 'async for'
         follower_tuples: list[tuple[str, str, str | None]] = []
         count = 0
         async for follower_event in channel_followers.followers:
@@ -110,7 +120,7 @@ class FollowersComponent(commands.Component):
             # Registrar como usuario en la tabla users
             await upsert_user(self.bot.app_database, fid, fname, fname)
 
-            # Progreso en tiempo real (sobreescribe la misma línea)
+            # Progreso en tiempo real
             sys.stdout.write(f"\r  Obteniendo seguidores... {count}/{total}")
             sys.stdout.flush()
 
@@ -118,9 +128,4 @@ class FollowersComponent(commands.Component):
         sys.stdout.write("\r" + " " * 50 + "\r")
         sys.stdout.flush()
 
-        await sync_followers(self.bot.app_database, channel_id, follower_tuples)
-
-        # Si es la primera vez, guardar como snapshot inicial
-        if channel_id not in self._initial_followers:
-            self._initial_followers[channel_id] = {t[0] for t in follower_tuples}
-            LOGGER.info("Snapshot inicial: %d seguidores", len(follower_tuples))
+        return follower_tuples
