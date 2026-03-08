@@ -85,6 +85,8 @@ CHANNEL_SCOPES: list[str] = [
     "channel:manage:guest_star",
     "channel:read:hype_train",
     "channel:read:stream_key",
+    # Seguidores
+    "moderator:read:followers",
 ]
 
 

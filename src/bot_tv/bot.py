@@ -24,9 +24,11 @@ class Bot(commands.AutoBot):
         self,
         *,
         token_database: asqlite.Pool,
+        app_database: asqlite.Pool,
         subs: list[eventsub.SubscriptionPayload],
     ) -> None:
         self.token_database = token_database
+        self.app_database = app_database
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -41,11 +43,13 @@ class Bot(commands.AutoBot):
     async def setup_hook(self) -> None:
         """Registra los componentes del bot."""
         # Importación tardía para evitar dependencias circulares:
-        # MiComponente necesita conocer el tipo Bot, y Bot necesita instanciar
-        # MiComponente. Al importar aquí, ambos módulos ya están cargados.
+        # Los componentes necesitan conocer el tipo Bot, y Bot necesita
+        # instanciarlos. Al importar aquí, ambos módulos ya están cargados.
+        from bot_tv.components.followers_component import FollowersComponent
         from bot_tv.components.mi_componente import MiComponente
 
         await self.add_component(MiComponente(self))
+        await self.add_component(FollowersComponent(self))
 
     async def event_oauth_authorized(
         self, payload: twitchio.authentication.UserTokenPayload

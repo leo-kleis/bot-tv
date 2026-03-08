@@ -1,13 +1,40 @@
 from __future__ import annotations
 
-import random
+import logging
 from typing import TYPE_CHECKING
 
 import twitchio
 from twitchio.ext import commands
 
+from bot_tv.app_database import (
+    get_user_nickname,
+    save_chat_message,
+    upsert_user,
+)
+
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
+
+LOGGER = logging.getLogger(__name__)
+
+# Códigos ANSI
+RESET = "\033[0m"
+
+
+def _hex_to_ansi(hex_color: str | None) -> str:
+    """Convierte un color hex (#RRGGBB) a código ANSI truecolor (24-bit).
+
+    Esto permite que la terminal muestre el color exacto de Twitch.
+    Si el color es None o inválido, devuelve string vacío (sin color).
+    """
+    if not hex_color:
+        return ""
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        return ""
+    r, g, b = int(hex_color[:2], 16), int(hex_color[2:4], 16), int(hex_color[4:], 16)
+    # \033[38;2;R;G;Bm = foreground truecolor
+    return f"\033[38;2;{r};{g};{b}m"
 
 
 class MiComponente(commands.Component):
@@ -18,8 +45,32 @@ class MiComponente(commands.Component):
 
     @commands.Component.listener()
     async def event_message(self, payload: twitchio.ChatMessage) -> None:
-        """Muestra en consola cada mensaje recibido."""
-        print(f"[{payload.broadcaster.name}] {payload.chatter.name}: {payload.text}")
+        """Guarda el mensaje en el historial y muestra en consola con color."""
+        chatter = payload.chatter
+        user_id = str(chatter.id)
+        username = chatter.name or user_id
+        display_name = chatter.display_name or username
+
+        # Guardar/actualizar datos del usuario en la DB
+        await upsert_user(self.bot.app_database, user_id, username, display_name)
+
+        # Guardar el mensaje en el historial
+        await save_chat_message(
+            self.bot.app_database,
+            str(payload.broadcaster.id),
+            user_id,
+            payload.text,
+        )
+
+        # Determinar nombre a mostrar: apodo > display_name
+        nickname = await get_user_nickname(self.bot.app_database, user_id)
+        nombre = nickname or display_name
+
+        # Colorear el nombre con el color de Twitch del chatter
+        color_ansi = _hex_to_ansi(str(chatter.color) if chatter.color else None)
+        nombre_coloreado = f"{color_ansi}{nombre}{RESET}" if color_ansi else nombre
+
+        print(f"[{payload.broadcaster.name}] {nombre_coloreado}: {payload.text}")
 
     @commands.command()
     async def hola(self, ctx: commands.Context) -> None:
@@ -29,6 +80,8 @@ class MiComponente(commands.Component):
     @commands.command()
     async def eleccion(self, ctx: commands.Context, *opciones: str) -> None:
         """Elige aleatoriamente entre las opciones dadas.  ?eleccion <a> <b> ..."""
+        import random
+
         await ctx.reply(
             f"Elegí: {random.choice(opciones)}" if opciones else "Dame opciones!"
         )
