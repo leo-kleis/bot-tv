@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 
 from bot_tv.app_database import get_user_id_by_name, get_user_nickname, upsert_user
 
@@ -9,6 +10,8 @@ LOGGER = logging.getLogger(__name__)
 VERDE = "\033[92m"
 ROJO = "\033[91m"
 RESET = "\033[0m"
+# Color fijo para el timestamp [HH:MM:SS]
+TIMESTAMP_COLOR = "\033[38;2;94;79;247m"
 
 
 class TwitchIRCClient:
@@ -127,8 +130,11 @@ class TwitchIRCClient:
             if nickname:
                 apodo_texto = f" - {nickname}"
 
-        # 4. Imprimir en consola con los colores y formato solicitados
+        # 4. Imprimir en consola con la hora, colores y formato solicitados
+        hora = datetime.now().strftime("%H:%M:%S")
+        timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+
         if action == "JOIN":
-            print(f"{VERDE}JOIN{RESET} {usuario}{apodo_texto}")
+            print(f"{timestamp} {VERDE}JOIN{RESET} {usuario}{apodo_texto}")
         elif action == "PART":
-            print(f"{ROJO}PART{RESET} {usuario}{apodo_texto}")
+            print(f"{timestamp} {ROJO}PART{RESET} {usuario}{apodo_texto}")
