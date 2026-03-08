@@ -5,6 +5,9 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 
+# Color para el timestamp
+TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
+
 # Colores para los niveles
 LEVEL_COLORS: dict[int, str] = {
     logging.DEBUG: "\033[34m",  # Azul
@@ -28,12 +31,12 @@ class ColorFormatter(logging.Formatter):
         timestamp = self.formatTime(record, self.datefmt)
         message = record.getMessage()
 
-        return f"{DIM}{timestamp}{RESET} {level} {name}: {message}"
+        return f"{TIMESTAMP_COLOR}[{timestamp}]{RESET} {level} {name}: {message}"
 
 
 def setup_logging(level: int = logging.INFO) -> None:
     """Configura el logging con colores personalizados."""
-    formatter = ColorFormatter(datefmt="%Y-%m-%d %H:%M:%S")
+    formatter = ColorFormatter(datefmt="%d/%m/%y %H:%M:%S")
 
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)

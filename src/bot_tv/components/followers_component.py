@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 from twitchio.ext import commands
@@ -89,11 +90,14 @@ class FollowersComponent(commands.Component):
 
         # fetch_followers devuelve ChannelFollowers con .followers (async iterator)
         channel_followers = await user.fetch_followers()
+        total = channel_followers.total
 
         # Preparar datos para la DB: (user_id, username, followed_at)
         # .followers es un HTTPAsyncIterator, se itera con 'async for'
         follower_tuples: list[tuple[str, str, str | None]] = []
+        count = 0
         async for follower_event in channel_followers.followers:
+            count += 1
             fid = str(follower_event.user.id)
             fname = follower_event.user.name or str(follower_event.user.id)
             followed_at = (
@@ -105,6 +109,14 @@ class FollowersComponent(commands.Component):
 
             # Registrar como usuario en la tabla users
             await upsert_user(self.bot.app_database, fid, fname, fname)
+
+            # Progreso en tiempo real (sobreescribe la misma línea)
+            sys.stdout.write(f"\r  Obteniendo seguidores... {count}/{total}")
+            sys.stdout.flush()
+
+        # Limpiar la línea de progreso
+        sys.stdout.write("\r" + " " * 50 + "\r")
+        sys.stdout.flush()
 
         await sync_followers(self.bot.app_database, channel_id, follower_tuples)
 
