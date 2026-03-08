@@ -13,3 +13,5 @@ CLIENT_SECRET: str = os.getenv("TWITCH_CLIENT_SECRET", "")
 BOT_ID: str = os.getenv("BOT_ID", "")
 # Tu ID de usuario personal
 OWNER_ID: str = os.getenv("OWNER_ID", "")
+# Token exclusivo para conexión de chat IRC
+IRC_TOKEN: str = os.getenv("IRC_TOKEN", "")
