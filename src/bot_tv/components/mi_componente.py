@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -9,7 +10,10 @@ from twitchio.ext import commands
 
 from bot_tv.app_database import (
     get_user_nickname,
+    is_user_bot,
     save_chat_message,
+    set_nickname,
+    set_user_bot,
     upsert_user,
 )
 
@@ -20,6 +24,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Códigos ANSI
 RESET = "\033[0m"
+DIM = "\033[2m"
 
 # Color fijo para el timestamp [HH:MM:SS]
 TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
@@ -59,6 +64,41 @@ class MiComponente(commands.Component):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
+    async def _get_chatter_element(
+        self, chatter: twitchio.Chatter, broadcaster_id: str | int
+    ) -> str:
+        """Determina el elemento (rol) del chatter.
+
+        Prioridad:
+        1. Broadcaster → '(Broadcaster)'
+        2. Nuestro bot → '(Bot)'
+        3. Bot marcado en DB → '(Bot)'
+        4. Seguidor → '(DD/MM/AA)' con la fecha de follow
+        5. Ninguno → '(Visita)'
+        """
+        user_id = str(chatter.id)
+
+        # 1. Es el broadcaster del canal
+        if chatter.id == broadcaster_id:
+            return f"{DIM}(Broadcaster){RESET}"
+
+        # 2. Es nuestro bot
+        if user_id == self.bot.bot_id:
+            return f"{DIM}(Bot){RESET}"
+
+        # 3. Está marcado como bot en la DB
+        if await is_user_bot(self.bot.app_database, user_id):
+            return f"{DIM}(Bot){RESET}"
+
+        # 4. Es seguidor (consulta en tiempo real)
+        follow = await chatter.follow_info()
+        if follow and follow.followed_at:
+            fecha = follow.followed_at.strftime("%d/%m/%y")
+            return f"{DIM}({fecha}){RESET}"
+
+        # 5. No es seguidor
+        return f"{DIM}(Visita){RESET}"
+
     @commands.Component.listener()
     async def event_message(self, payload: twitchio.ChatMessage) -> None:
         """Guarda el mensaje en el historial y muestra en consola con color."""
@@ -91,7 +131,10 @@ class MiComponente(commands.Component):
         color_ansi = color_ansi or DEFAULT_NAME_COLOR
         nombre_coloreado = f"{color_ansi}{nombre}{RESET}"
 
-        print(f"{timestamp} {nombre_coloreado}: {payload.text}")
+        # Elemento (rol del chatter)
+        elemento = await self._get_chatter_element(chatter, payload.broadcaster.id)
+
+        print(f"{timestamp} {nombre_coloreado} {elemento}: {payload.text}")
 
     @commands.command()
     async def hola(self, ctx: commands.Context) -> None:
@@ -101,8 +144,58 @@ class MiComponente(commands.Component):
     @commands.command()
     async def eleccion(self, ctx: commands.Context, *opciones: str) -> None:
         """Elige aleatoriamente entre las opciones dadas.  ?eleccion <a> <b> ..."""
-        import random
-
         await ctx.reply(
             f"Elegí: {random.choice(opciones)}" if opciones else "Dame opciones!"
         )
+
+    @commands.command()
+    async def marcarbot(self, ctx: commands.Context, usuario: twitchio.User) -> None:
+        """Marca o desmarca un usuario como bot.  ?marcarbot <usuario>"""
+        # Solo el broadcaster puede usar este comando
+        if not ctx.chatter.broadcaster:  # type: ignore[union-attr]
+            return
+
+        # Borrar el mensaje del chat para que no sea visible
+        await ctx.message.delete(moderator=self.bot.bot_id)  # type: ignore[union-attr]
+
+        user_id = str(usuario.id)
+        username = usuario.name or user_id
+
+        # Asegurar que el usuario existe en la DB
+        await upsert_user(self.bot.app_database, user_id, username)
+
+        # Toggle: si ya es bot, desmarcarlo; si no, marcarlo
+        es_bot = await is_user_bot(self.bot.app_database, user_id)
+        await set_user_bot(self.bot.app_database, user_id, not es_bot)
+
+        # Respuesta solo en terminal
+        if es_bot:
+            LOGGER.info("[CMD] %s ya no está marcado como bot.", username)
+        else:
+            LOGGER.info("[CMD] %s fue marcado como bot.", username)
+
+    @commands.command()
+    async def apodo(
+        self, ctx: commands.Context, usuario: twitchio.User, *partes: str
+    ) -> None:
+        """Asigna o elimina un apodo.  ?apodo <usuario> [apodo]"""
+        # Solo el broadcaster puede usar este comando
+        if not ctx.chatter.broadcaster:  # type: ignore[union-attr]
+            return
+
+        # Borrar el mensaje del chat para que no sea visible
+        await ctx.message.delete(moderator=self.bot.bot_id)  # type: ignore[union-attr]
+
+        user_id = str(usuario.id)
+        username = usuario.name or user_id
+        apodo = " ".join(partes) if partes else None
+
+        # Asegurar que el usuario existe en la DB
+        await upsert_user(self.bot.app_database, user_id, username)
+        await set_nickname(self.bot.app_database, user_id, apodo)
+
+        # Respuesta solo en terminal
+        if apodo:
+            LOGGER.info("[CMD] Apodo de %s cambiado a: %s", username, apodo)
+        else:
+            LOGGER.info("[CMD] Apodo de %s eliminado.", username)

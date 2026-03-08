@@ -39,6 +39,8 @@ BOT_SCOPES: list[str] = [
     "clips:edit",
     # Otros
     "user:read:email",
+    # Gestión de mensajes del chat (borrar mensajes)
+    "moderator:manage:chat_messages",
 ]
 
 # ── Scopes para la cuenta CANAL ─────────────────────────────────────

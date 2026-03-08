@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -22,7 +23,8 @@ async def setup_app_database(db: asqlite.Pool) -> None:
                 user_id      TEXT PRIMARY KEY,
                 username     TEXT NOT NULL,
                 display_name TEXT,
-                nickname     TEXT
+                nickname     TEXT,
+                is_bot       INTEGER DEFAULT 0
             )
         """)
         await conn.execute("""
@@ -44,6 +46,10 @@ async def setup_app_database(db: asqlite.Pool) -> None:
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
+
+        # Migración: agregar columna is_bot si la DB ya existía sin ella
+        with contextlib.suppress(Exception):
+            await conn.execute("ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0")
 
 
 async def upsert_user(
@@ -79,6 +85,24 @@ async def set_nickname(db: asqlite.Pool, user_id: str, nickname: str | None) -> 
         await conn.execute(
             "UPDATE users SET nickname = ? WHERE user_id = ?",
             (nickname, user_id),
+        )
+
+
+async def is_user_bot(db: asqlite.Pool, user_id: str) -> bool:
+    """Devuelve True si el usuario está marcado como bot en la DB."""
+    async with db.acquire() as conn:
+        row: sqlite3.Row | None = await conn.fetchone(
+            "SELECT is_bot FROM users WHERE user_id = ?", (user_id,)
+        )
+    return bool(row["is_bot"]) if row else False
+
+
+async def set_user_bot(db: asqlite.Pool, user_id: str, is_bot: bool) -> None:
+    """Marca o desmarca un usuario como bot."""
+    async with db.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET is_bot = ? WHERE user_id = ?",
+            (1 if is_bot else 0, user_id),
         )
 
 
