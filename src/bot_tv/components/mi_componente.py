@@ -9,6 +9,7 @@ import twitchio
 from twitchio.ext import commands
 
 from bot_tv.app_database import (
+    get_user_id_by_name,
     get_user_nickname,
     is_user_bot,
     save_chat_message,
@@ -25,6 +26,7 @@ LOGGER = logging.getLogger(__name__)
 # Códigos ANSI
 RESET = "\033[0m"
 DIM = "\033[2m"
+AMARILLO = "\033[33m"
 
 # Color fijo para el timestamp [HH:MM:SS]
 TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
@@ -149,53 +151,124 @@ class MiComponente(commands.Component):
         )
 
     @commands.command()
-    async def marcarbot(self, ctx: commands.Context, usuario: twitchio.User) -> None:
-        """Marca o desmarca un usuario como bot.  ?marcarbot <usuario>"""
-        # Solo el broadcaster puede usar este comando
-        if not ctx.chatter.broadcaster:  # type: ignore[union-attr]
+    @commands.is_broadcaster()
+    async def bot(self, ctx: commands.Context, usuario: str) -> None:
+        """Marca o desmarca un usuario como bot.  ?bot <usuario>"""
+        if not usuario:
+            LOGGER.warning("bot: no se proporcionó un usuario válido.")
             return
 
-        # Borrar el mensaje del chat para que no sea visible
-        await ctx.message.delete(moderator=self.bot.bot_id)  # type: ignore[union-attr]
+        usuario = usuario.lower()
 
-        user_id = str(usuario.id)
-        username = usuario.name or user_id
+        # Buscar si el usuario existe en nuestra base de datos
+        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
 
-        # Asegurar que el usuario existe en la DB
-        await upsert_user(self.bot.app_database, user_id, username)
+        if not user_id:
+            LOGGER.info(
+                "Bot: usuario '%s%s%s' no existe en la base de datos. "
+                "Buscando en Twitch...",
+                AMARILLO,
+                usuario,
+                RESET,
+            )
+            # Buscar el usuario en la API de Twitch
+            twitch_user = await self.bot.fetch_user(login=usuario)
+            if not twitch_user:
+                LOGGER.warning(
+                    "Bot: usuario '%s%s%s' no encontrado en Twitch.",
+                    AMARILLO,
+                    usuario,
+                    RESET,
+                )
+                return
+
+            user_id = twitch_user.id
+            username = twitch_user.name
+            display_name = twitch_user.display_name
+
+            # Guardarlo en la base de datos para futuras consultas
+            await upsert_user(self.bot.app_database, user_id, username, display_name)
 
         # Toggle: si ya es bot, desmarcarlo; si no, marcarlo
         es_bot = await is_user_bot(self.bot.app_database, user_id)
         await set_user_bot(self.bot.app_database, user_id, not es_bot)
 
         # Respuesta solo en terminal
+        usuario_coloreado = f"{AMARILLO}{usuario}{RESET}"
         if es_bot:
-            LOGGER.info("[CMD] %s ya no está marcado como bot.", username)
+            LOGGER.info("%s ya no está marcado como bot.", usuario_coloreado)
         else:
-            LOGGER.info("[CMD] %s fue marcado como bot.", username)
+            LOGGER.warning("%s fue marcado como bot.", usuario_coloreado)
 
     @commands.command()
+    @commands.is_broadcaster()
     async def apodo(
-        self, ctx: commands.Context, usuario: twitchio.User, *partes: str
+        self, ctx: commands.Context, usuario: str, apodo: str | None = None
     ) -> None:
         """Asigna o elimina un apodo.  ?apodo <usuario> [apodo]"""
-        # Solo el broadcaster puede usar este comando
-        if not ctx.chatter.broadcaster:  # type: ignore[union-attr]
+        if not usuario:
+            LOGGER.warning("apodo: no se proporcionó un usuario válido.")
             return
 
-        # Borrar el mensaje del chat para que no sea visible
-        await ctx.message.delete(moderator=self.bot.bot_id)  # type: ignore[union-attr]
+        usuario = usuario.lower()
 
-        user_id = str(usuario.id)
-        username = usuario.name or user_id
-        apodo = " ".join(partes) if partes else None
+        # Buscar si el usuario existe en nuestra base de datos
+        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
 
-        # Asegurar que el usuario existe en la DB
-        await upsert_user(self.bot.app_database, user_id, username)
+        if not user_id:
+            LOGGER.info(
+                "Apodo: usuario '%s%s%s' no existe en la base de datos. "
+                "Buscando en Twitch...",
+                AMARILLO,
+                usuario,
+                RESET,
+            )
+            # Buscar el usuario en la API de Twitch
+            twitch_user = await self.bot.fetch_user(login=usuario)
+            if not twitch_user:
+                LOGGER.warning(
+                    "Apodo: usuario '%s%s%s' no encontrado en Twitch.",
+                    AMARILLO,
+                    usuario,
+                    RESET,
+                )
+                return
+
+            user_id = str(twitch_user.id)
+            username = twitch_user.name
+            display_name = twitch_user.display_name
+
+            # Guardarlo en la base de datos para futuras consultas
+            await upsert_user(self.bot.app_database, user_id, username, display_name)
+
+        # Establecer el apodo en la base de datos
         await set_nickname(self.bot.app_database, user_id, apodo)
 
         # Respuesta solo en terminal
+        usuario_coloreado = f"{AMARILLO}{usuario}{RESET}"
         if apodo:
-            LOGGER.info("[CMD] Apodo de %s cambiado a: %s", username, apodo)
+            LOGGER.info("Apodo de %s cambiado a: %s", usuario_coloreado, apodo)
         else:
-            LOGGER.info("[CMD] Apodo de %s eliminado.", username)
+            LOGGER.info("Apodo de %s eliminado.", usuario_coloreado)
+
+    async def component_command_error(
+        self, payload: commands.CommandErrorPayload
+    ) -> None:
+        """Captura errores de comandos dentro de este componente."""
+        error = payload.exception
+        ctx = payload.context
+
+        if isinstance(error, (commands.BadArgument, commands.MissingRequiredArgument)):
+            LOGGER.warning(
+                "Faltan argumentos o son inválidos en '?%s': %s",
+                ctx.command.name if ctx.command else "?",
+                error,
+            )
+            return
+
+        # Cualquier otro error no manejado lo registramos completo
+        LOGGER.exception(
+            "Error no manejado en '?%s'",
+            ctx.command.name if ctx.command else "?",
+            exc_info=error,
+        )

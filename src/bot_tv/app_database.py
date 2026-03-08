@@ -79,6 +79,15 @@ async def get_user_nickname(db: asqlite.Pool, user_id: str) -> str | None:
     return row["nickname"] if row else None
 
 
+async def get_user_id_by_name(db: asqlite.Pool, username: str) -> str | None:
+    """Devuelve el user_id de un usuario a partir de su username, o None si no existe."""
+    async with db.acquire() as conn:
+        row: sqlite3.Row | None = await conn.fetchone(
+            "SELECT user_id FROM users WHERE username = ?", (username,)
+        )
+    return row["user_id"] if row else None
+
+
 async def set_nickname(db: asqlite.Pool, user_id: str, nickname: str | None) -> None:
     """Establece o elimina el apodo personalizado de un usuario."""
     async with db.acquire() as conn:
@@ -130,6 +139,56 @@ async def get_follower_ids(db: asqlite.Pool, channel_id: str) -> set[str]:
             (channel_id,),
         )
     return {row["user_id"] for row in rows}
+
+
+async def get_users_info(
+    db: asqlite.Pool, user_ids: list[str]
+) -> dict[str, dict[str, str | None]]:
+    """Devuelve {user_id: {"display_name": ..., "nickname": ...}} para los IDs dados."""
+    if not user_ids:
+        return {}
+    placeholders = ", ".join("?" * len(user_ids))
+    query = (
+        "SELECT user_id, display_name, nickname FROM users"
+        f" WHERE user_id IN ({placeholders})"
+    )
+    async with db.acquire() as conn:
+        rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(user_ids))
+    return {
+        row["user_id"]: {
+            "display_name": row["display_name"],
+            "nickname": row["nickname"],
+        }
+        for row in rows
+    }
+
+
+async def get_unfollowers_data(
+    db: asqlite.Pool, channel_id: str, user_ids: list[str]
+) -> dict[str, dict[str, str | None]]:
+    """Devuelve info completa para usuarios que dejaron de seguir.
+
+    Combina users (display_name, nickname) con followers (followed_at).
+    Retorna {user_id: {"display_name": ..., "nickname": ..., "followed_at": ...}}
+    """
+    if not user_ids:
+        return {}
+    placeholders = ", ".join("?" * len(user_ids))
+    query = (
+        "SELECT u.user_id, u.display_name, u.nickname, f.followed_at"
+        " FROM users u JOIN followers f ON u.user_id = f.user_id"
+        f" WHERE f.channel_id = ? AND f.user_id IN ({placeholders})"
+    )
+    async with db.acquire() as conn:
+        rows: list[sqlite3.Row] = await conn.fetchall(query, (channel_id, *user_ids))
+    return {
+        row["user_id"]: {
+            "display_name": row["display_name"],
+            "nickname": row["nickname"],
+            "followed_at": row["followed_at"],
+        }
+        for row in rows
+    }
 
 
 async def sync_followers(

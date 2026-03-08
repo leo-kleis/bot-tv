@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from twitchio.ext import commands
 
 from bot_tv.app_database import (
     get_follower_ids,
+    get_unfollowers_data,
+    get_users_info,
     sync_followers,
     upsert_user,
 )
@@ -18,14 +21,37 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+def _format_label(
+    uid: str,
+    display_name: str,
+    followed_at_iso: str | None,
+    nickname: str | None,
+) -> str:
+    """Formatea una entrada de seguidor para el log.
+
+    Ejemplo: [194638791] NombreUsuario (08-03-26) - apodo
+    """
+    if followed_at_iso:
+        try:
+            dt = datetime.fromisoformat(followed_at_iso)
+            date_str = f" ({dt.strftime('%d-%m-%y')})"
+        except ValueError:
+            date_str = ""
+    else:
+        date_str = ""
+    nick_str = f" - {nickname}" if nickname else ""
+    return f"[{uid}] {display_name}{date_str}{nick_str}"
+
+
 class FollowersComponent(commands.Component):
     """Componente que rastrea seguidores del canal entre sesiones."""
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
-    async def component_load(self) -> None:
-        """Al cargar: obtiene seguidores, compara con la DB y actualiza."""
+    @commands.Component.listener()
+    async def event_bot_fully_connected(self) -> None:
+        """Al conectar completamente: obtiene seguidores y actualiza."""
         async with self.bot.token_database.acquire() as conn:
             rows = await conn.fetchall("SELECT user_id, username FROM tokens")
 
@@ -62,6 +88,9 @@ class FollowersComponent(commands.Component):
         current = await self._fetch_followers(channel_id)
         current_ids = {t[0] for t in current}
 
+        # Dict: id → nombre para los seguidores actuales
+        current_names: dict[str, str] = {t[0]: t[1] for t in current}
+
         # 2. Obtener seguidores previos desde la DB
         previous_ids = await get_follower_ids(self.bot.app_database, channel_id)
 
@@ -72,16 +101,42 @@ class FollowersComponent(commands.Component):
             perdidos = previous_ids - current_ids
 
             if nuevos:
+                # Nickname desde la DB; display_name viene de la API (current_names)
+                nuevos_info = await get_users_info(self.bot.app_database, list(nuevos))
+                now_iso = datetime.now(UTC).isoformat()
+                labels = [
+                    _format_label(
+                        uid,
+                        current_names.get(uid, uid),
+                        now_iso,
+                        nuevos_info.get(uid, {}).get("nickname"),
+                    )
+                    for uid in nuevos
+                ]
                 LOGGER.info(
                     "[+] Nuevos seguidores (%d): %s",
                     len(nuevos),
-                    ", ".join(nuevos),
+                    ", ".join(labels),
                 )
             if perdidos:
+                # display_name, nickname y followed_at vienen de la DB
+                # (aún no se ha llamado a sync_followers, así que los datos siguen ahí)
+                perdidos_data = await get_unfollowers_data(
+                    self.bot.app_database, channel_id, list(perdidos)
+                )
+                labels = [
+                    _format_label(
+                        uid,
+                        perdidos_data.get(uid, {}).get("display_name") or uid,
+                        perdidos_data.get(uid, {}).get("followed_at"),
+                        perdidos_data.get(uid, {}).get("nickname"),
+                    )
+                    for uid in perdidos
+                ]
                 LOGGER.warning(
                     "[-] Dejaron de seguir (%d): %s",
                     len(perdidos),
-                    ", ".join(perdidos),
+                    ", ".join(labels),
                 )
             if not nuevos and not perdidos:
                 LOGGER.info("Sin cambios en seguidores (%d total)", len(current_ids))
@@ -89,7 +144,7 @@ class FollowersComponent(commands.Component):
             # Primera vez → solo informar
             LOGGER.info("Primera carga: %d seguidores registrados", len(current_ids))
 
-        # 4. Actualizar la DB con los datos actuales
+        # 4. Actualizar la DB con los datos actuales (siempre DESPUÉS del log)
         await sync_followers(self.bot.app_database, channel_id, current)
 
     async def _fetch_followers(

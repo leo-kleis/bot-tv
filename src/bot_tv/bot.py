@@ -107,3 +107,27 @@ class Bot(commands.AutoBot):
             LOGGER.info("Escuchando en canales: %s", ", ".join(canales))
         else:
             LOGGER.warning("No hay canales configurados.")
+
+        # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
+        # para que componentes pesados (como followers) puedan iniciar tranquilos.
+        self.dispatch("bot_fully_connected")
+
+    async def event_command_error(self, payload: commands.CommandErrorPayload) -> None:
+        """Maneja los errores globalmente (evitando el log doble de TwitchIO)."""
+        error = payload.exception
+
+        # Ignorar cuando el comando no existe (ej: ?comoestas)
+        if isinstance(error, commands.CommandNotFound):
+            return
+
+        # Ignorar errores de argumentos
+        # (ya estamos manejándolos en nuestros componentes)
+        if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
+            return
+
+        # Cualquier otro error no deseado lo logeamos limpiamente nosotros mismos
+        ctx = payload.context
+        nombre_comando = ctx.command.name if ctx.command else "?"
+        LOGGER.exception(
+            "[BOT] Error global no manejado en '?%s'", nombre_comando, exc_info=error
+        )
