@@ -95,6 +95,8 @@ class SetupBot(commands.AutoBot):
 
     def __init__(self, *, token_database: asqlite.Pool) -> None:
         self.token_database = token_database
+        # Rastrear qué cuentas fueron autorizadas durante esta sesión
+        self._authorized: set[str] = set()
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -115,8 +117,16 @@ class SetupBot(commands.AutoBot):
 
         if payload.user_id == self.bot_id:
             LOGGER.info("[OK] Cuenta BOT autorizada (ID: %s)", payload.user_id)
+            self._authorized.add("bot")
         else:
             LOGGER.info("[OK] Cuenta CANAL autorizada (ID: %s)", payload.user_id)
+            self._authorized.add("canal")
+
+        # Si ambas cuentas están autorizadas, cerrar automáticamente
+        if {"bot", "canal"} <= self._authorized:
+            LOGGER.info("")
+            LOGGER.info("Ambas cuentas autorizadas. Cerrando setup...")
+            await self.close()
 
     async def add_token(
         self, token: str, refresh: str
@@ -152,7 +162,7 @@ class SetupBot(commands.AutoBot):
         LOGGER.info("Paso 2 - Autorizar cuenta CANAL (%d scopes):", len(CHANNEL_SCOPES))
         LOGGER.info("  %s", url_canal)
         LOGGER.info("")
-        LOGGER.info("Cuando termines, presioná Ctrl+C para salir.")
+        LOGGER.info("Autoriza ambas cuentas. El setup se cerrará solo.")
         LOGGER.info("=" * 60)
 
 
