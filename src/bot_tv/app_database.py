@@ -42,6 +42,7 @@ async def setup_app_database(db: asqlite.Pool) -> None:
                 channel_id  TEXT NOT NULL,
                 user_id     TEXT NOT NULL,
                 followed_at TEXT,
+                unfollowed_at TEXT,
                 PRIMARY KEY (channel_id, user_id),
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
@@ -50,6 +51,10 @@ async def setup_app_database(db: asqlite.Pool) -> None:
         # Migración: agregar columna is_bot si la DB ya existía sin ella
         with contextlib.suppress(Exception):
             await conn.execute("ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0")
+
+        # Migración: agregar columna unfollowed_at a followers
+        with contextlib.suppress(Exception):
+            await conn.execute("ALTER TABLE followers ADD COLUMN unfollowed_at TEXT")
 
 
 async def upsert_user(
@@ -136,7 +141,8 @@ async def get_follower_ids(db: asqlite.Pool, channel_id: str) -> set[str]:
     """Devuelve el conjunto de user_id que siguen a un canal."""
     async with db.acquire() as conn:
         rows: list[sqlite3.Row] = await conn.fetchall(
-            "SELECT user_id FROM followers WHERE channel_id = ?",
+            "SELECT user_id FROM followers "
+            "WHERE channel_id = ? AND unfollowed_at IS NULL",
             (channel_id,),
         )
     return {row["user_id"] for row in rows}
@@ -196,18 +202,31 @@ async def sync_followers(
     db: asqlite.Pool,
     channel_id: str,
     followers: list[tuple[str, str, str | None]],
+    unfollowed_ids: list[str] | None = None,
 ) -> None:
-    """Reemplaza los seguidores de un canal con los datos actuales.
+    """Actualiza los seguidores de un canal marcando los que dejaron de seguir.
 
     Args:
         db: Pool de la base de datos.
         channel_id: ID del canal.
         followers: Lista de tuplas (user_id, username, followed_at).
+        unfollowed_ids: Lista de ID que dejaron de seguir.
     """
+    if unfollowed_ids is None:
+        unfollowed_ids = []
+
+    now_iso = datetime.now(UTC).isoformat()
+
     async with db.acquire() as conn:
-        # Borrar seguidores anteriores de este canal
-        await conn.execute("DELETE FROM followers WHERE channel_id = ?", (channel_id,))
-        # Insertar los seguidores actuales
+        # Marcar los que dejaron de seguir
+        for uid in unfollowed_ids:
+            await conn.execute(
+                "UPDATE followers SET unfollowed_at = ? "
+                "WHERE channel_id = ? AND user_id = ?",
+                (now_iso, channel_id, uid),
+            )
+
+        # Insertar o actualizar los seguidores actuales
         for user_id, username, followed_at in followers:
             # Asegurar que el usuario existe en la tabla users
             await conn.execute(
@@ -215,13 +234,20 @@ async def sync_followers(
                 INSERT INTO users (user_id, username)
                 VALUES (?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET username = excluded.username
+                WHERE users.username IS NOT excluded.username
                 """,
                 (user_id, username),
             )
             await conn.execute(
                 """
-                INSERT INTO followers (channel_id, user_id, followed_at)
-                VALUES (?, ?, ?)
+                INSERT INTO followers (channel_id, user_id, followed_at, unfollowed_at)
+                VALUES (?, ?, ?, NULL)
+                ON CONFLICT(channel_id, user_id) DO UPDATE SET 
+                    followed_at = excluded.followed_at,
+                    unfollowed_at = NULL
+                WHERE
+                    followers.followed_at IS NOT excluded.followed_at OR
+                    followers.unfollowed_at IS NOT NULL
                 """,
                 (channel_id, user_id, followed_at),
             )

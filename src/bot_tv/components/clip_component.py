@@ -129,16 +129,8 @@ class ClipComponent(commands.Component):
             LOGGER.error(
                 "%sFallo al crear el clip en Twitch. Revisa la consola.%s", ROJO, RESET
             )
-            # Esto puede pasar por no tener el permiso o
-            # porque Twitch no permite clips en vivo
-            # sin que haya stream prendido.
             if e.status in (401, 403, 400):
-                LOGGER.error(
-                    "Error de la API (%s)\n"
-                    "-> ¿Agregaste clips:edit a CHANNEL_SCOPES y relogueaste?\n"
-                    "-> ¿El Stream está ONLINE? Twitch no permite clips offline.",
-                    e.status,
-                )
+                LOGGER.error("Error de la API (%s)", e.status)
         except Exception as e:
             LOGGER.exception("Error inesperado al crear el clip: %s", e)
         finally:

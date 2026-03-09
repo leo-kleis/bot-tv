@@ -94,6 +94,8 @@ class FollowersComponent(commands.Component):
         # 2. Obtener seguidores previos desde la DB
         previous_ids = await get_follower_ids(self.bot.app_database, channel_id)
 
+        perdidos: set[str] = set()
+
         # 3. Comparar
         if previous_ids:
             # Ya teniamos datos → comparar
@@ -145,7 +147,9 @@ class FollowersComponent(commands.Component):
             LOGGER.info("Primera carga: %d seguidores registrados", len(current_ids))
 
         # 4. Actualizar la DB con los datos actuales (siempre DESPUÉS del log)
-        await sync_followers(self.bot.app_database, channel_id, current)
+        await sync_followers(
+            self.bot.app_database, channel_id, current, unfollowed_ids=list(perdidos)
+        )
 
     async def _fetch_followers(
         self, channel_id: str
