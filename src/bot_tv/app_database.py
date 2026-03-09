@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import asqlite
 
-from bot_tv.database import DB_DIR
+from bot_tv.token_database import DB_DIR
 
 if TYPE_CHECKING:
     import sqlite3
@@ -80,7 +80,8 @@ async def get_user_nickname(db: asqlite.Pool, user_id: str) -> str | None:
 
 
 async def get_user_id_by_name(db: asqlite.Pool, username: str) -> str | None:
-    """Devuelve el user_id de un usuario a partir de su username, o None si no existe."""
+    """Devuelve el user_id de un usuario a partir de su username,
+    o None si no existe."""
     async with db.acquire() as conn:
         row: sqlite3.Row | None = await conn.fetchone(
             "SELECT user_id FROM users WHERE username = ?", (username,)

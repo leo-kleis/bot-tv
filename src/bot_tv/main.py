@@ -6,8 +6,8 @@ import asqlite
 
 from bot_tv.app_database import APP_DB_PATH, setup_app_database
 from bot_tv.bot import Bot
-from bot_tv.database import DB_DIR, DB_PATH, setup_database
 from bot_tv.logger import setup_logging
+from bot_tv.token_database import DB_DIR, DB_PATH, setup_database
 
 LOGGER = logging.getLogger(__name__)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import asqlite
@@ -78,7 +77,7 @@ class Bot(commands.AutoBot):
         self, token: str, refresh: str
     ) -> twitchio.authentication.ValidateTokenPayload:
         """Añade y persiste un token de acceso en la base de datos."""
-        from bot_tv.database import save_token
+        from bot_tv.token_database import save_token
 
         resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
             token, refresh
@@ -93,47 +92,21 @@ class Bot(commands.AutoBot):
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
         async with self.token_database.acquire() as connection:
-            rows = await connection.fetchall(
-                "SELECT user_id, username, token FROM tokens"
-            )
+            rows = await connection.fetchall("SELECT user_id, username FROM tokens")
 
         bot_name = self.bot_id
-        owner_name = ""
         canales: list[str] = []
         for row in rows:
             if row["user_id"] == self.bot_id:
                 bot_name = row["username"]
-            elif row["user_id"] == self.owner_id:
-                owner_name = row["username"]
-                canales.append(row["username"])
             else:
                 canales.append(row["username"])
 
         LOGGER.info("Bot conectado como: %s (ID: %s)", bot_name, self.bot_id)
-        if owner_name:
-            LOGGER.info("Canal del Broadcaster (Owner): %s", owner_name)
         if canales:
             LOGGER.info("Escuchando en canales: %s", ", ".join(canales))
         else:
             LOGGER.warning("No hay canales configurados.")
-
-        # Iniciar cliente IRC en paralelo
-        from bot_tv.env import IRC_TOKEN
-        from bot_tv.irc import TwitchIRCClient
-
-        if IRC_TOKEN and owner_name:
-            self.irc_client = TwitchIRCClient(
-                bot=self,
-                app_database=self.app_database,
-                bot_username=bot_name,
-                token=IRC_TOKEN,
-                canales=[owner_name],
-            )
-            self.irc_task = asyncio.create_task(self.irc_client.connect())
-        elif not IRC_TOKEN:
-            LOGGER.warning(
-                "No se pudo iniciar IRC: falta configurar IRC_TOKEN en el archivo .env."
-            )
 
         # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
         # para que componentes pesados (como followers) puedan iniciar tranquilos.

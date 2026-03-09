@@ -5,9 +5,9 @@ import asqlite
 import twitchio
 from twitchio.ext import commands
 
-from bot_tv.database import DB_DIR, DB_PATH, save_token, setup_database
 from bot_tv.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.logger import setup_logging
+from bot_tv.token_database import DB_DIR, DB_PATH, save_token, setup_database
 
 LOGGER = logging.getLogger(__name__)
 
