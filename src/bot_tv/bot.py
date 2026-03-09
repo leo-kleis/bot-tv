@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import asqlite
@@ -11,6 +12,7 @@ from bot_tv.env import (
     BOT_ID,
     CLIENT_ID,
     CLIENT_SECRET,
+    IRC_TOKEN,
     OWNER_ID,
 )
 
@@ -109,6 +111,21 @@ class Bot(commands.AutoBot):
             LOGGER.info("Escuchando en canales: %s", ", ".join(canales))
         else:
             LOGGER.warning("No hay canales configurados.")
+
+        # Iniciar el cliente IRC
+        if canales and IRC_TOKEN:
+            from bot_tv.irc import TwitchIRCClient
+
+            irc = TwitchIRCClient(
+                bot=self,
+                app_database=self.app_database,
+                bot_username=bot_name,
+                token=IRC_TOKEN,
+                canales=canales,
+            )
+            asyncio.create_task(irc.connect())
+        else:
+            LOGGER.warning("IRC no iniciado: falta IRC_TOKEN o no hay canales.")
 
         # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
         # para que componentes pesados (como followers) puedan iniciar tranquilos.
