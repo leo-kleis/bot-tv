@@ -7,7 +7,7 @@ from twitchio.ext import commands
 
 from bot_tv.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.logger import setup_logging
-from bot_tv.token_database import DB_DIR, DB_PATH, save_token, setup_database
+from bot_tv.token_database import DB_DIR, DB_PATH, save_token, setup_token_database
 
 LOGGER = logging.getLogger(__name__)
 
@@ -89,6 +89,8 @@ CHANNEL_SCOPES: list[str] = [
     "channel:read:stream_key",
     # Seguidores
     "moderator:read:followers",
+    # Clips
+    "clips:edit",
 ]
 
 
@@ -175,7 +177,7 @@ def setup() -> None:
 
     async def runner() -> None:
         async with asqlite.create_pool(str(DB_PATH)) as tdb:
-            await setup_database(tdb)
+            await setup_token_database(tdb)
             async with SetupBot(token_database=tdb) as bot:
                 await bot.start(load_tokens=False)
 

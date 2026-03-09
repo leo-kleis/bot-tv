@@ -45,11 +45,13 @@ class Bot(commands.AutoBot):
         # Importación tardía para evitar dependencias circulares:
         # Los componentes necesitan conocer el tipo Bot, y Bot necesita
         # instanciarlos. Al importar aquí, ambos módulos ya están cargados.
+        from bot_tv.components.clip_component import ClipComponent
         from bot_tv.components.followers_component import FollowersComponent
         from bot_tv.components.mi_componente import MiComponente
 
         await self.add_component(MiComponente(self))
         await self.add_component(FollowersComponent(self))
+        await self.add_component(ClipComponent(self))
 
     async def event_oauth_authorized(
         self, payload: twitchio.authentication.UserTokenPayload

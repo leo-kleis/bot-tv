@@ -9,6 +9,7 @@ dependencies = [
     "asqlite",
     "python-dotenv (>=1.2.2,<2.0.0)",
     "requests (>=2.32.5,<3.0.0)",
+    "keyboard (>=0.13.5,<0.14.0)",
 ]
 
 [build-system]

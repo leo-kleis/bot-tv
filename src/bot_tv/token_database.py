@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     import sqlite3
 
 
-async def setup_database(
+async def setup_token_database(
     db: asqlite.Pool,
 ) -> tuple[list[tuple[str, str]], list[eventsub.SubscriptionPayload]]:
     """Crea las tablas necesarias y carga los tokens existentes."""
