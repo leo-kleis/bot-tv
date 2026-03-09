@@ -73,7 +73,6 @@ class ClipComponent(commands.Component):
 
             broadcaster_id = row["user_id"]
             broadcaster_name = row["username"]
-            broadcaster_token = row["token"]
 
             # 2. Obtener el partial_user para usarlo en el llamado
             canal_user = twitchio.PartialUser(
@@ -83,9 +82,9 @@ class ClipComponent(commands.Component):
             )
 
             # 3. Llamar a create_clip
-            # Crea el clip como si fueras el broadcaster (ya que le damos su token).
-            # Esto retorna un objeto Clip
-            clip = await canal_user.create_clip(token_for=broadcaster_token)
+            # token_for recibe el user_id del broadcaster para que TwitchIO
+            # busque su token almacenado internamente (requiere scope clips:edit).
+            clip = await canal_user.create_clip(token_for=broadcaster_id)
 
             if not clip:
                 LOGGER.error("%sTwitch no devolvió ningún clip válido.%s", ROJO, RESET)
@@ -104,26 +103,14 @@ class ClipComponent(commands.Component):
             LOGGER.info("%s¡Clip creado con éxito!%s URL: %s", VERDE, RESET, url_final)
 
             # 5. Mandar el link al chat (lo habla el Bot)
-            try:
-                msg = (
-                    f"🎬 ¡Nuevo clip generado en vivo! "
-                    f"El creador lo editará aquí: {url_final}"
-                )
-                # Usar la API http de envío de mensajes de TwitchIO v3 si es posible
-                await self.bot._http.post_chat_message(
-                    broadcaster_id=broadcaster_id,
-                    sender_id=self.bot.bot_id,
-                    message=msg,
-                )
-            except AttributeError:
-                # Fallback por si la propiedad es diferente
-                canal_chat = self.bot.get_channel(broadcaster_name)  # type: ignore
-                if canal_chat:
-                    await canal_chat.send(f"🎬 ¡Nuevo clip! Edición: {url_final}")
-                else:
-                    LOGGER.warning(
-                        "El bot no pudo enviarlo al chat de %s", broadcaster_name
-                    )
+            msg = (
+                f"¡Nuevo clip generado en vivo! El creador lo editará aquí: {url_final}"
+            )
+            await canal_user.send_message(
+                message=msg,
+                sender=self.bot.bot_id,
+                token_for=self.bot.bot_id,
+            )
 
         except twitchio.HTTPException as e:
             LOGGER.error(
