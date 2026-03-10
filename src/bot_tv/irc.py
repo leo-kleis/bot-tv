@@ -173,6 +173,6 @@ class TwitchIRCClient:
             LOGGER.error("Error al obtener elemento para %s: %s", usuario, e)
             elemento = "(Desconocido)"
         if action == "JOIN":
-            print(f"{timestamp} {VERDE}JOIN{RESET} {usuario}{apodo_texto} {elemento}")
+            print(f"{timestamp} {VERDE}JOIN{RESET} {apodo_texto}{usuario} {elemento}")
         elif action == "PART":
-            print(f"{timestamp} {ROJO}PART{RESET} {usuario}{apodo_texto} {elemento}")
+            print(f"{timestamp} {ROJO}PART{RESET} {apodo_texto}{usuario} {elemento}")
