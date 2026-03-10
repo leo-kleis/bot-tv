@@ -2,7 +2,14 @@ import asyncio
 import logging
 from datetime import datetime
 
-from bot_tv.app_database import get_user_id_by_name, get_user_nickname, upsert_user
+import twitchio
+
+from bot_tv.app_database import (
+    get_user_id_by_name,
+    get_user_nickname,
+    is_user_bot,
+    upsert_user,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,6 +103,29 @@ class TwitchIRCClient:
             elif " PART #" in line:
                 await self._handle_event(usuario, "PART")
 
+    async def _get_user_element(
+        self, usuario: twitchio.PartialUser | None, broadcaster: twitchio.PartialUser
+    ) -> str:
+        #! Teoricamente, nunca sucedera
+        if usuario is None:
+            return "(Desconocido)"
+
+        if usuario.id == broadcaster.id:
+            return "(Broadcaster)"
+
+        if usuario.id == self.bot.bot_id:
+            return "(Bot)"
+
+        if await is_user_bot(self.app_database, str(usuario.id)):
+            return "(Bot)"
+
+        follow = await broadcaster.fetch_followers(user=usuario, first=1)
+        async for event in follow.followers:
+            fecha = event.followed_at.strftime("%Y-%m-%d")
+            return f"({fecha})"
+
+        return "(Visita)"
+
     async def _handle_event(self, usuario: str, action: str) -> None:
         # Ignorar al bot mismo si no queremos procesarlo cada vez
         if usuario == self.bot_username:
@@ -105,14 +135,14 @@ class TwitchIRCClient:
         user_id = await get_user_id_by_name(self.app_database, usuario)
         display_name = usuario
 
-        # Lógica especial para guardar al usuario la primera vez que hace
-        # un evento (como JOIN)
-        if not user_id and action == "JOIN":
-            try:
-                twitch_user = await self.bot.fetch_user(login=usuario)
-                if twitch_user:
+        # Obtener el PartialUser de Twitch (necesario para verificar follow, bot, etc.)
+        twitch_user = None
+        try:
+            twitch_user = await self.bot.fetch_user(login=usuario)
+            if twitch_user:
+                display_name = twitch_user.display_name
+                if not user_id and action == "JOIN":
                     user_id = str(twitch_user.id)
-                    display_name = twitch_user.display_name
                     # 3. Guardar en SQLite local
                     await upsert_user(
                         self.app_database,
@@ -120,21 +150,29 @@ class TwitchIRCClient:
                         twitch_user.name,
                         display_name,
                     )
-            except Exception as e:
-                LOGGER.error("Error al buscar fetch_user para %s: %s", usuario, e)
+        except Exception as e:
+            LOGGER.error("Error al buscar fetch_user para %s: %s", usuario, e)
 
         # Obtener apodo de la base de datos si user_id existe
         apodo_texto = ""
         if user_id:
             nickname = await get_user_nickname(self.app_database, user_id)
             if nickname:
-                apodo_texto = f" - {nickname}"
+                apodo_texto = f" {{{nickname}}}"
 
         # 4. Imprimir en consola con la hora, colores y formato solicitados
         hora = datetime.now().strftime("%H:%M:%S")
         timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
 
+        broadcaster_id = self.bot.owner_id
+        broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+
+        try:
+            elemento = await self._get_user_element(twitch_user, broadcaster)
+        except Exception as e:
+            LOGGER.error("Error al obtener elemento para %s: %s", usuario, e)
+            elemento = "(Desconocido)"
         if action == "JOIN":
-            print(f"{timestamp} {VERDE}JOIN{RESET} {usuario}{apodo_texto}")
+            print(f"{timestamp} {VERDE}JOIN{RESET} {usuario}{apodo_texto} {elemento}")
         elif action == "PART":
-            print(f"{timestamp} {ROJO}PART{RESET} {usuario}{apodo_texto}")
+            print(f"{timestamp} {ROJO}PART{RESET} {usuario}{apodo_texto} {elemento}")
