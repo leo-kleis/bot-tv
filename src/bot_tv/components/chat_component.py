@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
@@ -17,79 +16,23 @@ from bot_tv.app_database import (
     set_user_bot,
     upsert_user,
 )
+from bot_tv.colors import (
+    AMARILLO,
+    DIM,
+    RESET,
+    format_colored_name,
+    format_timestamp,
+    get_chatter_rgb,
+)
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 
-# Códigos ANSI
-RESET = "\033[0m"
-DIM = "\033[2m"
-AMARILLO = "\033[33m"
 
-# Color fijo para el timestamp [HH:MM:SS]
-TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
-
-# Colores por defecto de Twitch (RGB) para usuarios sin color configurado
-TWITCH_DEFAULT_COLORS = [
-    (255, 0, 0),  # Red
-    (0, 0, 255),  # Blue
-    (0, 128, 0),  # Green
-    (178, 34, 34),  # FireBrick
-    (255, 127, 80),  # Coral
-    (154, 205, 50),  # YellowGreen
-    (255, 69, 0),  # OrangeRed
-    (46, 139, 87),  # SeaGreen
-    (218, 165, 32),  # GoldenRod
-    (210, 105, 30),  # Chocolate
-    (95, 158, 160),  # CadetBlue
-    (30, 144, 255),  # DodgerBlue
-    (255, 105, 180),  # HotPink
-    (138, 43, 226),  # BlueViolet
-    (0, 255, 127),  # SpringGreen
-]
-
-
-def _get_chatter_rgb(hex_color: str | None, username: str) -> tuple[int, int, int]:
-    """Obtiene el color en tupla (r, g, b) desde el color hex de Twitch.
-    Si el usuario no tiene color (hex_color es None), se le asigna uno
-    por defecto de la misma manera determinista que lo hace el chat oficial de Twitch.
-    """
-    if hex_color:
-        rgb = _get_rgb_from_hex(hex_color)
-        if rgb:
-            return rgb
-
-    # Determinista: sumar el valor de cada carácter y sacar módulo % 15
-    indice = sum(ord(char) for char in username) % len(TWITCH_DEFAULT_COLORS)
-    return TWITCH_DEFAULT_COLORS[indice]
-
-
-def _get_rgb_from_hex(hex_color: str | None) -> tuple[int, int, int] | None:
-    """Convierte un color hex a una tupla RGB (r, g, b).
-
-    Soporta formatos: '#RRGGBB', '0xRRGGBB', 'RRGGBB'.
-    Si el color es None o inválido, devuelve None.
-    """
-    if not hex_color:
-        return None
-    # Limpiar prefijos conocidos
-    hex_color = hex_color.removeprefix("#").removeprefix("0x")
-    if len(hex_color) != 6:
-        return None
-    try:
-        return (
-            int(hex_color[:2], 16),
-            int(hex_color[2:4], 16),
-            int(hex_color[4:], 16),
-        )
-    except ValueError:
-        return None
-
-
-class MiComponente(commands.Component):
-    """Componente con comandos y listeners del bot."""
+class ChatComponent(commands.Component):
+    """Componente de chat: mensajes en consola + comandos generales."""
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
@@ -154,24 +97,10 @@ class MiComponente(commands.Component):
         # Obtener valores RGB del color de Twitch del chatter, o uno por defecto
         # pasándole el nombre de usuario (para que asigne consistentemente un color).
         hex_str = str(chatter.color.hex) if chatter.color else None
-        r, g, b = _get_chatter_rgb(hex_str, username)
-        color_ansi = f"\033[38;2;{r};{g};{b}m"
+        r, g, b = get_chatter_rgb(hex_str, username)
+        nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 
-        if nickname:
-            # Si tiene apodo, mostrar: Apodo{display_name}
-            # Multiplicamos el RGB por 0.5 para hacerlo más oscuro manualmente.
-            dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
-            dark_ansi = f"\033[38;2;{dark_r};{dark_g};{dark_b}m"
-
-            nombre_coloreado = (
-                f"{color_ansi}{nickname}{dark_ansi} {{{display_name}}}{RESET}"
-            )
-        else:
-            nombre_coloreado = f"{color_ansi}{display_name}{RESET}"
-
-        # Timestamp local [HH:MM:SS] con color fijo
-        hora = datetime.now().strftime("%H:%M:%S")
-        timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+        timestamp = format_timestamp()
 
         # Elemento (rol del chatter)
         elemento = await self._get_chatter_element(chatter, payload.broadcaster.id)
@@ -190,6 +119,48 @@ class MiComponente(commands.Component):
             f"Elegí: {random.choice(opciones)}" if opciones else "Dame opciones!"
         )
 
+    async def _resolve_user(
+        self, comando: str, usuario: str
+    ) -> str | None:
+        """Busca el user_id de un usuario en la DB local o en la API de Twitch.
+
+        Si no existe en la DB, lo busca en Twitch y lo registra.
+        Retorna el user_id o None si no se encontró.
+        """
+        user_id = await get_user_id_by_name(
+            self.bot.app_database, usuario
+        )
+        if user_id:
+            return user_id
+
+        LOGGER.info(
+            "%s: usuario '%s%s%s' no existe en la base de datos. "
+            "Buscando en Twitch...",
+            comando,
+            AMARILLO,
+            usuario,
+            RESET,
+        )
+        twitch_user = await self.bot.fetch_user(login=usuario)
+        if not twitch_user:
+            LOGGER.warning(
+                "%s: usuario '%s%s%s' no encontrado en Twitch.",
+                comando,
+                AMARILLO,
+                usuario,
+                RESET,
+            )
+            return None
+
+        user_id = str(twitch_user.id)
+        await upsert_user(
+            self.bot.app_database,
+            user_id,
+            twitch_user.name,
+            twitch_user.display_name,
+        )
+        return user_id
+
     @commands.command()
     @commands.is_broadcaster()
     async def bot(self, ctx: commands.Context, usuario: str) -> None:
@@ -199,35 +170,9 @@ class MiComponente(commands.Component):
             return
 
         usuario = usuario.lower()
-
-        # Buscar si el usuario existe en nuestra base de datos
-        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
-
+        user_id = await self._resolve_user("Bot", usuario)
         if not user_id:
-            LOGGER.info(
-                "Bot: usuario '%s%s%s' no existe en la base de datos. "
-                "Buscando en Twitch...",
-                AMARILLO,
-                usuario,
-                RESET,
-            )
-            # Buscar el usuario en la API de Twitch
-            twitch_user = await self.bot.fetch_user(login=usuario)
-            if not twitch_user:
-                LOGGER.warning(
-                    "Bot: usuario '%s%s%s' no encontrado en Twitch.",
-                    AMARILLO,
-                    usuario,
-                    RESET,
-                )
-                return
-
-            user_id = twitch_user.id
-            username = twitch_user.name
-            display_name = twitch_user.display_name
-
-            # Guardarlo en la base de datos para futuras consultas
-            await upsert_user(self.bot.app_database, user_id, username, display_name)
+            return
 
         # Toggle: si ya es bot, desmarcarlo; si no, marcarlo
         es_bot = await is_user_bot(self.bot.app_database, user_id)
@@ -251,35 +196,9 @@ class MiComponente(commands.Component):
             return
 
         usuario = usuario.lower()
-
-        # Buscar si el usuario existe en nuestra base de datos
-        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
-
+        user_id = await self._resolve_user("Apodo", usuario)
         if not user_id:
-            LOGGER.info(
-                "Apodo: usuario '%s%s%s' no existe en la base de datos. "
-                "Buscando en Twitch...",
-                AMARILLO,
-                usuario,
-                RESET,
-            )
-            # Buscar el usuario en la API de Twitch
-            twitch_user = await self.bot.fetch_user(login=usuario)
-            if not twitch_user:
-                LOGGER.warning(
-                    "Apodo: usuario '%s%s%s' no encontrado en Twitch.",
-                    AMARILLO,
-                    usuario,
-                    RESET,
-                )
-                return
-
-            user_id = str(twitch_user.id)
-            username = twitch_user.name
-            display_name = twitch_user.display_name
-
-            # Guardarlo en la base de datos para futuras consultas
-            await upsert_user(self.bot.app_database, user_id, username, display_name)
+            return
 
         # Establecer el apodo en la base de datos
         await set_nickname(self.bot.app_database, user_id, apodo)

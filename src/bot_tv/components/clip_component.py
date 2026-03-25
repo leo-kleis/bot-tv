@@ -8,16 +8,12 @@ import keyboard
 import twitchio
 from twitchio.ext import commands
 
+from bot_tv.colors import AMARILLO, RESET, ROJO, VERDE
+
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
-
-# Códigos ANSI (opcional para terminal)
-AMARILLO = "\033[33m"
-VERDE = "\033[32m"
-ROJO = "\033[31m"
-RESET = "\033[0m"
 
 
 class ClipComponent(commands.Component):

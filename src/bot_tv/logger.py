@@ -1,12 +1,6 @@
 import logging
 
-# Códigos ANSI para colores en terminal
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-
-# Color para el timestamp
-TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
+from bot_tv.colors import BOLD, RESET, TIMESTAMP_COLOR
 
 # Colores para los niveles
 LEVEL_COLORS: dict[int, str] = {
@@ -14,7 +8,7 @@ LEVEL_COLORS: dict[int, str] = {
     logging.INFO: "\033[32m",  # Verde
     logging.WARNING: "\033[33m",  # Amarillo
     logging.ERROR: "\033[31m",  # Rojo
-    logging.CRITICAL: "\033[1;31m",  # Rojo brillante
+    logging.CRITICAL: f"{BOLD}\033[31m",  # Rojo brillante
 }
 
 # Color por defecto para el nombre del módulo (cyan)

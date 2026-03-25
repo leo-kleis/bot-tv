@@ -52,35 +52,38 @@ class FollowersComponent(commands.Component):
     @commands.Component.listener()
     async def event_bot_fully_connected(self) -> None:
         """Al conectar completamente: obtiene seguidores y actualiza."""
-        async with self.bot.token_database.acquire() as conn:
-            rows = await conn.fetchall("SELECT user_id, username FROM tokens")
+        channels = await self.bot.get_channels()
 
-        for row in rows:
-            channel_id = row["user_id"]
-            if channel_id == self.bot.bot_id:
-                continue
-
-            LOGGER.info("Obteniendo seguidores del canal %s...", row["username"])
+        for channel in channels:
+            channel_id = channel["user_id"]
+            LOGGER.info(
+                "Obteniendo seguidores del canal %s...", channel["username"]
+            )
             try:
                 await self._check_and_sync(channel_id)
             except Exception:
-                LOGGER.exception("Error al obtener seguidores de %s", row["username"])
+                LOGGER.exception(
+                    "Error al obtener seguidores de %s",
+                    channel["username"],
+                )
 
     async def component_teardown(self) -> None:
         """Al cerrar: obtiene seguidores, compara con la DB y actualiza."""
-        async with self.bot.token_database.acquire() as conn:
-            rows = await conn.fetchall("SELECT user_id, username FROM tokens")
+        channels = await self.bot.get_channels()
 
-        for row in rows:
-            channel_id = row["user_id"]
-            if channel_id == self.bot.bot_id:
-                continue
-
-            LOGGER.info("Verificando seguidores de %s al cerrar...", row["username"])
+        for channel in channels:
+            channel_id = channel["user_id"]
+            LOGGER.info(
+                "Verificando seguidores de %s al cerrar...",
+                channel["username"],
+            )
             try:
                 await self._check_and_sync(channel_id)
             except Exception:
-                LOGGER.exception("Error al verificar seguidores de %s", row["username"])
+                LOGGER.exception(
+                    "Error al verificar seguidores de %s",
+                    channel["username"],
+                )
 
     async def _check_and_sync(self, channel_id: str) -> None:
         """Obtiene seguidores de la API, compara con la DB y reporta cambios."""

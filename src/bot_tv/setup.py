@@ -7,7 +7,8 @@ from twitchio.ext import commands
 
 from bot_tv.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.logger import setup_logging
-from bot_tv.token_database import DB_DIR, DB_PATH, save_token, setup_token_database
+from bot_tv.token_database import DB_DIR, DB_PATH, setup_token_database
+from bot_tv.token_mixin import TokenPersistMixin
 
 LOGGER = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ CHANNEL_SCOPES: list[str] = [
 ]
 
 
-class SetupBot(commands.AutoBot):
+class SetupBot(TokenPersistMixin, commands.AutoBot):
     """Cliente mínimo para autorizar cuentas y guardar tokens."""
 
     def __init__(self, *, token_database: asqlite.Pool) -> None:
@@ -132,17 +133,7 @@ class SetupBot(commands.AutoBot):
             LOGGER.info("Ambas cuentas autorizadas. Cerrando setup...")
             await self.close()
 
-    async def add_token(
-        self, token: str, refresh: str
-    ) -> twitchio.authentication.ValidateTokenPayload:
-        """Añade y persiste un token de acceso en la base de datos."""
-        resp = await super().add_token(token, refresh)
-        if resp.user_id and resp.login:
-            await save_token(
-                self.token_database, resp.user_id, resp.login, token, refresh
-            )
-            LOGGER.info("Token guardado para: %s (ID: %s)", resp.login, resp.user_id)
-        return resp
+
 
     async def event_ready(self) -> None:
         """Muestra las instrucciones de autorización."""

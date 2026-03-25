@@ -17,11 +17,12 @@ from bot_tv.env import (
     IRC_TOKEN,
     OWNER_ID,
 )
+from bot_tv.token_mixin import TokenPersistMixin
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Bot(commands.AutoBot):
+class Bot(TokenPersistMixin, commands.AutoBot):
     """Bot principal de Twitch TV."""
 
     def __init__(
@@ -50,12 +51,12 @@ class Bot(commands.AutoBot):
         # Importación tardía para evitar dependencias circulares:
         # Los componentes necesitan conocer el tipo Bot, y Bot necesita
         # instanciarlos. Al importar aquí, ambos módulos ya están cargados.
+        from bot_tv.components.chat_component import ChatComponent
         from bot_tv.components.clip_component import ClipComponent
         from bot_tv.components.followers_component import FollowersComponent
-        from bot_tv.components.mi_componente import MiComponente
         from bot_tv.components.stream_component import StreamComponent
 
-        await self.add_component(MiComponente(self))
+        await self.add_component(ChatComponent(self))
         await self.add_component(FollowersComponent(self))
         await self.add_component(ClipComponent(self))
         await self.add_component(StreamComponent(self))
@@ -82,21 +83,15 @@ class Bot(commands.AutoBot):
                 payload.user_id,
             )
 
-    async def add_token(
-        self, token: str, refresh: str
-    ) -> twitchio.authentication.ValidateTokenPayload:
-        """Añade y persiste un token de acceso en la base de datos."""
-        from bot_tv.token_database import save_token
-
-        resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
-            token, refresh
-        )
-        if resp.user_id and resp.login:
-            await save_token(
-                self.token_database, resp.user_id, resp.login, token, refresh
-            )
-            LOGGER.info("Token almacenado para: %s (ID: %s)", resp.login, resp.user_id)
-        return resp
+    async def get_channels(self) -> list[dict[str, str]]:
+        """Retorna la lista de canales configurados (excluyendo al bot)."""
+        async with self.token_database.acquire() as conn:
+            rows = await conn.fetchall("SELECT user_id, username FROM tokens")
+        return [
+            {"user_id": row["user_id"], "username": row["username"]}
+            for row in rows
+            if row["user_id"] != self.bot_id
+        ]
 
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""

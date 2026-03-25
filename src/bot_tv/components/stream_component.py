@@ -3,30 +3,26 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
 from twitchio.ext import commands
 
+from bot_tv.colors import (
+    BOLD,
+    CYAN,
+    DIM,
+    MORADO,
+    RESET,
+    ROJO,
+    VERDE,
+    format_timestamp,
+)
+
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
-
-# Códigos ANSI (consistentes con el resto del proyecto)
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
-VERDE = "\033[92m"
-ROJO = "\033[91m"
-CYAN = "\033[96m"
-AMARILLO = "\033[33m"
-TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
-
-# Colores personalizados para el componente
-MORADO = "\033[38;2;169;112;255m"  # #A970FF (morado Twitch)
-NARANJA = "\033[38;2;255;163;26m"  # #FFA31A
 
 # Intervalo de polling para viewers (en segundos)
 VIEWER_POLL_INTERVAL = 60
@@ -53,12 +49,9 @@ class StreamComponent(commands.Component):
     async def event_bot_fully_connected(self) -> None:
         """Inicia el monitoreo cuando el bot está completamente conectado."""
         # Obtener los canales configurados (excluyendo al bot)
-        async with self.bot.token_database.acquire() as conn:
-            rows = await conn.fetchall("SELECT user_id, username FROM tokens")
+        channels = await self.bot.get_channels()
 
-        self._channel_ids = [
-            row["user_id"] for row in rows if row["user_id"] != self.bot.bot_id
-        ]
+        self._channel_ids = [channel["user_id"] for channel in channels]
 
         if not self._channel_ids:
             LOGGER.warning("StreamComponent: no hay canales para monitorear.")
@@ -87,8 +80,7 @@ class StreamComponent(commands.Component):
         self._stream_online = True
         self._last_viewer_count = None  # Resetear para forzar primer print
 
-        hora = datetime.now().strftime("%H:%M:%S")
-        timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+        timestamp = format_timestamp()
 
         # Obtener info del stream para título y categoría
         titulo = ""
@@ -125,8 +117,7 @@ class StreamComponent(commands.Component):
         self._stream_online = False
         self._last_viewer_count = None
 
-        hora = datetime.now().strftime("%H:%M:%S")
-        timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+        timestamp = format_timestamp()
 
         nombre = payload.broadcaster.display_name or payload.broadcaster.name
 
@@ -147,8 +138,7 @@ class StreamComponent(commands.Component):
                     viewer_count = stream.viewer_count
                     self._last_viewer_count = viewer_count
 
-                    hora = datetime.now().strftime("%H:%M:%S")
-                    timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+                    timestamp = format_timestamp()
 
                     nombre = stream.user.display_name or stream.user.name
                     titulo = stream.title or ""
@@ -174,8 +164,7 @@ class StreamComponent(commands.Component):
                     break
                 else:
                     # El stream no está en vivo
-                    hora = datetime.now().strftime("%H:%M:%S")
-                    timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+                    timestamp = format_timestamp()
                     print(
                         f"{timestamp} {ROJO}{BOLD}STREAM OFFLINE{RESET}  "
                         f"{MORADO}►{RESET} {DIM}Canal no está en vivo{RESET}"
@@ -222,10 +211,7 @@ class StreamComponent(commands.Component):
 
                             self._last_viewer_count = viewer_count
 
-                            hora = datetime.now().strftime("%H:%M:%S")
-                            timestamp = (
-                                f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
-                            )
+                            timestamp = format_timestamp()
                             print(
                                 f"{timestamp} {CYAN}VIEWERS{RESET}         "
                                 f"{MORADO}►{RESET} "

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from datetime import datetime
 
 import twitchio
 
@@ -10,60 +9,17 @@ from bot_tv.app_database import (
     is_user_bot,
     upsert_user,
 )
+from bot_tv.colors import (
+    DIM,
+    RESET,
+    ROJO,
+    VERDE,
+    format_colored_name,
+    format_timestamp,
+    get_chatter_rgb,
+)
 
 LOGGER = logging.getLogger(__name__)
-
-# Códigos ANSI para la terminal
-VERDE = "\033[92m"
-ROJO = "\033[91m"
-RESET = "\033[0m"
-DIM = "\033[2m"
-# Color fijo para el timestamp [HH:MM:SS]
-TIMESTAMP_COLOR = "\033[38;2;94;79;247m"
-
-# Colores por defecto de Twitch (RGB) para usuarios sin color configurado
-TWITCH_DEFAULT_COLORS = [
-    (255, 0, 0),  # Red
-    (0, 0, 255),  # Blue
-    (0, 128, 0),  # Green
-    (178, 34, 34),  # FireBrick
-    (255, 127, 80),  # Coral
-    (154, 205, 50),  # YellowGreen
-    (255, 69, 0),  # OrangeRed
-    (46, 139, 87),  # SeaGreen
-    (218, 165, 32),  # GoldenRod
-    (210, 105, 30),  # Chocolate
-    (95, 158, 160),  # CadetBlue
-    (30, 144, 255),  # DodgerBlue
-    (255, 105, 180),  # HotPink
-    (138, 43, 226),  # BlueViolet
-    (0, 255, 127),  # SpringGreen
-]
-
-
-def _get_rgb_from_hex(hex_color: str | None) -> tuple[int, int, int] | None:
-    if not hex_color:
-        return None
-    hex_color = hex_color.removeprefix("#").removeprefix("0x")
-    if len(hex_color) != 6:
-        return None
-    try:
-        return (
-            int(hex_color[:2], 16),
-            int(hex_color[2:4], 16),
-            int(hex_color[4:], 16),
-        )
-    except ValueError:
-        return None
-
-
-def _get_chatter_rgb(hex_color: str | None, username: str) -> tuple[int, int, int]:
-    if hex_color:
-        rgb = _get_rgb_from_hex(hex_color)
-        if rgb:
-            return rgb
-    indice = sum(ord(c) for c in username) % len(TWITCH_DEFAULT_COLORS)
-    return TWITCH_DEFAULT_COLORS[indice]
 
 
 class TwitchIRCClient:
@@ -203,22 +159,11 @@ class TwitchIRCClient:
         if user_id:
             nickname = await get_user_nickname(self.app_database, user_id)
 
-        # Construir nombre coloreado igual que en event_message
-        r, g, b = _get_chatter_rgb(None, usuario)
-        color_ansi = f"\033[38;2;{r};{g};{b}m"
+        # Construir nombre coloreado
+        r, g, b = get_chatter_rgb(None, usuario)
+        nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 
-        if nickname:
-            dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
-            dark_ansi = f"\033[38;2;{dark_r};{dark_g};{dark_b}m"
-            nombre_coloreado = (
-                f"{color_ansi}{nickname}{dark_ansi} {{{display_name}}}{RESET}"
-            )
-        else:
-            nombre_coloreado = f"{color_ansi}{display_name}{RESET}"
-
-        # Imprimir en consola con la hora, colores y formato solicitados
-        hora = datetime.now().strftime("%H:%M:%S")
-        timestamp = f"{TIMESTAMP_COLOR}[{hora}]{RESET}"
+        timestamp = format_timestamp()
 
         broadcaster_id = self.bot.owner_id
         broadcaster = await self.bot.fetch_user(id=broadcaster_id)
