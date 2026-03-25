@@ -40,6 +40,16 @@ async def setup_token_database(
                     broadcaster_user_id=row["user_id"], user_id=BOT_ID
                 )
             )
+            subs.append(
+                eventsub.StreamOnlineSubscription(
+                    broadcaster_user_id=row["user_id"]
+                )
+            )
+            subs.append(
+                eventsub.StreamOfflineSubscription(
+                    broadcaster_user_id=row["user_id"]
+                )
+            )
     return tokens, subs
 
 

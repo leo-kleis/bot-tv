@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from typing import Any
 
 import asqlite
 import twitchio
@@ -31,6 +33,7 @@ class Bot(commands.AutoBot):
     ) -> None:
         self.token_database = token_database
         self.app_database = app_database
+        self._irc_task: asyncio.Task[None] | None = None
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -50,10 +53,12 @@ class Bot(commands.AutoBot):
         from bot_tv.components.clip_component import ClipComponent
         from bot_tv.components.followers_component import FollowersComponent
         from bot_tv.components.mi_componente import MiComponente
+        from bot_tv.components.stream_component import StreamComponent
 
         await self.add_component(MiComponente(self))
         await self.add_component(FollowersComponent(self))
         await self.add_component(ClipComponent(self))
+        await self.add_component(StreamComponent(self))
 
     async def event_oauth_authorized(
         self, payload: twitchio.authentication.UserTokenPayload
@@ -123,13 +128,21 @@ class Bot(commands.AutoBot):
                 token=IRC_TOKEN,
                 canales=canales,
             )
-            asyncio.create_task(irc.connect())
+            self._irc_task = asyncio.create_task(irc.connect())
         else:
             LOGGER.warning("IRC no iniciado: falta IRC_TOKEN o no hay canales.")
 
         # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
         # para que componentes pesados (como followers) puedan iniciar tranquilos.
         self.dispatch("bot_fully_connected")
+
+    async def close(self, **options: Any) -> None:
+        """Cancela tareas pendientes antes de cerrar el bot."""
+        if self._irc_task and not self._irc_task.done():
+            self._irc_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._irc_task
+        await super().close(**options)
 
     async def event_command_error(self, payload: commands.CommandErrorPayload) -> None:
         """Maneja los errores globalmente (evitando el log doble de TwitchIO)."""
