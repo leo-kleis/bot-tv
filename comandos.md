@@ -1,5 +1,11 @@
 # Comandos
 
+## Mise
+- mise install
+- mise use python@3.14
+- mise exec -- poetry install
+- mise exec -- poetry run <comando>
+
 ## Poetry
 - poetry install
 - poetry add <paquete>
