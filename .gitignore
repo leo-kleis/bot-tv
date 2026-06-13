@@ -33,7 +33,7 @@ htmlcov/
 .pyrefly/
 
 # Base de datos local
-src/db/
+db/
 
 .fake
 ignore/

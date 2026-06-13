@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import asqlite
+import twitchio
 from twitchio import eventsub
 
-from bot_tv.env import BOT_ID
+from utils.env import BOT_ID
 
-# src/bot_tv/database.py -> src/bot_tv -> src -> src/db
-DB_DIR = Path(__file__).resolve().parent.parent / "db"
+# Apunta a db/ en la raíz del proyecto (fuera de src/)
+DB_DIR = Path(__file__).resolve().parent.parent.parent / "db"
 DB_PATH = DB_DIR / "tokens.db"
 
 if TYPE_CHECKING:
     import sqlite3
+
+LOGGER = logging.getLogger(__name__)
 
 
 async def setup_token_database(
@@ -63,3 +67,28 @@ async def save_token(
     """
     async with db.acquire() as connection:
         await connection.execute(query, (user_id, username, token, refresh))
+
+
+class TokenPersistMixin:
+    """Mixin que persiste tokens en la base de datos al añadirlos.
+
+    La clase que use este mixin DEBE tener un atributo `token_database`
+    de tipo `asqlite.Pool` y heredar de una clase que tenga `add_token`.
+    """
+
+    token_database: asqlite.Pool
+
+    async def add_token(
+        self, token: str, refresh: str
+    ) -> twitchio.authentication.ValidateTokenPayload:
+        """Añade y persiste un token de acceso en la base de datos."""
+        # pyrefly: ignore [missing-attribute]
+        resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
+            token, refresh
+        )
+        if resp.user_id and resp.login:
+            await save_token(
+                self.token_database, resp.user_id, resp.login, token, refresh
+            )
+            LOGGER.info("Token almacenado para: %s (ID: %s)", resp.login, resp.user_id)
+        return resp

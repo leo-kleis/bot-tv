@@ -1,6 +1,6 @@
 import logging
 
-from bot_tv.colors import BOLD, RESET, TIMESTAMP_COLOR
+from utils.colors import BOLD, RESET, TIMESTAMP_COLOR
 
 # Colores para los niveles
 LEVEL_COLORS: dict[int, str] = {
@@ -16,7 +16,7 @@ NAME_COLOR = "\033[36m"
 
 # Colores específicos por módulo
 MODULE_COLORS: dict[str, str] = {
-    "bot_tv.components.followers_component": "\033[38;2;198;120;221m",  # #C678DD
+    "components.followers_component": "\033[38;2;198;120;221m",  # #C678DD
 }
 
 

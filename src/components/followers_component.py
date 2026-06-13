@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from twitchio.ext import commands
 
-from bot_tv.app_database import (
+from database.app import (
     get_follower_ids,
     get_unfollowers_data,
     get_users_info,
@@ -16,7 +16,7 @@ from bot_tv.app_database import (
 )
 
 if TYPE_CHECKING:
-    from bot_tv.bot import Bot
+    from bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 

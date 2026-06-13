@@ -3,19 +3,18 @@ import logging
 
 import twitchio
 
-from bot_tv.app_database import (
+from database.app import (
     get_user_id_by_name,
     get_user_nickname,
     is_user_bot,
     upsert_user,
 )
-from bot_tv.colors import (
+from utils.colors import (
     DIM,
     RESET,
     ROJO,
     VERDE,
     format_colored_name,
-    format_timestamp,
     get_chatter_rgb,
 )
 
@@ -163,8 +162,6 @@ class TwitchIRCClient:
         r, g, b = get_chatter_rgb(None, usuario)
         nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 
-        timestamp = format_timestamp()
-
         broadcaster_id = self.bot.owner_id
         broadcaster = await self.bot.fetch_user(id=broadcaster_id)
 
@@ -179,4 +176,4 @@ class TwitchIRCClient:
         else:
             accion_coloreada = f"{ROJO}PART{RESET}"
 
-        print(f"{timestamp} {nombre_coloreado} {elemento}: {accion_coloreada}")
+        LOGGER.info("%s %s: %s", nombre_coloreado, elemento, accion_coloreada)

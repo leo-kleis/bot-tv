@@ -8,10 +8,10 @@ import keyboard
 import twitchio
 from twitchio.ext import commands
 
-from bot_tv.colors import AMARILLO, RESET, ROJO, VERDE
+from utils.colors import AMARILLO, RESET, ROJO, VERDE
 
 if TYPE_CHECKING:
-    from bot_tv.bot import Bot
+    from bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 

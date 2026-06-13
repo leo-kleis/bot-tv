@@ -10,14 +10,19 @@ import twitchio
 from twitchio import eventsub
 from twitchio.ext import commands
 
-from bot_tv.env import (
+from components.chat_component import ChatComponent
+from components.clip_component import ClipComponent
+from components.followers_component import FollowersComponent
+from components.stream_component import StreamComponent
+from database.tokens import TokenPersistMixin
+from irc import TwitchIRCClient
+from utils.env import (
     BOT_ID,
     CLIENT_ID,
     CLIENT_SECRET,
     IRC_TOKEN,
     OWNER_ID,
 )
-from bot_tv.token_mixin import TokenPersistMixin
 
 LOGGER = logging.getLogger(__name__)
 
@@ -48,14 +53,6 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def setup_hook(self) -> None:
         """Registra los componentes del bot."""
-        # Importación tardía para evitar dependencias circulares:
-        # Los componentes necesitan conocer el tipo Bot, y Bot necesita
-        # instanciarlos. Al importar aquí, ambos módulos ya están cargados.
-        from bot_tv.components.chat_component import ChatComponent
-        from bot_tv.components.clip_component import ClipComponent
-        from bot_tv.components.followers_component import FollowersComponent
-        from bot_tv.components.stream_component import StreamComponent
-
         await self.add_component(ChatComponent(self))
         await self.add_component(FollowersComponent(self))
         await self.add_component(ClipComponent(self))
@@ -114,8 +111,6 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
         # Iniciar el cliente IRC
         if canales and IRC_TOKEN:
-            from bot_tv.irc import TwitchIRCClient
-
             irc = TwitchIRCClient(
                 bot=self,
                 app_database=self.app_database,

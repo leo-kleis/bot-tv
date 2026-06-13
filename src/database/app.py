@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import asqlite
 
-from bot_tv.token_database import DB_DIR
+from database.tokens import DB_DIR
 
 if TYPE_CHECKING:
     import sqlite3
@@ -204,7 +204,7 @@ async def sync_followers(
     followers: list[tuple[str, str, str | None]],
     unfollowed_ids: list[str] | None = None,
 ) -> None:
-    """Actualiza los seguidores de un canal marcando los que dejaron de seguir.
+    """Actualiza los servidores de un canal marcando los que dejaron de seguir.
 
     Args:
         db: Pool de la base de datos.
