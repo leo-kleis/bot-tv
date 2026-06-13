@@ -4,6 +4,13 @@
 - `uv run bot-tv` (Inicia el bot)
 - `uv run bot-setup` (Ejecuta el script de configuración de Tokens)
 
+## Consola Interactiva (durante la ejecución del bot)
+- `sync_followers` (Sincroniza seguidores de todos los canales)
+- `is_bot <usuario>` (Marca/desmarca un usuario como bot)
+- `apodo <usuario> [apodo]` (Asigna o elimina un apodo; sin apodo lo elimina)
+- `help` (Muestra los comandos disponibles)
+- `exit` (Apaga el bot de forma limpia)
+
 ## Mise
 - `mise install`
 - `mise use python@3.14`

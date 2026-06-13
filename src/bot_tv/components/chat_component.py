@@ -7,17 +7,13 @@ from typing import TYPE_CHECKING
 import twitchio
 from twitchio.ext import commands
 
-from database.app import (
-    get_user_id_by_name,
+from bot_tv.database.app import (
     get_user_nickname,
     is_user_bot,
     save_chat_message,
-    set_nickname,
-    set_user_bot,
     upsert_user,
 )
-from utils.colors import (
-    AMARILLO,
+from bot_tv.utils.colors import (
     DIM,
     RESET,
     format_colored_name,
@@ -26,7 +22,7 @@ from utils.colors import (
 )
 
 if TYPE_CHECKING:
-    from bot import Bot
+    from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,16 +76,26 @@ class ChatComponent(commands.Component):
         username = chatter.name or user_id
         display_name = chatter.display_name or username
 
-        # Guardar/actualizar datos del usuario en la DB
-        await upsert_user(self.bot.app_database, user_id, username, display_name)
-
-        # Guardar el mensaje en el historial
-        await save_chat_message(
+        # Guardar/actualizar datos del usuario en la DB con sus roles
+        await upsert_user(
             self.bot.app_database,
-            payload.broadcaster.id,
             user_id,
-            payload.text,
+            username,
+            display_name,
+            is_moderator=chatter.moderator,
+            is_vip=chatter.vip,
+            is_subscriber=chatter.subscriber,
         )
+
+        # Si el usuario está marcado como bot, no se guarda el mensaje en el historial
+        es_bot = await is_user_bot(self.bot.app_database, user_id)
+        if not es_bot:
+            await save_chat_message(
+                self.bot.app_database,
+                payload.broadcaster.id,
+                user_id,
+                payload.text,
+            )
 
         # Determinar nombre a mostrar: apodo > display_name
         nickname = await get_user_nickname(self.bot.app_database, user_id)
@@ -118,92 +124,6 @@ class ChatComponent(commands.Component):
         await ctx.reply(
             f"Elegí: {random.choice(opciones)}" if opciones else "Dame opciones!"
         )
-
-    async def _resolve_user(self, comando: str, usuario: str) -> str | None:
-        """Busca el user_id de un usuario en la DB local o en la API de Twitch.
-
-        Si no existe en la DB, lo busca en Twitch y lo registra.
-        Retorna el user_id o None si no se encontró.
-        """
-        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
-        if user_id:
-            return user_id
-
-        LOGGER.info(
-            "%s: usuario '%s%s%s' no existe en la base de datos. Buscando en Twitch...",
-            comando,
-            AMARILLO,
-            usuario,
-            RESET,
-        )
-        twitch_user = await self.bot.fetch_user(login=usuario)
-        if not twitch_user:
-            LOGGER.warning(
-                "%s: usuario '%s%s%s' no encontrado en Twitch.",
-                comando,
-                AMARILLO,
-                usuario,
-                RESET,
-            )
-            return None
-
-        user_id = str(twitch_user.id)
-        await upsert_user(
-            self.bot.app_database,
-            user_id,
-            twitch_user.name,
-            twitch_user.display_name,
-        )
-        return user_id
-
-    @commands.command()
-    @commands.is_broadcaster()
-    async def bot(self, ctx: commands.Context, usuario: str) -> None:
-        """Marca o desmarca un usuario como bot.  ?bot <usuario>"""
-        if not usuario:
-            LOGGER.warning("bot: no se proporcionó un usuario válido.")
-            return
-
-        usuario = usuario.lower()
-        user_id = await self._resolve_user("Bot", usuario)
-        if not user_id:
-            return
-
-        # Toggle: si ya es bot, desmarcarlo; si no, marcarlo
-        es_bot = await is_user_bot(self.bot.app_database, user_id)
-        await set_user_bot(self.bot.app_database, user_id, not es_bot)
-
-        # Respuesta solo en terminal
-        usuario_coloreado = f"{AMARILLO}{usuario}{RESET}"
-        if es_bot:
-            LOGGER.info("%s ya no está marcado como bot.", usuario_coloreado)
-        else:
-            LOGGER.warning("%s fue marcado como bot.", usuario_coloreado)
-
-    @commands.command()
-    @commands.is_broadcaster()
-    async def apodo(
-        self, ctx: commands.Context, usuario: str, apodo: str | None = None
-    ) -> None:
-        """Asigna o elimina un apodo.  ?apodo <usuario> [apodo]"""
-        if not usuario:
-            LOGGER.warning("apodo: no se proporcionó un usuario válido.")
-            return
-
-        usuario = usuario.lower()
-        user_id = await self._resolve_user("Apodo", usuario)
-        if not user_id:
-            return
-
-        # Establecer el apodo en la base de datos
-        await set_nickname(self.bot.app_database, user_id, apodo)
-
-        # Respuesta solo en terminal
-        usuario_coloreado = f"{AMARILLO}{usuario}{RESET}"
-        if apodo:
-            LOGGER.info("Apodo de %s cambiado a: %s", usuario_coloreado, apodo)
-        else:
-            LOGGER.info("Apodo de %s eliminado.", usuario_coloreado)
 
     async def component_command_error(
         self, payload: commands.CommandErrorPayload

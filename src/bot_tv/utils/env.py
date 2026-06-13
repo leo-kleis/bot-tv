@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -15,3 +16,5 @@ BOT_ID: str = os.getenv("BOT_ID", "")
 OWNER_ID: str = os.getenv("OWNER_ID", "")
 # Token exclusivo para conexión de chat IRC
 IRC_TOKEN: str = os.getenv("IRC_TOKEN", "")
+# Directorio de bases de datos (relativo al CWD o absoluto)
+DB_DIR: Path = Path(os.getenv("BOT_TV_DB_DIR", "db")).resolve()

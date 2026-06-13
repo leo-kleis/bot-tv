@@ -5,9 +5,13 @@ import asqlite
 import twitchio
 from twitchio.ext import commands
 
-from database.tokens import DB_DIR, DB_PATH, TokenPersistMixin, setup_token_database
-from utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
-from utils.logger import setup_logging
+from bot_tv.database.tokens import (
+    DB_PATH,
+    TokenPersistMixin,
+    setup_token_database,
+)
+from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, DB_DIR, OWNER_ID
+from bot_tv.utils.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
 

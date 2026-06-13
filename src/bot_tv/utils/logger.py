@@ -1,6 +1,6 @@
 import logging
 
-from utils.colors import BOLD, RESET, TIMESTAMP_COLOR
+from bot_tv.utils.colors import BOLD, RESET, TIMESTAMP_COLOR
 
 # Colores para los niveles
 LEVEL_COLORS: dict[int, str] = {

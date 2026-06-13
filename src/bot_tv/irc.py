@@ -3,13 +3,13 @@ import logging
 
 import twitchio
 
-from database.app import (
+from bot_tv.database.app import (
     get_user_id_by_name,
     get_user_nickname,
     is_user_bot,
     upsert_user,
 )
-from utils.colors import (
+from bot_tv.utils.colors import (
     DIM,
     RESET,
     ROJO,

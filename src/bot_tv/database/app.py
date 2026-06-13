@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import asqlite
 
-from database.tokens import DB_DIR
+from bot_tv.utils.env import DB_DIR
 
 if TYPE_CHECKING:
     import sqlite3
@@ -20,11 +20,14 @@ async def setup_app_database(db: asqlite.Pool) -> None:
     async with db.acquire() as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id      TEXT PRIMARY KEY,
-                username     TEXT NOT NULL,
-                display_name TEXT,
-                nickname     TEXT,
-                is_bot       INTEGER DEFAULT 0
+                user_id       TEXT PRIMARY KEY,
+                username      TEXT NOT NULL,
+                display_name  TEXT,
+                nickname      TEXT,
+                is_bot        INTEGER DEFAULT 0,
+                is_moderator  INTEGER DEFAULT 0,
+                is_vip        INTEGER DEFAULT 0,
+                is_subscriber INTEGER DEFAULT 0
             )
         """)
         await conn.execute("""
@@ -48,13 +51,40 @@ async def setup_app_database(db: asqlite.Pool) -> None:
             )
         """)
 
-        # Migración: agregar columna is_bot si la DB ya existía sin ella
+        # Migración: agregar columnas si la DB ya existía sin ellas
         with contextlib.suppress(Exception):
             await conn.execute("ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0")
+
+        with contextlib.suppress(Exception):
+            await conn.execute(
+                "ALTER TABLE users ADD COLUMN is_moderator INTEGER DEFAULT 0"
+            )
+
+        with contextlib.suppress(Exception):
+            await conn.execute("ALTER TABLE users ADD COLUMN is_vip INTEGER DEFAULT 0")
+
+        with contextlib.suppress(Exception):
+            await conn.execute(
+                "ALTER TABLE users ADD COLUMN is_subscriber INTEGER DEFAULT 0"
+            )
 
         # Migración: agregar columna unfollowed_at a followers
         with contextlib.suppress(Exception):
             await conn.execute("ALTER TABLE followers ADD COLUMN unfollowed_at TEXT")
+
+        # Índices de rendimiento
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_chat_history_user_id "
+            "ON chat_history(user_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS "
+            "idx_chat_history_channel_timestamp "
+            "ON chat_history(channel_id, timestamp)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_followers_user_id ON followers(user_id)"
+        )
 
 
 async def upsert_user(
@@ -62,17 +92,43 @@ async def upsert_user(
     user_id: str,
     username: str,
     display_name: str | None = None,
+    is_moderator: bool | None = None,
+    is_vip: bool | None = None,
+    is_subscriber: bool | None = None,
 ) -> None:
     """Inserta o actualiza un usuario (sin tocar el nickname si ya existe)."""
     query = """
-        INSERT INTO users (user_id, username, display_name)
-        VALUES (?, ?, ?)
+        INSERT INTO users (
+            user_id, username, display_name,
+            is_moderator, is_vip, is_subscriber
+        )
+        VALUES (?, ?, ?, COALESCE(?, 0), COALESCE(?, 0), COALESCE(?, 0))
         ON CONFLICT(user_id)
-        DO UPDATE SET username     = excluded.username,
-                      display_name = excluded.display_name;
+        DO UPDATE SET username      = excluded.username,
+                      display_name  = excluded.display_name,
+                      is_moderator  = COALESCE(?, users.is_moderator),
+                      is_vip        = COALESCE(?, users.is_vip),
+                      is_subscriber = COALESCE(?, users.is_subscriber);
     """
+    mod_val = int(is_moderator) if is_moderator is not None else None
+    vip_val = int(is_vip) if is_vip is not None else None
+    sub_val = int(is_subscriber) if is_subscriber is not None else None
+
     async with db.acquire() as conn:
-        await conn.execute(query, (user_id, username, display_name))
+        await conn.execute(
+            query,
+            (
+                user_id,
+                username,
+                display_name,
+                mod_val,
+                vip_val,
+                sub_val,
+                mod_val,
+                vip_val,
+                sub_val,
+            ),
+        )
 
 
 async def get_user_nickname(db: asqlite.Pool, user_id: str) -> str | None:

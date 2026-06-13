@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from twitchio.ext import commands
 
-from database.app import (
+from bot_tv.database.app import (
     get_follower_ids,
     get_unfollowers_data,
     get_users_info,
@@ -16,7 +16,7 @@ from database.app import (
 )
 
 if TYPE_CHECKING:
-    from bot import Bot
+    from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,41 +49,7 @@ class FollowersComponent(commands.Component):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
-    @commands.Component.listener()
-    async def event_bot_fully_connected(self) -> None:
-        """Al conectar completamente: obtiene seguidores y actualiza."""
-        channels = await self.bot.get_channels()
-
-        for channel in channels:
-            channel_id = channel["user_id"]
-            LOGGER.info("Obteniendo seguidores del canal %s...", channel["username"])
-            try:
-                await self._check_and_sync(channel_id)
-            except Exception:
-                LOGGER.exception(
-                    "Error al obtener seguidores de %s",
-                    channel["username"],
-                )
-
-    async def component_teardown(self) -> None:
-        """Al cerrar: obtiene seguidores, compara con la DB y actualiza."""
-        channels = await self.bot.get_channels()
-
-        for channel in channels:
-            channel_id = channel["user_id"]
-            LOGGER.info(
-                "Verificando seguidores de %s al cerrar...",
-                channel["username"],
-            )
-            try:
-                await self._check_and_sync(channel_id)
-            except Exception:
-                LOGGER.exception(
-                    "Error al verificar seguidores de %s",
-                    channel["username"],
-                )
-
-    async def _check_and_sync(self, channel_id: str) -> None:
+    async def check_and_sync(self, channel_id: str) -> None:
         """Obtiene seguidores de la API, compara con la DB y reporta cambios."""
         # 1. Obtener seguidores actuales desde la API
         current = await self._fetch_followers(channel_id)
