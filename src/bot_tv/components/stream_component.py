@@ -86,9 +86,7 @@ class StreamComponent(commands.Component):
         titulo = ""
         categoria = ""
         try:
-            streams = self.bot.fetch_streams(
-                user_ids=[int(payload.broadcaster.id)]
-            )
+            streams = self.bot.fetch_streams(user_ids=[int(payload.broadcaster.id)])
             async for stream in streams:
                 titulo = stream.title or ""
                 categoria = stream.game_name or ""
@@ -149,9 +147,7 @@ class StreamComponent(commands.Component):
                         info_parts.append(f'"{titulo}"')
                     if categoria:
                         info_parts.append(f"({categoria})")
-                    info_str = (
-                        f"  {' '.join(info_parts)}" if info_parts else ""
-                    )
+                    info_str = f"  {' '.join(info_parts)}" if info_parts else ""
 
                     print(
                         f"{timestamp} {VERDE}{BOLD}STREAM ONLINE{RESET}  "
@@ -170,9 +166,7 @@ class StreamComponent(commands.Component):
                         f"{MORADO}►{RESET} {DIM}Canal no está en vivo{RESET}"
                     )
             except Exception as e:
-                LOGGER.error(
-                    "Error al verificar estado inicial del stream: %s", e
-                )
+                LOGGER.error("Error al verificar estado inicial del stream: %s", e)
 
     async def _viewer_poll_loop(self) -> None:
         """Loop que consulta el conteo de viewers cada VIEWER_POLL_INTERVAL segundos.
@@ -187,9 +181,7 @@ class StreamComponent(commands.Component):
 
             for channel_id in self._channel_ids:
                 try:
-                    streams = self.bot.fetch_streams(
-                        user_ids=[int(channel_id)]
-                    )
+                    streams = self.bot.fetch_streams(user_ids=[int(channel_id)])
                     found = False
                     async for stream in streams:
                         found = True
@@ -201,13 +193,9 @@ class StreamComponent(commands.Component):
                             if self._last_viewer_count is not None:
                                 diff = viewer_count - self._last_viewer_count
                                 if diff > 0:
-                                    diferencia = (
-                                        f" {VERDE}(+{diff}){RESET}"
-                                    )
+                                    diferencia = f" {VERDE}(+{diff}){RESET}"
                                 elif diff < 0:
-                                    diferencia = (
-                                        f" {ROJO}({diff}){RESET}"
-                                    )
+                                    diferencia = f" {ROJO}({diff}){RESET}"
 
                             self._last_viewer_count = viewer_count
 

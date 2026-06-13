@@ -133,8 +133,6 @@ class SetupBot(TokenPersistMixin, commands.AutoBot):
             LOGGER.info("Ambas cuentas autorizadas. Cerrando setup...")
             await self.close()
 
-
-
     async def event_ready(self) -> None:
         """Muestra las instrucciones de autorización."""
         bot_scopes_str = "%20".join(BOT_SCOPES)

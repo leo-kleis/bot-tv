@@ -119,23 +119,18 @@ class ChatComponent(commands.Component):
             f"Elegí: {random.choice(opciones)}" if opciones else "Dame opciones!"
         )
 
-    async def _resolve_user(
-        self, comando: str, usuario: str
-    ) -> str | None:
+    async def _resolve_user(self, comando: str, usuario: str) -> str | None:
         """Busca el user_id de un usuario en la DB local o en la API de Twitch.
 
         Si no existe en la DB, lo busca en Twitch y lo registra.
         Retorna el user_id o None si no se encontró.
         """
-        user_id = await get_user_id_by_name(
-            self.bot.app_database, usuario
-        )
+        user_id = await get_user_id_by_name(self.bot.app_database, usuario)
         if user_id:
             return user_id
 
         LOGGER.info(
-            "%s: usuario '%s%s%s' no existe en la base de datos. "
-            "Buscando en Twitch...",
+            "%s: usuario '%s%s%s' no existe en la base de datos. Buscando en Twitch...",
             comando,
             AMARILLO,
             usuario,

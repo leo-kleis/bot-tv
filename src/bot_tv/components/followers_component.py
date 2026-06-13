@@ -56,9 +56,7 @@ class FollowersComponent(commands.Component):
 
         for channel in channels:
             channel_id = channel["user_id"]
-            LOGGER.info(
-                "Obteniendo seguidores del canal %s...", channel["username"]
-            )
+            LOGGER.info("Obteniendo seguidores del canal %s...", channel["username"])
             try:
                 await self._check_and_sync(channel_id)
             except Exception:

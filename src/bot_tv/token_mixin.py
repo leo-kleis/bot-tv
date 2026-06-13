@@ -33,6 +33,7 @@ class TokenPersistMixin:
         """Añade y persiste un token de acceso en la base de datos."""
         from bot_tv.token_database import save_token
 
+        # pyrefly: ignore [missing-attribute]
         resp: twitchio.authentication.ValidateTokenPayload = await super().add_token(
             token, refresh
         )
@@ -40,7 +41,5 @@ class TokenPersistMixin:
             await save_token(
                 self.token_database, resp.user_id, resp.login, token, refresh
             )
-            LOGGER.info(
-                "Token almacenado para: %s (ID: %s)", resp.login, resp.user_id
-            )
+            LOGGER.info("Token almacenado para: %s (ID: %s)", resp.login, resp.user_id)
         return resp

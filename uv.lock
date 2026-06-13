@@ -135,7 +135,7 @@ requires-dist = [
     { name = "keyboard", specifier = ">=0.13.5,<0.14.0" },
     { name = "python-dotenv", specifier = ">=1.2.2,<2.0.0" },
     { name = "requests", specifier = ">=2.32.5,<3.0.0" },
-    { name = "twitchio", extras = ["starlette"], specifier = ">=3.2.1,<4.0.0" },
+    { name = "twitchio", extras = ["starlette"], specifier = "==3.2.2" },
 ]
 
 [package.metadata.requires-dev]
