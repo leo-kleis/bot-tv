@@ -34,3 +34,6 @@ htmlcov/
 
 # Base de datos local
 src/db/
+
+.fake
+ignore/
