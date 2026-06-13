@@ -168,8 +168,8 @@ class FollowersComponent(commands.Component):
         count = 0
         async for follower_event in channel_followers.followers:
             count += 1
-            fid = str(follower_event.user.id)
-            fname = follower_event.user.name or str(follower_event.user.id)
+            fid = follower_event.user.id
+            fname = follower_event.user.name or follower_event.user.id
             followed_at = (
                 follower_event.followed_at.isoformat()
                 if follower_event.followed_at

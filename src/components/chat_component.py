@@ -49,7 +49,7 @@ class ChatComponent(commands.Component):
         4. Seguidor → '(DD/MM/AA)' con la fecha de follow
         5. Ninguno → '(Visita)'
         """
-        user_id = str(chatter.id)
+        user_id = chatter.id
 
         # 1. Es el broadcaster del canal
         if chatter.id == broadcaster_id:
@@ -76,7 +76,7 @@ class ChatComponent(commands.Component):
     async def event_message(self, payload: twitchio.ChatMessage) -> None:
         """Guarda el mensaje en el historial y muestra en consola con color."""
         chatter = payload.chatter
-        user_id = str(chatter.id)
+        user_id = chatter.id
         username = chatter.name or user_id
         display_name = chatter.display_name or username
 
@@ -86,7 +86,7 @@ class ChatComponent(commands.Component):
         # Guardar el mensaje en el historial
         await save_chat_message(
             self.bot.app_database,
-            str(payload.broadcaster.id),
+            payload.broadcaster.id,
             user_id,
             payload.text,
         )
@@ -96,7 +96,7 @@ class ChatComponent(commands.Component):
 
         # Obtener valores RGB del color de Twitch del chatter, o uno por defecto
         # pasándole el nombre de usuario (para que asigne consistentemente un color).
-        hex_str = str(chatter.color.hex) if chatter.color else None
+        hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)
         nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 

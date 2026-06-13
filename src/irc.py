@@ -116,7 +116,7 @@ class TwitchIRCClient:
         if usuario.id == self.bot.bot_id:
             return f"{DIM}(Bot){RESET}"
 
-        if await is_user_bot(self.app_database, str(usuario.id)):
+        if await is_user_bot(self.app_database, usuario.id):
             return f"{DIM}(Bot){RESET}"
 
         follow = await broadcaster.fetch_followers(user=usuario, first=1)
