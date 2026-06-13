@@ -131,17 +131,17 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "asqlite" },
-    { name = "keyboard", specifier = ">=0.13.5,<0.14.0" },
-    { name = "python-dotenv", specifier = ">=1.2.2,<2.0.0" },
-    { name = "requests", specifier = ">=2.32.5,<3.0.0" },
+    { name = "asqlite", specifier = "==2.0.0" },
+    { name = "keyboard", specifier = "==0.13.5" },
+    { name = "python-dotenv", specifier = "==1.2.2" },
+    { name = "requests", specifier = "==2.34.2" },
     { name = "twitchio", extras = ["starlette"], specifier = "==3.2.2" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pyrefly", specifier = ">=0.55.0,<0.56.0" },
-    { name = "ruff", specifier = ">=0.15.5,<0.16.0" },
+    { name = "pyrefly", specifier = "==0.55.0" },
+    { name = "ruff", specifier = "==0.15.17" },
 ]
 
 [[package]]
