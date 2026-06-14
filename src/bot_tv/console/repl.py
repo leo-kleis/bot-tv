@@ -5,6 +5,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
 
 from bot_tv.agent import TalkAgent
 from bot_tv.console.commands import AdminCommands
@@ -41,47 +42,48 @@ class AdminConsole:
         # Inicializar el agente cargando configuraciones e historial de la DB
         await self.agent.initialize()
 
-        while True:
-            try:
-                # Leer entrada del usuario
-                text = await self.session.prompt_async("bot-tv> ")
-                text = text.strip()
-                if not text:
-                    continue
+        with patch_stdout(raw=True):
+            while True:
+                try:
+                    # Leer entrada del usuario
+                    text = await self.session.prompt_async("bot-tv> ")
+                    text = text.strip()
+                    if not text:
+                        continue
 
-                parts = text.split()
-                cmd = parts[0].lower()
-                args = parts[1:]
+                    parts = text.split()
+                    cmd = parts[0].lower()
+                    args = parts[1:]
 
-                if cmd == "exit":
+                    if cmd == "exit":
+                        await self.commands.exit()
+                        break
+                    elif cmd == "help":
+                        self.commands.help()
+                    elif cmd == "sync_followers":
+                        await self.commands.sync_followers()
+                    elif cmd == "is_bot":
+                        await self.commands.is_bot(args)
+                    elif cmd == "apodo":
+                        await self.commands.apodo(args)
+                    elif cmd == "talk":
+                        await self._cmd_talk(args)
+                    elif cmd == "rpm":
+                        self.commands.rpm(args)
+                    elif cmd == "model":
+                        self.commands.model(args)
+                    elif cmd == "models":
+                        self.commands.models()
+                    else:
+                        print(
+                            f"Comando desconocido: '{cmd}'. "
+                            f"Escribe 'help' para ver la lista."
+                        )
+                except KeyboardInterrupt, EOFError:
                     await self.commands.exit()
                     break
-                elif cmd == "help":
-                    self.commands.help()
-                elif cmd == "sync_followers":
-                    await self.commands.sync_followers()
-                elif cmd == "is_bot":
-                    await self.commands.is_bot(args)
-                elif cmd == "apodo":
-                    await self.commands.apodo(args)
-                elif cmd == "talk":
-                    await self._cmd_talk(args)
-                elif cmd == "rpm":
-                    self.commands.rpm(args)
-                elif cmd == "model":
-                    self.commands.model(args)
-                elif cmd == "models":
-                    self.commands.models()
-                else:
-                    print(
-                        f"Comando desconocido: '{cmd}'. "
-                        f"Escribe 'help' para ver la lista."
-                    )
-            except KeyboardInterrupt, EOFError:
-                await self.commands.exit()
-                break
-            except Exception as e:
-                LOGGER.exception("Error al procesar comando en consola: %s", e)
+                except Exception as e:
+                    LOGGER.exception("Error al procesar comando en consola: %s", e)
 
     async def _cmd_talk(self, args: list[str]) -> None:
         """Envía una pregunta o solicitud al agente de IA."""

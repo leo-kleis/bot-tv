@@ -62,7 +62,9 @@ def setup_logging(level: int = logging.INFO) -> None:
     """Configura el logging con colores personalizados."""
     formatter = ColorFormatter(datefmt="%d/%m/%y %H:%M:%S")
 
-    handler = logging.StreamHandler()
+    from prompt_toolkit.patch_stdout import StdoutProxy
+
+    handler = logging.StreamHandler(StdoutProxy(raw=True))
     handler.setFormatter(formatter)
 
     # Configurar el logger raíz en WARNING para silenciar logs del SDK/terceros
@@ -81,4 +83,6 @@ def setup_logging(level: int = logging.INFO) -> None:
 
     # Filtros específicos para logs de twitchio
     logging.getLogger("twitchio.client").addFilter(ConduitWarningFilter())
-    logging.getLogger("twitchio.eventsub.websockets").addFilter(EventSubReconnectFilter())
+    logging.getLogger("twitchio.eventsub.websockets").addFilter(
+        EventSubReconnectFilter()
+    )
