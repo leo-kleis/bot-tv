@@ -28,16 +28,26 @@ class TwitchIRCClient:
         self.bot = bot
         self.app_database = app_database
         self.bot_username = bot_username.lower()
+        if not token:
+            raise ValueError("TwitchIRCClient requiere un token IRC válido.")
         # El token IRC DEBE empezar con "oauth:"
         self.token = f"oauth:{token}" if not token.startswith("oauth:") else token
         self.canales = [c.lower() for c in canales]
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
+        self.broadcaster: twitchio.PartialUser | None = None
 
     async def connect(self) -> None:
         """Conecta al servidor de IRC de Twitch y mantiene el loop."""
         LOGGER.info("Conectando a irc.chat.twitch.tv:6697...")
         try:
+            # Obtener el broadcaster una vez al conectar
+            try:
+                broadcaster_id = self.bot.owner_id
+                self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+            except Exception as e:
+                LOGGER.error("Error al precargar broadcaster: %s", e)
+
             self.reader, self.writer = await asyncio.open_connection(
                 "irc.chat.twitch.tv", 6697, ssl=True
             )
@@ -104,10 +114,12 @@ class TwitchIRCClient:
                 await self._handle_event(usuario, "PART")
 
     async def _get_user_element(
-        self, usuario: twitchio.PartialUser | None, broadcaster: twitchio.PartialUser
+        self,
+        usuario: twitchio.PartialUser | None,
+        broadcaster: twitchio.PartialUser | None,
     ) -> str:
         #! Teoricamente, nunca sucedera
-        if usuario is None:
+        if usuario is None or broadcaster is None:
             return f"{DIM}(Desconocido){RESET}"
 
         if usuario.id == broadcaster.id:
@@ -133,7 +145,7 @@ class TwitchIRCClient:
 
         # 1. Verificar existencia local en SQLite
         user_id = await get_user_id_by_name(self.app_database, usuario)
-        display_name = f"{{{usuario}}}"
+        display_name = usuario
 
         # Obtener el PartialUser de Twitch (necesario para verificar follow, bot, etc.)
         twitch_user = None
@@ -160,13 +172,24 @@ class TwitchIRCClient:
 
         # Construir nombre coloreado
         r, g, b = get_chatter_rgb(None, usuario)
+        if not twitch_user and not nickname:
+            display_name = f"{{{usuario}}}"
         nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 
-        broadcaster_id = self.bot.owner_id
-        broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+        # Cargar broadcaster bajo demanda si falló la precarga en connect()
+        if not self.broadcaster:
+            try:
+                broadcaster_id = self.bot.owner_id
+                self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+            except Exception as e:
+                LOGGER.error(
+                    "Error al obtener broadcaster para id %s: %s",
+                    self.bot.owner_id,
+                    e,
+                )
 
         try:
-            elemento = await self._get_user_element(twitch_user, broadcaster)
+            elemento = await self._get_user_element(twitch_user, self.broadcaster)
         except Exception as e:
             LOGGER.error("Error al obtener elemento para %s: %s", usuario, e)
             elemento = f"{DIM}(Desconocido){RESET}"

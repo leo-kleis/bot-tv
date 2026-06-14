@@ -90,6 +90,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
             if row["user_id"] != self.bot_id
         ]
 
+    async def event_websocket_welcome(self, payload: Any) -> None:
+        """Se ejecuta cuando el websocket de EventSub se conecta con éxito."""
+        LOGGER.info("Conexión con EventSub (Chat/Eventos) establecida con éxito.")
+
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
         async with self.token_database.acquire() as connection:
@@ -110,7 +114,12 @@ class Bot(TokenPersistMixin, commands.AutoBot):
             LOGGER.warning("No hay canales configurados.")
 
         # Iniciar el cliente IRC
-        if canales and IRC_TOKEN:
+        if not IRC_TOKEN:
+            LOGGER.warning(
+                "No se encontró el token de IRC (IRC_TOKEN) en el archivo .env. "
+                "El bot iniciará sin IRC."
+            )
+        elif canales:
             irc = TwitchIRCClient(
                 bot=self,
                 app_database=self.app_database,
@@ -119,8 +128,6 @@ class Bot(TokenPersistMixin, commands.AutoBot):
                 canales=canales,
             )
             self._irc_task = asyncio.create_task(irc.connect())
-        else:
-            LOGGER.warning("IRC no iniciado: falta IRC_TOKEN o no hay canales.")
 
         # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
         # para que componentes pesados (como followers) puedan iniciar tranquilos.

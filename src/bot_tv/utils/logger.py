@@ -34,6 +34,30 @@ class ColorFormatter(logging.Formatter):
         return f"{TIMESTAMP_COLOR}[{timestamp}]{RESET} {level} {name}: {message}"
 
 
+class ConduitWarningFilter(logging.Filter):
+    """Silencia el warning de 'conduit_id' en twitchio.client."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not (
+            record.name == "twitchio.client"
+            and record.levelno == logging.WARNING
+            and 'No "conduit_id" was passed' in record.getMessage()
+        )
+
+
+class EventSubReconnectFilter(logging.Filter):
+    """Simplifica el warning de reconexión de conduits a un mensaje legible."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if (
+            record.name == "twitchio.eventsub.websockets"
+            and "needs to close unexpectedly" in str(record.msg)
+        ):
+            record.msg = "Reconectando canal de EventSub/Chat automáticamente."
+            record.args = ()
+        return True
+
+
 def setup_logging(level: int = logging.INFO) -> None:
     """Configura el logging con colores personalizados."""
     formatter = ColorFormatter(datefmt="%d/%m/%y %H:%M:%S")
@@ -54,3 +78,7 @@ def setup_logging(level: int = logging.INFO) -> None:
     # Silenciar explícitamente otros loggers de Google SDK
     logging.getLogger("google").setLevel(logging.WARNING)
     logging.getLogger("google.antigravity").setLevel(logging.WARNING)
+
+    # Filtros específicos para logs de twitchio
+    logging.getLogger("twitchio.client").addFilter(ConduitWarningFilter())
+    logging.getLogger("twitchio.eventsub.websockets").addFilter(EventSubReconnectFilter())
