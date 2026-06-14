@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import twitchio
 from twitchio.ext import commands
 
-from utils.colors import (
+from bot_tv.utils.colors import (
     BOLD,
     CYAN,
     DIM,
@@ -20,7 +20,7 @@ from utils.colors import (
 )
 
 if TYPE_CHECKING:
-    from bot import Bot
+    from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
 

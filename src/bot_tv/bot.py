@@ -10,13 +10,13 @@ import twitchio
 from twitchio import eventsub
 from twitchio.ext import commands
 
-from components.chat_component import ChatComponent
-from components.clip_component import ClipComponent
-from components.followers_component import FollowersComponent
-from components.stream_component import StreamComponent
-from database.tokens import TokenPersistMixin
-from irc import TwitchIRCClient
-from utils.env import (
+from bot_tv.components.chat_component import ChatComponent
+from bot_tv.components.clip_component import ClipComponent
+from bot_tv.components.followers_component import FollowersComponent
+from bot_tv.components.stream_component import StreamComponent
+from bot_tv.database.tokens import TokenPersistMixin
+from bot_tv.irc import TwitchIRCClient
+from bot_tv.utils.env import (
     BOT_ID,
     CLIENT_ID,
     CLIENT_SECRET,

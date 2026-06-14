@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import asqlite
 import twitchio
 from twitchio import eventsub
 
-from utils.env import BOT_ID
+from bot_tv.utils.env import BOT_ID, DB_DIR
 
-# Apunta a db/ en la raíz del proyecto (fuera de src/)
-DB_DIR = Path(__file__).resolve().parent.parent.parent / "db"
 DB_PATH = DB_DIR / "tokens.db"
 
 if TYPE_CHECKING:
