@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
 from typing import TYPE_CHECKING
 
 from prompt_toolkit import PromptSession
@@ -93,7 +95,37 @@ class AdminConsole:
 
         mensaje = " ".join(args)
         LOGGER.info("Consultando al agente de IA...")
-        respuesta = await self.agent.chat(mensaje)
+
+        stop_spinner = threading.Event()
+
+        def show_spinner() -> None:
+            import sys
+
+            out = sys.__stdout__ or sys.stdout
+            if out is None:
+                return
+
+            frames = ["Pensando", "Pensando .", "Pensando ..", "Pensando ..."]
+            idx = 0
+            out.write(f"\r  {frames[idx]}")
+            out.flush()
+            while not stop_spinner.is_set():
+                time.sleep(0.4)
+                if stop_spinner.is_set():
+                    break
+                idx = (idx + 1) % len(frames)
+                out.write(f"\r  {frames[idx]}")
+                out.flush()
+            out.write("\r" + " " * 30 + "\r")
+            out.flush()
+
+        spinner_thread = threading.Thread(target=show_spinner, daemon=True)
+        spinner_thread.start()
+        try:
+            respuesta = await self.agent.chat(mensaje)
+        finally:
+            stop_spinner.set()
+            spinner_thread.join()
 
         # Limpiar marcas de formato Markdown para la consola
         import re

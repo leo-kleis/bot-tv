@@ -128,6 +128,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
                 canales=canales,
             )
             self._irc_task = asyncio.create_task(irc.connect())
+            try:
+                await asyncio.wait_for(irc.connected_event.wait(), timeout=15.0)
+            except Exception:
+                LOGGER.warning("Continuando arranque sin esperar más al IRC.")
 
         # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
         # para que componentes pesados (como followers) puedan iniciar tranquilos.

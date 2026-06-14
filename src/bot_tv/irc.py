@@ -36,6 +36,7 @@ class TwitchIRCClient:
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
         self.broadcaster: twitchio.PartialUser | None = None
+        self.connected_event = asyncio.Event()
 
     async def connect(self) -> None:
         """Conecta al servidor de IRC de Twitch y mantiene el loop."""
@@ -65,10 +66,12 @@ class TwitchIRCClient:
 
             canales_str = ", ".join(self.canales)
             LOGGER.info("Autenticado y escuchando JOIN/PART en: %s", canales_str)
+            self.connected_event.set()
 
             await self._listen()
 
         except Exception as e:
+            self.connected_event.set()
             LOGGER.exception("Error en la conexión IRC: %s", e)
 
     def _send(self, message: str) -> None:
