@@ -9,7 +9,7 @@ def format_date(iso_str: str | None) -> str:
         return "Desconocida"
     try:
         clean_str = iso_str.replace("Z", "+00:00")
-        dt = datetime.fromisoformat(clean_str)
+        dt = datetime.fromisoformat(clean_str).astimezone()
         meses = [
             "Ene",
             "Feb",

@@ -51,6 +51,15 @@ def main() -> None:
         asyncio.run(runner())
     except KeyboardInterrupt:
         LOGGER.warning("Apagando el bot...")
+    except RuntimeError as e:
+        if "Unable to associate shards with Conduit" in str(e):
+            LOGGER.error(
+                "Error de conexión con Twitch (EventSub Conduit). "
+                "Esto suele ser un problema temporal de red o latencia. "
+                "Por favor, reintentá iniciar el bot en unos instantes."
+            )
+            sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":

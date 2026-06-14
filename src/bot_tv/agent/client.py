@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import re
 import time
@@ -147,8 +148,17 @@ class TalkAgent:
             model_to_use = fallback
             fallback_used = True
 
+        now_local = datetime.datetime.now()
+        now_utc = datetime.datetime.now(datetime.UTC)
+        dynamic_instructions = (
+            f"{SYSTEM_INSTRUCTIONS}\n\n"
+            f"FECHA Y HORA ACTUAL:\n"
+            f"- Local del sistema: {now_local.strftime('%d %b %Y, %H:%M:%S')}\n"
+            f"- UTC (Base de datos): {now_utc.strftime('%d %b %Y, %H:%M:%S')}"
+        )
+
         config = LocalAgentConfig(
-            system_instructions=SYSTEM_INSTRUCTIONS,
+            system_instructions=dynamic_instructions,
             tools=self.tools,
             model=model_to_use,
         )
