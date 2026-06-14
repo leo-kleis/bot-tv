@@ -10,6 +10,7 @@ from twitchio.ext import commands
 
 from bot_tv.utils.colors import (
     BOLD,
+    CONSOLE,
     CYAN,
     DIM,
     MORADO,
@@ -21,6 +22,8 @@ from bot_tv.utils.colors import (
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
+
+print = CONSOLE.print
 
 LOGGER = logging.getLogger(__name__)
 

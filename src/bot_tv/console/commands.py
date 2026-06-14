@@ -11,11 +11,20 @@ from bot_tv.database.app import (
     set_user_bot,
     upsert_user,
 )
-from bot_tv.utils.colors import AMARILLO, RESET, ROJO, VERDE, format_timestamp
+from bot_tv.utils.colors import (
+    AMARILLO,
+    CONSOLE,
+    RESET,
+    ROJO,
+    VERDE,
+    format_timestamp,
+)
 
 if TYPE_CHECKING:
     from bot_tv.agent import TalkAgent
     from bot_tv.bot import Bot
+
+print = CONSOLE.print
 
 LOGGER = logging.getLogger(__name__)
 

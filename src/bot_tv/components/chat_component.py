@@ -14,6 +14,7 @@ from bot_tv.database.app import (
     upsert_user,
 )
 from bot_tv.utils.colors import (
+    CONSOLE,
     DIM,
     RESET,
     format_colored_name,
@@ -23,6 +24,8 @@ from bot_tv.utils.colors import (
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
+
+print = CONSOLE.print
 
 LOGGER = logging.getLogger(__name__)
 

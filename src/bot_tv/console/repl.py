@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
-import time
 from typing import TYPE_CHECKING
 
 from prompt_toolkit import PromptSession
@@ -12,10 +10,13 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from bot_tv.agent import TalkAgent
 from bot_tv.console.commands import AdminCommands
 from bot_tv.console.completer import BotCompleter
+from bot_tv.utils.colors import CONSOLE
 from bot_tv.utils.env import GEMINI_MODEL
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
+
+print = CONSOLE.print
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,36 +97,8 @@ class AdminConsole:
         mensaje = " ".join(args)
         LOGGER.info("Consultando al agente de IA...")
 
-        stop_spinner = threading.Event()
-
-        def show_spinner() -> None:
-            import sys
-
-            out = sys.__stdout__ or sys.stdout
-            if out is None:
-                return
-
-            frames = ["Pensando", "Pensando .", "Pensando ..", "Pensando ..."]
-            idx = 0
-            out.write(f"\r  {frames[idx]}")
-            out.flush()
-            while not stop_spinner.is_set():
-                time.sleep(0.4)
-                if stop_spinner.is_set():
-                    break
-                idx = (idx + 1) % len(frames)
-                out.write(f"\r  {frames[idx]}")
-                out.flush()
-            out.write("\r" + " " * 30 + "\r")
-            out.flush()
-
-        spinner_thread = threading.Thread(target=show_spinner, daemon=True)
-        spinner_thread.start()
-        try:
+        with CONSOLE.status("[bold cyan]Pensando[/bold cyan]", spinner="dots"):
             respuesta = await self.agent.chat(mensaje)
-        finally:
-            stop_spinner.set()
-            spinner_thread.join()
 
         # Limpiar marcas de formato Markdown para la consola
         import re

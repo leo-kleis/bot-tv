@@ -5,22 +5,29 @@ y funciones de color a lo largo del proyecto.
 """
 
 from datetime import datetime
+from typing import IO, cast
 
-# ── Códigos ANSI ────────────────────────────────────────────────────
-RESET = "\033[0m"
-BOLD = "\033[1m"
-DIM = "\033[2m"
+from prompt_toolkit.patch_stdout import StdoutProxy
+from rich.console import Console
+
+# Instancia global de Rich Console para todo el proyecto, enlazada a prompt_toolkit
+CONSOLE = Console(file=cast(IO[str], StdoutProxy(raw=True)), color_system="truecolor")
+
+# ── Marcado Rich para Colores ──────────────────────────────────────────
+RESET = "[/]"
+BOLD = "[bold]"
+DIM = "[dim]"
 
 # Colores básicos
-VERDE = "\033[92m"
-ROJO = "\033[91m"
-AMARILLO = "\033[33m"
-CYAN = "\033[96m"
+VERDE = "[green]"
+ROJO = "[red]"
+AMARILLO = "[yellow]"
+CYAN = "[cyan]"
 
 # Colores personalizados (RGB)
-TIMESTAMP_COLOR = "\033[38;2;94;79;247m"  # #5E4FF7
-MORADO = "\033[38;2;169;112;255m"  # #A970FF (morado Twitch)
-NARANJA = "\033[38;2;255;163;26m"  # #FFA31A
+TIMESTAMP_COLOR = "[#5E4FF7]"
+MORADO = "[#A970FF]"
+NARANJA = "[#FFA31A]"
 
 # ── Colores por defecto de Twitch ───────────────────────────────────
 # Twitch asigna estos colores a los usuarios que no tienen uno propio.
@@ -91,16 +98,16 @@ def format_colored_name(
     g: int,
     b: int,
 ) -> str:
-    """Formatea un nombre de usuario con color ANSI.
+    """Formatea un nombre de usuario con marcado Rich.
 
     Si tiene nickname: muestra "Nickname {display_name}" donde
     el nickname va en color brillante y el display_name en color oscuro.
     Si no: muestra "display_name" en color brillante.
     """
-    color_ansi = f"\033[38;2;{r};{g};{b}m"
+    color_ansi = f"[rgb({r},{g},{b})]"
     if nickname:
         dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
-        dark_ansi = f"\033[38;2;{dark_r};{dark_g};{dark_b}m"
+        dark_ansi = f"[rgb({dark_r},{dark_g},{dark_b})]"
         return f"{color_ansi}{nickname}{dark_ansi} {{{display_name}}}{RESET}"
     return f"{color_ansi}{display_name}{RESET}"
 
