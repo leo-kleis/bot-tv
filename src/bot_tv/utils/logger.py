@@ -41,7 +41,16 @@ def setup_logging(level: int = logging.INFO) -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
 
-    # Configurar el logger raíz para que todos los loggers hereden esta config
+    # Configurar el logger raíz en WARNING para silenciar logs del SDK/terceros
     root = logging.getLogger()
-    root.setLevel(level)
+    root.setLevel(logging.WARNING)
     root.addHandler(handler)
+
+    # Configurar el logger específico de la aplicación en INFO
+    app_logger = logging.getLogger("bot_tv")
+    app_logger.setLevel(level)
+    app_logger.propagate = True
+
+    # Silenciar explícitamente otros loggers de Google SDK
+    logging.getLogger("google").setLevel(logging.WARNING)
+    logging.getLogger("google.antigravity").setLevel(logging.WARNING)

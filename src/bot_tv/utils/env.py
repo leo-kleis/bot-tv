@@ -18,3 +18,7 @@ OWNER_ID: str = os.getenv("OWNER_ID", "")
 IRC_TOKEN: str = os.getenv("IRC_TOKEN", "")
 # Directorio de bases de datos (relativo al CWD o absoluto)
 DB_DIR: Path = Path(os.getenv("BOT_TV_DB_DIR", "db")).resolve()
+# API Key para Antigravity SDK
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+# Modelo por defecto del Antigravity SDK
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")

@@ -50,6 +50,20 @@ async def setup_app_database(db: asqlite.Pool) -> None:
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_consumption_log (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                model     TEXT NOT NULL,
+                timestamp REAL NOT NULL,
+                type      TEXT NOT NULL
+            )
+        """)
 
         # Migración: agregar columnas si la DB ya existía sin ellas
         with contextlib.suppress(Exception):
@@ -307,3 +321,49 @@ async def sync_followers(
                 """,
                 (channel_id, user_id, followed_at),
             )
+
+
+async def get_setting(db: asqlite.Pool, key: str, default: str) -> str:
+    """Obtiene un valor de configuración de la base de datos."""
+    async with db.acquire() as conn:
+        row = await conn.fetchone(
+            "SELECT value FROM app_settings WHERE key = ?", (key,)
+        )
+    return row["value"] if row else default
+
+
+async def set_setting(db: asqlite.Pool, key: str, value: str) -> None:
+    """Guarda o actualiza un valor de configuración."""
+    async with db.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+
+
+async def log_api_consumption(
+    db: asqlite.Pool, model: str, timestamp: float, type_str: str
+) -> None:
+    """Registra un consumo de API o un bloqueo por rate limit."""
+    async with db.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO api_consumption_log (model, timestamp, type) VALUES (?, ?, ?)",
+            (model, timestamp, type_str),
+        )
+
+
+async def get_api_consumption_history(
+    db: asqlite.Pool,
+) -> list[tuple[str, float, str]]:
+    """Obtiene el historial de consumo de API de las últimas 24 horas."""
+    import time
+
+    cutoff = time.time() - 86400
+    async with db.acquire() as conn:
+        query = (
+            "SELECT model, timestamp, type FROM api_consumption_log "
+            "WHERE timestamp > ? ORDER BY timestamp ASC"
+        )
+        rows = await conn.fetchall(query, (cutoff,))
+    return [(row["model"], row["timestamp"], row["type"]) for row in rows]
