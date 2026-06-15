@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any
 
 import uvicorn
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketState
@@ -19,12 +19,19 @@ LOGGER = logging.getLogger(__name__)
 class CaptionServer:
     """Servidor Starlette para emitir transcripciones vía WebSockets a OBS."""
 
+    host: str
+    port: int
+    active_connections: set[WebSocket]
+    _server: uvicorn.Server | None
+    _serve_task: asyncio.Task[None] | None
+    app: Starlette
+
     def __init__(self, host: str = CAPTION_HOST, port: int = CAPTION_PORT) -> None:
         self.host = host
         self.port = port
-        self.active_connections: set[WebSocket] = set()
-        self._server: uvicorn.Server | None = None
-        self._serve_task: asyncio.Task[None] | None = None
+        self.active_connections = set()
+        self._server = None
+        self._serve_task = None
 
         # Configuración de Starlette
         self.app = Starlette(
@@ -34,7 +41,7 @@ class CaptionServer:
             ]
         )
 
-    async def health_endpoint(self, request: Any) -> JSONResponse:
+    async def health_endpoint(self, request: Request) -> JSONResponse:
         """Endpoint HTTP básico para chequear la salud del servicio."""
         return JSONResponse(
             {
@@ -119,11 +126,21 @@ class CaptionServer:
 
         # Ejecutamos el servidor como una tarea asíncrona paralela
         self._serve_task = asyncio.create_task(self._server.serve())
+        self._serve_task.add_done_callback(self._serve_task_done_callback)
         LOGGER.info(
             "Servidor WebSocket iniciado en ws://%s:%d/ws",
             self.host,
             self.port,
         )
+
+    def _serve_task_done_callback(self, task: asyncio.Task[None]) -> None:
+        """Callback ejecutado cuando la tarea del servidor uvicorn finaliza."""
+        try:
+            exc = task.exception()
+            if exc:
+                LOGGER.error("La tarea del servidor uvicorn falló: %s", exc)
+        except asyncio.CancelledError:
+            pass
 
     async def stop(self) -> None:
         """Detiene el servidor WebSocket limpiamente."""

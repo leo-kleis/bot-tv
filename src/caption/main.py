@@ -5,7 +5,10 @@ import logging
 import sys
 
 from bot_tv.utils.logger import setup_logging
+from caption.audio import AudioCapture
 from caption.config import CAPTION_DEVICE, CAPTION_HOST, CAPTION_PORT
+from caption.server import CaptionServer
+from caption.transcriber import Transcriber
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,17 +22,14 @@ async def main_async() -> None:
         "[bold green]Cargando módulos de audio y servidor web...",
         spinner="dots",
     ):
-        # Imports diferidos para diagnóstico visual rápido
-        from caption.audio import AudioCapture
-        from caption.server import CaptionServer
-        from caption.transcriber import Transcriber
+        pass
 
     console.print("[bold green]Dependencias cargadas con exito.[/]")
 
     console.print("[bold cyan]Inicializando componentes de audio y servidor...[/]")
-    server = CaptionServer(host=CAPTION_HOST, port=CAPTION_PORT)
-    transcriber = Transcriber()
-    audio_capture = AudioCapture(device=CAPTION_DEVICE)
+    server: CaptionServer = CaptionServer(host=CAPTION_HOST, port=CAPTION_PORT)
+    transcriber: Transcriber = Transcriber()
+    audio_capture: AudioCapture = AudioCapture(device=CAPTION_DEVICE)
 
     # Definimos el callback asíncrono para propagar textos transcritos
     async def on_transcription_text(text: str, is_final: bool) -> None:
@@ -50,8 +50,18 @@ async def main_async() -> None:
         async with audio_capture:
             console.print("[bold green]Subtitulos listos. Habla por el microfono.[/]")
             while True:
-                # Esperar por el siguiente fragmento de audio del micrófono
-                chunk = await audio_capture.get_chunk()
+                try:
+                    # Esperar audio con timeout de 5s para detectar fallas físicas
+                    chunk = await asyncio.wait_for(
+                        audio_capture.get_chunk(), timeout=5.0
+                    )
+                except TimeoutError as e:
+                    LOGGER.error(
+                        "No se recibieron datos de audio en 5 segundos. "
+                        "Es posible que el dispositivo esté desconectado o inactivo."
+                    )
+                    raise RuntimeError("Dispositivo de audio inactivo.") from e
+
                 # Procesar el chunk en segundo plano de manera no bloqueante
                 await transcriber.process_audio_chunk(chunk, on_transcription_text)
 

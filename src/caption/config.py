@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -8,20 +9,29 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Rutas del proyecto
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DB_DIR = BASE_DIR / "db"
+BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
+DB_DIR: Path = BASE_DIR / "db"
 
 # Configuración del servidor WebSocket
 CAPTION_HOST: str = os.getenv("CAPTION_HOST", "127.0.0.1")
-CAPTION_PORT: int = int(os.getenv("CAPTION_PORT", "9000"))
+
+_port_env: str = os.getenv("CAPTION_PORT", "9000")
+try:
+    CAPTION_PORT: int = int(_port_env)
+except ValueError:
+    # Si el puerto no es un número válido, usar el puerto por defecto 9000
+    CAPTION_PORT = 9000
 
 # Configuración de Whisper
-CAPTION_MODEL: str = os.getenv("CAPTION_MODEL", "small")
+CAPTION_MODEL: str = os.getenv("CAPTION_MODEL", "medium")
 CAPTION_LANGUAGE: str = os.getenv("CAPTION_LANGUAGE", "es")
 
-# Dispositivo de audio (None para el predeterminado, o el índice entero del dispositivo)
-_device_env = os.getenv("CAPTION_DEVICE")
-CAPTION_DEVICE: int | None = int(_device_env) if _device_env is not None else None
+# Dispositivo de audio (None para el predeterminado, o el índice del dispositivo)
+_device_env: str | None = os.getenv("CAPTION_DEVICE")
+CAPTION_DEVICE: int | None = None
+if _device_env is not None:
+    with contextlib.suppress(ValueError):
+        CAPTION_DEVICE = int(_device_env)
 
 # Parámetros de audio
 SAMPLE_RATE: int = 16000
@@ -30,11 +40,12 @@ CHANNELS: int = 1
 CHUNK_DURATION_SEC: float = 0.5
 CHUNK_SIZE: int = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 
-# Prompt inicial de Whisper para guiar el vocabulario y modismos chilenos
+# Prompt de Whisper estructurado para guiar al habla chilena y modismos
 CAPTION_INITIAL_PROMPT: str = (
-    "Hablamos en español de Chile, usando modismos chilenos: "
-    "weón, wea, cachai, altiro, bacán, fome, pololo, polola, "
-    "carrete, yapo, sipo, nopo, pega, luca, cuático, chanta, "
-    "pucha, guata, tuto, poto, caña, flaite, de pana, al lote, "
-    "engrupido."
+    "¡Hola! Hablamos en español de Chile. Diálogos cotidianos con modismos y "
+    "chilenismos: cachai, weón, weona, altiro, bacán, po, ya po, si po, no po, "
+    "fome, pololo, polola, carrete, pega, luca, cuático, chanta, pucha, guata, "
+    "tuto, poto, caña, flaite, de pana, al lote, engrupido, la dura, al toque. "
+    "Transcripción limpia, natural y respetando las expresiones locales."
 )
+

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+import os
+import re
+import site
+import sys
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -14,14 +19,33 @@ from caption.config import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine
+    from collections.abc import Awaitable, Callable
+
+    import numpy.typing as npt
+    from faster_whisper import WhisperModel
 
 
 LOGGER = logging.getLogger(__name__)
 
+MIN_WORDS_HALLUCINATION = 3
+HALLUCINATION_RATIO_LIMIT = 0.7
+
 
 class Transcriber:
     """Procesa chunks de audio usando faster-whisper en GPU de manera asíncrona."""
+
+    model_size: str
+    language: str
+    silence_threshold: float
+    max_buffer_samples: int
+    silence_samples_limit: int
+    partial_interval_samples: int
+    _model: WhisperModel | None
+    _audio_buffer: list[npt.NDArray[np.float32]]
+    _consecutive_silence_samples: int
+    _is_transcribing: bool
+    _samples_since_last_transcription: int
+    _last_text: str
 
     def __init__(
         self,
@@ -40,8 +64,8 @@ class Transcriber:
         self.silence_samples_limit = int(SAMPLE_RATE * silence_duration_sec)
         self.partial_interval_samples = int(SAMPLE_RATE * partial_interval_sec)
 
-        self._model: Any = None
-        self._audio_buffer: list[np.ndarray] = []
+        self._model = None
+        self._audio_buffer = []
         self._consecutive_silence_samples = 0
         self._is_transcribing = False
         self._samples_since_last_transcription = 0
@@ -49,17 +73,11 @@ class Transcriber:
 
     def load_model(self) -> None:
         """Carga el modelo de Whisper en la GPU (CUDA)."""
-        import sys
-
         # En Windows, las restricciones de seguridad de Python 3.8+
         # impiden buscar DLLs en PATH.
         # Buscamos y agregamos los directorios del CUDA Toolkit
         # y site-packages.
         if sys.platform == "win32":
-            import os
-            import site
-            from pathlib import Path
-
             # 1. Buscar en instalaciones del sistema
             cuda_path = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA"
             cuda_base = Path(cuda_path)
@@ -127,25 +145,48 @@ class Transcriber:
                 )
                 model_path = snapshot_download(repo_id=repo_id, local_files_only=False)
 
-            status_msg = (
-                f"[bold cyan]Cargando modelo '{self.model_size}' en GPU (CUDA)...[/]"
-            )
+            # Intentamos cargar con float16 para optimizar rendimiento y VRAM.
+            # Si la GPU no soporta float16 de forma eficiente (ej. Pascal/GTX 10xx),
+            # hacemos fallback dinámico a otros formatos compatibles.
+            compute_types = ["float16", "int8_float16", "float32", "auto"]
+            loaded = False
+            last_err: Exception | None = None
 
-            with console.status(status_msg, spinner="dots"):
-                # Inicializamos Whisper con la ruta del modelo local
-                self._model = WhisperModel(
-                    model_path,
-                    device="cuda",
-                    compute_type="auto",
-                )
+            for comp_type in compute_types:
+                try:
+                    status_msg = (
+                        f"[bold cyan]Cargando modelo '{self.model_size}' "
+                        f"en GPU (CUDA, {comp_type})...[/]"
+                    )
+                    with console.status(status_msg, spinner="dots"):
+                        self._model = WhisperModel(
+                            model_path,
+                            device="cuda",
+                            compute_type=comp_type,
+                        )
+                    msg = (
+                        f"[bold green]Modelo Whisper '{self.model_size}' "
+                        f"cargado con éxito ({comp_type}).[/]"
+                    )
+                    console.print(msg)
+                    loaded = True
+                    break
+                except ValueError as ve:
+                    LOGGER.warning(
+                        "Tipo de computación '%s' no soportado: %s. Reintentando...",
+                        comp_type,
+                        ve,
+                    )
+                    last_err = ve
 
-            msg = f"[bold green]Modelo Whisper '{self.model_size}' cargado en GPU.[/]"
-            console.print(msg)
+            if not loaded:
+                raise RuntimeError(
+                    "No se pudo cargar el modelo con ningún compute_type compatible."
+                ) from last_err
         except Exception as e:
-            LOGGER.error(
+            LOGGER.exception(
                 "Error crítico: No se pudo cargar el modelo en GPU (CUDA). "
-                "La ejecución requiere GPU. Detalle: %s",
-                e,
+                "La ejecución requiere GPU."
             )
             raise RuntimeError(
                 "Fallo al inicializar faster-whisper en GPU (CUDA)."
@@ -213,13 +254,13 @@ class Transcriber:
         matches = sum(1 for w in words if w in prompt_words)
 
         # Si tiene 3 o más palabras y el 70% o más pertenecen
-        # al prompt, se considera alucinación.
-        return len(words) >= 3 and (matches / len(words)) >= 0.7
+        return (
+            len(words) >= MIN_WORDS_HALLUCINATION
+            and (matches / len(words)) >= HALLUCINATION_RATIO_LIMIT
+        )
 
     def _clean_repetitions(self, text: str) -> str:
         """Limpia bucles de repetición infinita y risas excesivas en el texto."""
-        import re
-
         if not text:
             return ""
 
@@ -251,7 +292,7 @@ class Transcriber:
 
         return " ".join(cleaned_words).strip()
 
-    def _execute_transcribe(self, audio_data: np.ndarray) -> str:
+    def _execute_transcribe(self, audio_data: npt.NDArray[np.float32]) -> str:
         """Ejecuta la transcripción síncrona en un hilo separado.
 
         Retorna el texto limpio de la transcripción.
@@ -259,22 +300,23 @@ class Transcriber:
         if self._model is None:
             return ""
 
-        # Usamos vad_filter=True para filtrar silencios eficientemente a nivel de modelo
-        segments, info = self._model.transcribe(
+        # Filtrar silencios eficientemente a nivel de modelo con VAD.
+        # Ajustar VAD para ignorar ruidos breves y silencios marginales.
+        segments, _ = self._model.transcribe(
             audio_data,
             language=self.language,
-            beam_size=5,
+            beam_size=3,
             temperature=0.0,
             condition_on_previous_text=False,
-            no_speech_threshold=0.65,
+            no_speech_threshold=0.6,
             log_prob_threshold=-0.85,
             vad_filter=True,
-            vad_parameters=dict(
-                min_speech_duration_ms=200,
-                max_speech_duration_s=5,
-                min_silence_duration_ms=400,
-                speech_pad_ms=500,
-            ),
+            vad_parameters={
+                "min_speech_duration_ms": 250,
+                "max_speech_duration_s": 5,
+                "min_silence_duration_ms": 400,
+                "speech_pad_ms": 400,
+            },
             initial_prompt=CAPTION_INITIAL_PROMPT,
         )
 
@@ -283,6 +325,17 @@ class Transcriber:
 
         # Limpiar repeticiones excesivas y alucinaciones de risas
         candidate_text = self._clean_repetitions(candidate_text)
+
+        # Normalizar modismos y chilenismos comunes mal transcritos
+        candidate_text = self._post_process_chilean_spanish(candidate_text)
+
+        # Filtrar alucinaciones de ruido típicas de Whisper (ej: Amara.org)
+        if self._is_noise_hallucination(candidate_text):
+            LOGGER.warning(
+                "Alucinación típica de Whisper detectada y filtrada: %s",
+                candidate_text,
+            )
+            return ""
 
         # Filtrar alucinaciones del prompt inicial
         if self._is_prompt_hallucination(candidate_text):
@@ -296,8 +349,8 @@ class Transcriber:
 
     async def process_audio_chunk(
         self,
-        chunk: np.ndarray,
-        on_text_callback: Callable[[str, bool], Coroutine[Any, Any, None]],
+        chunk: npt.NDArray[np.float32],
+        on_text_callback: Callable[[str, bool], Awaitable[None]],
     ) -> None:
         """Procesa un nuevo chunk de audio.
 
@@ -311,6 +364,14 @@ class Transcriber:
 
         self._audio_buffer.append(chunk)
         self._samples_since_last_transcription += len(chunk)
+
+        # Evitar lag si el procesamiento se retrasa y el buffer crece en exceso
+        while sum(len(c) for c in self._audio_buffer) > self.max_buffer_samples:
+            if self._audio_buffer:
+                removed = self._audio_buffer.pop(0)
+                self._samples_since_last_transcription = max(
+                    0, self._samples_since_last_transcription - len(removed)
+                )
 
         if rms < self.silence_threshold:
             self._consecutive_silence_samples += len(chunk)
@@ -367,3 +428,51 @@ class Transcriber:
                 LOGGER.exception("Error durante la transcripción de audio")
             finally:
                 self._is_transcribing = False
+
+    def _post_process_chilean_spanish(self, text: str) -> str:
+        """Post-procesa el texto para normalizar chilenismos y modismos comunes."""
+        if not text:
+            return ""
+
+        # Mapeos de transcripciones comunes o formales a modismos chilenos
+        replacements = {
+            r"\bhuevón\b": "weón",
+            r"\bhuevones\b": "weones",
+            r"\bhuevona\b": "weona",
+            r"\bhuevonas\b": "weonas",
+            r"\bgüeón\b": "weón",
+            r"\bgüeona\b": "weona",
+            r"\bhuevada\b": "wea",
+            r"\bhuevadas\b": "weas",
+            r"\bwevada\b": "wea",
+            r"\bwevadas\b": "weas",
+            r"\bsí po\b": "sipo",
+            r"\bsi po\b": "sipo",
+            r"\bno po\b": "nopo",
+            r"\bya po\b": "yapo",
+            r"\bal tiro\b": "altiro",
+            r"\bal toque\b": "altoke",
+        }
+
+        processed = text
+        for pattern, repl in replacements.items():
+            processed = re.sub(pattern, repl, processed, flags=re.IGNORECASE)
+
+        return processed
+
+    def _is_noise_hallucination(self, text: str) -> bool:
+        """Determina si el texto transcrito es una alucinación típica de Whisper."""
+        cleaned = text.lower()
+        hallucination_patterns = [
+            r"amara\.org",
+            r"subtítulos por",
+            r"subtítulos de",
+            r"subtitulado por",
+            r"gracias por ver",
+            r"descargado de",
+            r"apoya a",
+            r"comunidad de amara",
+            r"traducción al español",
+        ]
+        return any(re.search(pattern, cleaned) for pattern in hallucination_patterns)
+

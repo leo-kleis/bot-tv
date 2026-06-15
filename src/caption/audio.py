@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from caption.config import CHANNELS, SAMPLE_RATE
 
 if TYPE_CHECKING:
+    import numpy.typing as npt
     import sounddevice as sd
 
 LOGGER = logging.getLogger(__name__)
@@ -17,6 +18,15 @@ LOGGER = logging.getLogger(__name__)
 
 class AudioCapture:
     """Captura de audio desde el micrófono en formato float32 compatible con Whisper."""
+
+    device: int | None
+    channels: int
+    samplerate: int
+    blocksize: int
+    _queue: asyncio.Queue[npt.NDArray[np.float32]]
+    _loop: asyncio.AbstractEventLoop | None
+    _stream: sd.InputStream | None
+    _running: bool
 
     def __init__(
         self,
@@ -31,14 +41,14 @@ class AudioCapture:
         self.samplerate = samplerate
         self.blocksize = int(samplerate * chunk_duration_sec)
 
-        self._queue: asyncio.Queue[np.ndarray] = asyncio.Queue()
+        self._queue: asyncio.Queue[npt.NDArray[np.float32]] = asyncio.Queue()
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._stream: Any = None
+        self._stream = None
         self._running = False
 
     def _audio_callback(
         self,
-        indata: np.ndarray,
+        indata: npt.NDArray[np.float32],
         frames: int,
         time_info: dict[str, float],
         status: sd.CallbackFlags,
@@ -102,7 +112,7 @@ class AudioCapture:
         self._loop = None
         LOGGER.info("Captura de audio detenida.")
 
-    async def get_chunk(self) -> np.ndarray:
+    async def get_chunk(self) -> npt.NDArray[np.float32]:
         """Espera y obtiene el siguiente chunk de audio capturado."""
         return await self._queue.get()
 
