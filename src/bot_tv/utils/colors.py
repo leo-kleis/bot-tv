@@ -11,7 +11,12 @@ from prompt_toolkit.patch_stdout import StdoutProxy
 from rich.console import Console
 
 # Instancia global de Rich Console para todo el proyecto, enlazada a prompt_toolkit
-CONSOLE = Console(file=cast(IO[str], StdoutProxy(raw=True)), color_system="truecolor")
+try:
+    CONSOLE = Console(
+        file=cast(IO[str], StdoutProxy(raw=True)), color_system="truecolor"
+    )
+except Exception:
+    CONSOLE = Console(color_system="truecolor")
 
 # ── Marcado Rich para Colores ──────────────────────────────────────────
 RESET = "[/]"

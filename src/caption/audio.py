@@ -67,7 +67,7 @@ class AudioCapture:
         try:
             # Importación local diferida de sounddevice
             import sounddevice as sd
-            
+
             self._stream = sd.InputStream(
                 device=self.device,
                 channels=self.channels,

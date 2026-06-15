@@ -3,6 +3,8 @@
 ## Proyecto (Ejecución)
 - `uv run bot-tv` (Inicia el bot)
 - `uv run bot-setup` (Ejecuta el script de configuración de Tokens)
+- `uv run bot-caption` (Inicia el servicio de subtítulos)
+- `uv run bot-caption --debug` (Inicia el servicio de subtítulos en modo depuración para ver textos en terminal)
 
 ## Consola Interactiva (durante la ejecución del bot)
 - `sync_followers` (Sincroniza seguidores de todos los canales)

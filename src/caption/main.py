@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 async def main_async() -> None:
     """Función asíncrona principal para correr el servicio de subtítulos."""
     from rich.console import Console
-    
+
     console = Console()
     with console.status(
         "[bold green]Cargando módulos de audio y servidor web...",
@@ -33,13 +33,13 @@ async def main_async() -> None:
 
     # Definimos el callback asíncrono para propagar textos transcritos
     async def on_transcription_text(text: str, is_final: bool) -> None:
-        LOGGER.info("[%s] %s", "FINAL" if is_final else "PARCIAL", text)
+        LOGGER.debug("[%s] %s", "FINAL" if is_final else "PARCIAL", text)
         await server.broadcast(text, is_final)
 
     try:
         # Cargar el modelo de Whisper (operación síncrona/pesada inicial)
         transcriber.load_model()
-        
+
         # Iniciar el servidor WebSocket
         await server.start()
         console.print(
@@ -48,9 +48,7 @@ async def main_async() -> None:
 
         # Iniciamos la captura de audio usando el gestor de contexto asíncrono
         async with audio_capture:
-            console.print(
-                "[bold green]Subtitulos listos. Habla por el microfono.[/]"
-            )
+            console.print("[bold green]Subtitulos listos. Habla por el microfono.[/]")
             while True:
                 # Esperar por el siguiente fragmento de audio del micrófono
                 chunk = await audio_capture.get_chunk()
@@ -70,7 +68,16 @@ async def main_async() -> None:
 
 def main() -> None:
     """Punto de entrada principal del script bot-caption."""
-    setup_logging(level=logging.INFO)
+    import warnings
+
+    # Silenciamos advertencias de Hugging Face Hub para evitar ruido visual en consola
+    warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
+    warnings.filterwarnings("ignore", message=".*HF_TOKEN.*")
+    warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+
+    log_level = logging.DEBUG if "--debug" in sys.argv else logging.INFO
+    setup_logging(level=log_level)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
     LOGGER.info("Iniciando servicio independiente de subtítulos (bot-caption)...")
 
     try:

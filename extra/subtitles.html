@@ -116,6 +116,13 @@
 
       ws.onclose = () => {
         showStatus('Conexión perdida. Reconectando...');
+        // Limpiar subtítulos inmediatamente al desconectarse
+        subtitlesBox.innerHTML = '';
+        subtitlesBox.classList.remove('active');
+        if (fadeTimeout) {
+          clearTimeout(fadeTimeout);
+          fadeTimeout = null;
+        }
         // Intenta reconectar en 2 segundos
         setTimeout(connect, 2000);
       };

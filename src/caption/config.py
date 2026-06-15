@@ -32,5 +32,9 @@ CHUNK_SIZE: int = int(SAMPLE_RATE * CHUNK_DURATION_SEC)
 
 # Prompt inicial de Whisper para guiar el vocabulario y modismos chilenos
 CAPTION_INITIAL_PROMPT: str = (
-    "Hablamos en espanol chileno: weon, po, cachai, altiro, bacan, fome, pololo."
+    "Hablamos en español de Chile, usando modismos chilenos: "
+    "weón, wea, cachai, altiro, bacán, fome, pololo, polola, "
+    "carrete, yapo, sipo, nopo, pega, luca, cuático, chanta, "
+    "pucha, guata, tuto, poto, caña, flaite, de pana, al lote, "
+    "engrupido."
 )

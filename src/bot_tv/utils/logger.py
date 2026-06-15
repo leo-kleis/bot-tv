@@ -80,14 +80,19 @@ def setup_logging(level: int = logging.INFO) -> None:
     root.setLevel(logging.WARNING)
     root.addHandler(handler)
 
-    # Configurar el logger específico de la aplicación en INFO
+    # Configurar los loggers específicos de la aplicación en INFO/especificado
     app_logger = logging.getLogger("bot_tv")
     app_logger.setLevel(level)
     app_logger.propagate = True
 
-    # Silenciar explícitamente otros loggers de Google SDK
+    caption_logger = logging.getLogger("caption")
+    caption_logger.setLevel(level)
+    caption_logger.propagate = True
+
+    # Silenciar explícitamente otros loggers de Google SDK y Hugging Face Hub
     logging.getLogger("google").setLevel(logging.WARNING)
     logging.getLogger("google.antigravity").setLevel(logging.WARNING)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
     # Filtros específicos para logs de twitchio
     logging.getLogger("twitchio.client").addFilter(ConduitWarningFilter())
