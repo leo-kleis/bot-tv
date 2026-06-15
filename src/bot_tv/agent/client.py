@@ -87,6 +87,7 @@ class TalkAgent:
         self.current_model = model
         self.rate_limiter = RateLimiter()
         self.tools = build_agent_tools(bot)
+        self._tasks: set[asyncio.Task[None]] = set()
 
     async def initialize(self) -> None:
         """Carga el modelo activo y el consumo histórico desde la base de datos."""
@@ -118,7 +119,11 @@ class TalkAgent:
 
         self.current_model = model
         # Persistir selección en segundo plano
-        asyncio.create_task(set_setting(self.bot.app_database, "active_model", model))
+        task = asyncio.create_task(
+            set_setting(self.bot.app_database, "active_model", model)
+        )
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
         return f"Modelo cambiado a: {cfg.display_name} ({model})"
 
     def get_rpm_status(self) -> RateLimitStatus:

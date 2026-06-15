@@ -15,6 +15,9 @@ dependencies = [
     "rich==15.0.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/leo-kleis/bot-tv"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -41,8 +44,23 @@ select = [
     "B",   # flake8-bugbear (errores comunes)
     "UP",  # pyupgrade (modernización de sintaxis)
     "SIM", # flake8-simplify (simplificaciones)
+    "S",   # flake8-bandit (análisis de seguridad)
+    "T20", # flake8-print (prohibir print)
+    "N",   # pep8-naming (estilo de nombres)
+    "A",   # flake8-builtins (evitar sobreescribir builtins)
+    "C4",  # flake8-comprehensions (simplificar comprensiones)
+    "RUF", # ruff-specific rules (reglas específicas de ruff)
+]
+ignore = [
+    "A001", # Permitir shadowing de builtins (ej. print = CONSOLE.print)
+    "S311", # Permitir random estándar (no criptográfico)
 ]
 fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"extra/**/*.py" = ["T201", "T203", "S105", "S113"] # Permitir print/input/urls/requests sin timeout en scripts interactivos
+"src/bot_tv/agent/tools/chat.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
+"src/bot_tv/database/app.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
 
 [tool.ruff.format]
 quote-style = "double"
@@ -53,7 +71,8 @@ docstring-code-format = true
 
 # ── Pyrefly ─────────────────────────────────────────────────────────
 [tool.pyrefly]
-search-path = ["src"]
+preset = "default"
+project-includes = ["src/**/*.py"]
 
 [dependency-groups]
 dev = [

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from collections.abc import AsyncGenerator, Iterable
 from typing import TYPE_CHECKING
 
@@ -54,15 +55,13 @@ class BotCompleter(Completer):
         ):
             cmd = words_before[0].lower()
             if cmd in ("is_bot", "apodo"):
-                try:
+                with contextlib.suppress(Exception):
                     async with self.bot.app_database.acquire() as conn:
                         rows = await conn.fetchall("SELECT username FROM users")
                     usernames = [row["username"] for row in rows]
                     for username in usernames:
                         if username.lower().startswith(word_before.lower()):
                             yield Completion(username, start_position=-len(word_before))
-                except Exception:
-                    pass
             elif cmd == "model":
                 from bot_tv.agent.models import get_enabled_models
 

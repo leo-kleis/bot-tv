@@ -88,14 +88,12 @@ class StreamComponent(commands.Component):
         # Obtener info del stream para título y categoría
         titulo = ""
         categoria = ""
-        try:
+        with contextlib.suppress(Exception):
             streams = self.bot.fetch_streams(user_ids=[int(payload.broadcaster.id)])
             async for stream in streams:
                 titulo = stream.title or ""
                 categoria = stream.game_name or ""
                 break
-        except Exception:
-            pass
 
         nombre = payload.broadcaster.display_name or payload.broadcaster.name
         info_parts = []
