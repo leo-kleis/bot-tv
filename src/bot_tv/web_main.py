@@ -67,6 +67,27 @@ def main() -> None:
 
                 app = create_app(bot, agent, event_bus)
 
+                # Configuración opcional de SSL para HTTPS local
+                ssl_keyfile = None
+                ssl_certfile = None
+                from pathlib import Path
+                certs_dir = Path("certs")
+                if certs_dir.exists():
+                    key_files = list(certs_dir.glob("*-key.pem"))
+                    cert_files = [
+                        f
+                        for f in certs_dir.glob("*.pem")
+                        if not f.name.endswith("-key.pem")
+                    ]
+                    if key_files and cert_files:
+                        ssl_keyfile = str(key_files[0])
+                        ssl_certfile = str(cert_files[0])
+                        LOGGER.info(
+                            "Configurando HTTPS local con certificados: %s y %s",
+                            ssl_certfile,
+                            ssl_keyfile,
+                        )
+
                 # Correr uvicorn en el mismo loop (sin iniciar un nuevo loop)
                 config = uvicorn.Config(
                     app,
@@ -74,12 +95,16 @@ def main() -> None:
                     port=WEB_PORT,
                     log_level="info",
                     loop="none",  # usamos el loop de asyncio existente
+                    ssl_keyfile=ssl_keyfile,
+                    ssl_certfile=ssl_certfile,
                 )
                 server = uvicorn.Server(config)
                 app.state.server = server
 
+                protocol = "https" if ssl_certfile else "http"
                 LOGGER.info(
-                    "Dashboard en http://0.0.0.0:%d (LAN: busca tu IP local)",
+                    "Dashboard en %s://0.0.0.0:%d (LAN: busca tu IP local)",
+                    protocol,
                     WEB_PORT,
                 )
 

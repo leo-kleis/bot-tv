@@ -1,4 +1,4 @@
-import { h, useEffect, useRef } from '/static/vendor/preact.module.js';
+import { h, useEffect, useRef, useState } from '/static/vendor/preact.module.js';
 import htm from '/static/vendor/htm.module.js';
 
 const html = htm.bind(h);
@@ -72,6 +72,7 @@ function IrcUser({ user }) {
 export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc }) {
   const feedRef = useRef(null);
   const autoScrollRef = useRef(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Auto-scroll solo si el usuario no subió manualmente
   useEffect(() => {
@@ -84,12 +85,23 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc }) 
     const el = feedRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    setIsAtBottom(atBottom);
     autoScrollRef.current = atBottom;
   }
 
-  const users = [...ircUsers.values()].sort((a, b) =>
-    (a.display_name || a.username).localeCompare(b.display_name || b.username)
-  );
+  function scrollToBottom() {
+    const el = feedRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    setIsAtBottom(true);
+    autoScrollRef.current = true;
+  }
+
+  const users = [...ircUsers.values()]
+    .filter(u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot')
+    .sort((a, b) =>
+      (a.display_name || a.username).localeCompare(b.display_name || b.username)
+    );
 
   return html`
     <div class="chat-tab ${showIrcMobile ? 'irc-open-mobile' : ''}">
@@ -100,18 +112,28 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc }) 
           <span>Chat</span>
           <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
         </div>
-        <div
-          class="chat-feed"
-          ref=${feedRef}
-          onScroll=${onScroll}
-          id="chat-feed"
-        >
-          ${chatMessages.length === 0 ? html`
-            <div class="chat-empty">
-              <span class="empty-icon"><i class="fa-regular fa-comments fa-3x" style="color:var(--text-muted);margin-bottom:12px"></i></span>
-              <span>Esperando mensajes...</span>
-            </div>
-          ` : chatMessages.map((m, i) => html`<${ChatMessage} key=${m.timestamp + i} msg=${m} />`)}
+        
+        <div class="chat-feed-container" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column">
+          <div
+            class="chat-feed"
+            ref=${feedRef}
+            onScroll=${onScroll}
+            id="chat-feed"
+          >
+            ${chatMessages.length === 0 ? html`
+              <div class="chat-empty">
+                <span class="empty-icon"><i class="fa-regular fa-comments fa-3x" style="color:var(--text-muted);margin-bottom:12px"></i></span>
+                <span>Esperando mensajes...</span>
+              </div>
+            ` : chatMessages.map((m, i) => html`<${ChatMessage} key=${m.timestamp + i} msg=${m} />`)}
+          </div>
+
+          <!-- Botón de scroll al final -->
+          ${!isAtBottom && chatMessages.length > 0 ? html`
+            <button class="scroll-bottom-btn" onClick=${scrollToBottom}>
+              <i class="fa-solid fa-arrow-down"></i> Mensajes nuevos
+            </button>
+          ` : null}
         </div>
       </div>
 

@@ -37,3 +37,8 @@ db/
 
 .fake
 ignore/
+
+# Certificados locales
+certs/
+*.pem
+*.key

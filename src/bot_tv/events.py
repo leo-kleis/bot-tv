@@ -46,6 +46,7 @@ class UserJoinEvent:
     nickname: str | None
     color_rgb: tuple[int, int, int]
     role: str
+    is_bot: bool = False
     timestamp: str = field(default_factory=_now)
 
 

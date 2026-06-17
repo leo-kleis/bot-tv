@@ -172,15 +172,36 @@ class TwitchIRCClient:
             LOGGER.error("Error al obtener rol para %s: %s", usuario, e)
             role = "Desconocido"
 
-        event_cls = UserJoinEvent if action == "JOIN" else UserPartEvent
-        await self.bot.event_bus.emit(
-            event_cls(
-                timestamp=datetime.now().isoformat(),
-                user_id=user_id,
-                username=usuario,
-                display_name=display_name,
-                nickname=nickname,
-                color_rgb=(r, g, b),
-                role=role,
+        if action == "JOIN":
+            is_bot = False
+            if twitch_user:
+                is_bot = (twitch_user.id == self.bot.bot_id) or (
+                    await is_user_bot(self.app_database, str(twitch_user.id))
+                )
+            elif user_id:
+                is_bot = await is_user_bot(self.app_database, user_id)
+
+            await self.bot.event_bus.emit(
+                UserJoinEvent(
+                    timestamp=datetime.now().isoformat(),
+                    user_id=user_id,
+                    username=usuario,
+                    display_name=display_name,
+                    nickname=nickname,
+                    color_rgb=(r, g, b),
+                    role=role,
+                    is_bot=is_bot,
+                )
             )
-        )
+        else:
+            await self.bot.event_bus.emit(
+                UserPartEvent(
+                    timestamp=datetime.now().isoformat(),
+                    user_id=user_id,
+                    username=usuario,
+                    display_name=display_name,
+                    nickname=nickname,
+                    color_rgb=(r, g, b),
+                    role=role,
+                )
+            )

@@ -32,13 +32,17 @@ export function App({ state, dispatch }) {
     `;
   }
 
+  const filteredIrcCount = [...state.ircUsers.values()].filter(
+    u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot'
+  ).length;
+
   return html`
     <div id="app-root">
       <header class="app-header">
         <${StreamWidget}
           stream=${state.stream}
           connected=${state.connected}
-          ircCount=${state.ircUsers.size}
+          ircCount=${filteredIrcCount}
           showIrcMobile=${showIrcMobile}
           onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}
         />

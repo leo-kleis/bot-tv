@@ -1,10 +1,1 @@
-/* styles.css — Punto de Entrada Modular CSS */
-@import url('/static/css/variables.css');
-@import url('/static/css/header.css');
-@import url('/static/css/tabs.css');
-@import url('/static/css/chat.css');
-@import url('/static/css/followers.css');
-@import url('/static/css/agent.css');
-@import url('/static/css/actions.css');
-@import url('/static/css/forms.css');
-@import url('/static/css/responsive.css');
+/* Obsoleto - Hojas de estilo cargadas en index.html */

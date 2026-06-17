@@ -114,10 +114,151 @@
     flex-direction: column;
     gap: 10px;
   }
+  .actions-grid, .followers-grid {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  .actions-col, .followers-col {
+    gap: 16px !important;
+  }
 }
 
-/* ESCRITORIO (Desde 601px) */
-@media (min-width: 601px) {
+/* CELULARES EN MODO HORIZONTAL (LANDSCAPE — MENÚ SIDEBAR A LA IZQUIERDA) */
+@media (max-height: 480px) {
+  :root {
+    --header-h: 44px !important;
+    --tab-h: auto !important;
+  }
+  
+  #app-root {
+    display: grid !important;
+    grid-template-areas: 
+      "header header"
+      "sidebar content" !important;
+    grid-template-rows: var(--header-h) 1fr !important;
+    grid-template-columns: 64px 1fr !important;
+    height: 100dvh !important;
+  }
+
+  .app-header {
+    grid-area: header !important;
+    height: 100% !important;
+    width: 100% !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  /* Barra de pestañas como Sidebar a la izquierda */
+  .tab-bar {
+    grid-area: sidebar !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex-direction: column !important;
+    background: rgba(12, 10, 16, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-right: 1px solid var(--border) !important;
+    padding-bottom: 0 !important;
+    flex-shrink: 0 !important;
+    justify-content: flex-start !important;
+    padding-top: 8px !important;
+    gap: 4px !important;
+  }
+
+  .tab-content {
+    grid-area: content !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    background: var(--bg) !important;
+  }
+
+  /* Botones verticales del Sidebar */
+  .tab-btn {
+    width: 100% !important;
+    flex: none !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    padding: 10px 4px !important;
+  }
+  .tab-btn .tab-icon {
+    font-size: 18px !important;
+  }
+  .tab-btn .tab-label {
+    font-size: 8px !important;
+  }
+  
+  /* Indicador activo vertical en el lateral derecho del botón */
+  .tab-btn::after {
+    width: 3px !important;
+    height: 60% !important;
+    top: 20% !important;
+    bottom: 20% !important;
+    left: auto !important;
+    right: 0 !important;
+    border-radius: 4px 0 0 4px !important;
+    transform: scaleY(0) !important;
+    transform-origin: right center !important;
+  }
+  .tab-btn.active::after {
+    transform: scaleY(1) !important;
+    opacity: 1 !important;
+  }
+
+  .stream-meta {
+    display: none !important;
+  }
+  .viewers-badge.clickable {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    min-height: auto !important;
+  }
+
+  .panel {
+    padding: 12px 16px 24px 16px !important;
+  }
+  .section {
+    padding-bottom: 16px !important;
+    margin-bottom: 8px !important;
+  }
+  .section-body {
+    gap: 10px !important;
+  }
+  .agent-input-area {
+    padding: 8px 12px !important;
+  }
+  .actions-grid, .followers-grid {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  .actions-col, .followers-col {
+    gap: 16px !important;
+  }
+  
+  /* Ajustar la posición absoluta del drawer IRC en móvil horizontal solo en pantallas angostas */
+  @media (max-width: 600px) {
+    .irc-panel {
+      position: absolute !important;
+      top: 0 !important;
+      height: 100% !important;
+      right: -270px !important;
+      z-index: 1010 !important;
+    }
+    .chat-tab.irc-open-mobile .irc-panel {
+      transform: translateX(-270px) !important;
+    }
+    .irc-overlay-mobile {
+      top: 0 !important;
+      height: 100% !important;
+    }
+  }
+}
+
+/* TABLETS Y PANTALLAS DE ANCHO INTERMEDIO (Las columnas Flex paralelas fluyen de forma nativa) */
+
+/* ESCRITORIO (Desde 1025px) */
+@media (min-width: 1025px) {
   #app-root {
     display: grid;
     grid-template-rows: var(--header-h) var(--tab-h) 1fr;
@@ -141,3 +282,88 @@
     display: none;
   }
 }
+@media (min-width: 601px) and (max-width: 1024px) {
+  #app-root {
+    display: grid;
+    grid-template-rows: var(--header-h) var(--tab-h) 1fr;
+    height: 100%;
+  }
+  .tab-bar {
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-content {
+    height: 100%;
+    overflow: hidden;
+  }
+  .chat-tab.irc-open-mobile .irc-panel {
+    transform: none;
+  }
+  .irc-overlay-mobile {
+    display: none;
+  }
+}
+
+/* AJUSTES PARA PANTALLAS ULTRA ESTRECHAS (Hasta 480px) */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 8px 12px !important;
+  }
+  .stream-widget {
+    gap: 8px !important;
+  }
+  .stream-meta {
+    display: none !important;
+  }
+  .stream-name {
+    font-size: 13px !important;
+  }
+  .viewers-badge.clickable,
+  .viewers-badge.offline-irc-btn {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    min-height: auto !important;
+    gap: 4px !important;
+  }
+  .conn-badge,
+  .stream-status-dot {
+    width: 6px !important;
+    height: 6px !important;
+  }
+
+  .tab-btn {
+    padding: 6px 2px !important;
+    gap: 2px !important;
+  }
+  .tab-btn .tab-icon {
+    font-size: 17px !important;
+  }
+  .tab-btn .tab-label {
+    font-size: 8px !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  .panel {
+    padding: 12px 12px 32px 12px !important;
+    gap: 16px !important;
+  }
+  .section {
+    margin-bottom: 8px !important;
+    padding-bottom: 16px !important;
+  }
+  .section-body {
+    gap: 12px !important;
+  }
+  .action-row {
+    gap: 8px !important;
+  }
+}
+
+/* DESACTIVAR INTERACCIÓN DE VIEWERS EN PANTALLAS GRANDES DONDE EL IRC YA ESTÁ VISIBLE */
+@media (min-width: 601px) {
+  .viewers-badge.clickable {
+    cursor: default !important;
+    pointer-events: none !important;
+  }
+}
+
+

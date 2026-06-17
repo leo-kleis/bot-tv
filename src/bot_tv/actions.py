@@ -135,16 +135,16 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
 
 async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
     """Marca/desmarca un usuario como bot. Retorna BotToggleResult o string de error."""
-    result = await resolve_user(bot, username.lower())
-    if not result.user_id:
-        return result.error or f"Usuario '{username}' no encontrado."
+    user_id = await get_user_id_by_name(bot.app_database, username.lower())
+    if not user_id:
+        return f"El usuario '{username}' no existe en la base de datos."
 
-    es_bot = await is_user_bot(bot.app_database, result.user_id)
-    await set_user_bot(bot.app_database, result.user_id, not es_bot)
+    es_bot = await is_user_bot(bot.app_database, user_id)
+    await set_user_bot(bot.app_database, user_id, not es_bot)
     return BotToggleResult(
         username=username,
         is_bot=not es_bot,
-        user_id=result.user_id,
+        user_id=user_id,
     )
 
 
@@ -152,11 +152,11 @@ async def action_set_nickname(
     bot: Bot, username: str, nickname: str | None
 ) -> NicknameResult | str:
     """Asigna o elimina el apodo de un usuario."""
-    result = await resolve_user(bot, username.lower())
-    if not result.user_id:
-        return result.error or f"Usuario '{username}' no encontrado."
+    user_id = await get_user_id_by_name(bot.app_database, username.lower())
+    if not user_id:
+        return f"El usuario '{username}' no existe en la base de datos."
 
-    await set_nickname(bot.app_database, result.user_id, nickname)
+    await set_nickname(bot.app_database, user_id, nickname)
     return NicknameResult(username=username, nickname=nickname)
 
 

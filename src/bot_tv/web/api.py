@@ -199,10 +199,17 @@ async def endpoint_search_users(request: Request) -> Response:
     async with bot.app_database.acquire() as conn:
         rows = await conn.fetchall(
             """
-            SELECT username, display_name, COALESCE(nickname, '') AS nickname
-            FROM users
-            WHERE username LIKE ? OR display_name LIKE ? OR nickname LIKE ?
-            ORDER BY display_name
+            SELECT u.user_id, u.username, u.display_name,
+                   COALESCE(u.nickname, '') AS nickname,
+                   u.is_bot, u.is_moderator, u.is_vip, u.is_subscriber,
+                   (f.user_id IS NOT NULL AND f.unfollowed_at IS NULL)
+                   AS is_follower
+            FROM users u
+            LEFT JOIN followers f ON u.user_id = f.user_id
+            WHERE u.username LIKE ? OR u.display_name LIKE ?
+                  OR u.nickname LIKE ?
+            GROUP BY u.user_id
+            ORDER BY u.display_name
             LIMIT 10
             """,
             (f"%{q}%", f"%{q}%", f"%{q}%"),
@@ -214,6 +221,12 @@ async def endpoint_search_users(request: Request) -> Response:
                 "username": r["username"],
                 "display_name": r["display_name"],
                 "nickname": r["nickname"] or None,
+                "is_bot": bool(r["is_bot"]),
+                "is_moderator": bool(r["is_moderator"]),
+                "is_vip": bool(r["is_vip"]),
+                "is_subscriber": bool(r["is_subscriber"]),
+                "is_follower": bool(r["is_follower"]),
+                "is_broadcaster": str(r["user_id"]) == str(bot.owner_id),
             }
             for r in rows
         ]

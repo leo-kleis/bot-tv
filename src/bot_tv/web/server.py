@@ -54,6 +54,10 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/", homepage),
         Route("/sw.js", lambda r: FileResponse(STATIC_DIR / "sw.js")),
         Route("/manifest.json", lambda r: FileResponse(STATIC_DIR / "manifest.json")),
+        Route(
+            "/favicon.ico",
+            lambda r: FileResponse(STATIC_DIR / "icons" / "icon-192.png"),
+        ),
         WebSocketRoute("/ws", websocket_endpoint),
         # REST API
         Route("/api/sync_followers", endpoint_sync_followers, methods=["POST"]),

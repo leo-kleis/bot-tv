@@ -9,11 +9,15 @@ const html = htm.bind(h);
 
 export function ActionsTab({ clips, dispatch }) {
   return html`
-    <div class="panel" id="actions-panel">
-      <${ClipSection} clips=${clips} />
-      <${UserSection} />
-      <${ModelSection} />
-      <${DangerSection} dispatch=${dispatch} />
+    <div class="panel actions-grid" id="actions-panel">
+      <div class="actions-col">
+        <${ClipSection} clips=${clips} />
+        <${ModelSection} />
+      </div>
+      <div class="actions-col">
+        <${UserSection} />
+        <${DangerSection} dispatch=${dispatch} />
+      </div>
     </div>
   `;
 }
