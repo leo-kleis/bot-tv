@@ -69,7 +69,7 @@ function IrcUser({ user }) {
   `;
 }
 
-export function ChatTab({ chatMessages, ircUsers }) {
+export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc }) {
   const feedRef = useRef(null);
   const autoScrollRef = useRef(true);
 
@@ -92,7 +92,7 @@ export function ChatTab({ chatMessages, ircUsers }) {
   );
 
   return html`
-    <div class="chat-tab">
+    <div class="chat-tab ${showIrcMobile ? 'irc-open-mobile' : ''}">
 
       <!-- Panel Chat (izquierda) -->
       <div class="chat-panel">
@@ -114,6 +114,9 @@ export function ChatTab({ chatMessages, ircUsers }) {
           ` : chatMessages.map((m, i) => html`<${ChatMessage} key=${m.timestamp + i} msg=${m} />`)}
         </div>
       </div>
+
+      <!-- Overlay móvil -->
+      ${showIrcMobile ? html`<div class="irc-overlay-mobile" onClick=${() => onToggleIrc(false)}></div>` : null}
 
       <!-- Panel IRC Usuarios (derecha) -->
       <div class="irc-panel">

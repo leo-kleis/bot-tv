@@ -17,6 +17,7 @@ const TABS = [
 
 export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
+  const [showIrcMobile, setShowIrcMobile] = useState(false);
 
   if (state.exited) {
     return html`
@@ -34,7 +35,13 @@ export function App({ state, dispatch }) {
   return html`
     <div id="app-root">
       <header class="app-header">
-        <${StreamWidget} stream=${state.stream} connected=${state.connected} />
+        <${StreamWidget}
+          stream=${state.stream}
+          connected=${state.connected}
+          ircCount=${state.ircUsers.size}
+          showIrcMobile=${showIrcMobile}
+          onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}
+        />
       </header>
 
       <nav class="tab-bar" role="tablist">
@@ -54,7 +61,14 @@ export function App({ state, dispatch }) {
       </nav>
 
       <main class="tab-content" role="main">
-        ${active === 'chat'      && html`<${ChatTab}      chatMessages=${state.chatMessages} ircUsers=${state.ircUsers} />`}
+        ${active === 'chat'      && html`
+          <${ChatTab}
+            chatMessages=${state.chatMessages}
+            ircUsers=${state.ircUsers}
+            showIrcMobile=${showIrcMobile}
+            onToggleIrc=${setShowIrcMobile}
+          />
+        `}
         ${active === 'followers' && html`<${FollowersTab} followers=${state.followers} />`}
         ${active === 'agent'     && html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}
         ${active === 'actions'   && html`<${ActionsTab} clips=${state.clips} dispatch=${dispatch} />`}

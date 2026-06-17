@@ -6,7 +6,7 @@ const html = htm.bind(h);
 
 // ── Registro del service worker ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 // ── Constantes ───────────────────────────────────────────────────────────────

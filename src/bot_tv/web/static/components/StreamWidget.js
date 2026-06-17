@@ -9,7 +9,7 @@ function fmtViewers(n) {
   return String(n);
 }
 
-export function StreamWidget({ stream, connected }) {
+export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, onToggleIrc }) {
   const { online, broadcasterName, title, category, viewerCount, viewerDiff } = stream;
 
   const diffEl = viewerDiff != null && viewerDiff !== 0 ? html`
@@ -35,12 +35,17 @@ export function StreamWidget({ stream, connected }) {
       </div>
 
       ${online && viewerCount != null ? html`
-        <div class="viewers-badge">
+        <button class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">
           <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
           <span>${fmtViewers(viewerCount)}</span>
           ${diffEl}
-        </div>
-      ` : null}
+        </button>
+      ` : html`
+        <button class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">
+          <span class="users-icon"><i class="fa-solid fa-users"></i></span>
+          <span>${ircCount}</span>
+        </button>
+      `}
     </div>
   `;
 }

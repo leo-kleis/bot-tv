@@ -1,0 +1,87 @@
+/* variables.css — Diseño de Sistema, Resets & Atmósfera Base */
+:root {
+  --bg:          #08070d;
+  --bg-gradient: radial-gradient(circle at top, #151125 0%, #07060a 100%);
+  --surface:     rgba(18, 16, 23, 0.75);
+  --surface-solid: #121017;
+  --surface2:    rgba(26, 22, 36, 0.8);
+  --surface2-solid: #1a1624;
+  --surface3:    #251d33;
+  --accent:      #9b5cff;
+  --accent-dim:  #753bc7;
+  --accent-glow: rgba(155, 92, 255, 0.15);
+  --accent-text: #cbb0ff;
+  --text:        #f3f2f7;
+  --text-2:      #d5d2db;
+  --text-muted:  #7f7b8d;
+  --online:      #10b981;
+  --offline:     #6b7280;
+  --danger:      #f43f5e;
+  --warning:     #fbbf24;
+  --success:     #34d399;
+  
+  /* Bordes semi-translúcidos para efecto vidrio */
+  --border:      rgba(155, 92, 255, 0.16);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-2:    rgba(255, 255, 255, 0.03);
+  
+  /* Sombras tridimensionales */
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-sm:   0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md:   0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg:   0 12px 40px rgba(0, 0, 0, 0.7);
+  
+  --radius:      18px;
+  --radius-sm:   12px;
+  --radius-xs:   8px;
+  --font:        'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono:        'Cascadia Code', 'Fira Code', Consolas, monospace;
+  --tab-h:       64px;
+  --header-h:    60px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Scrollbar con personalidad */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface3);
+  border: 1px solid var(--border-2);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dim);
+}

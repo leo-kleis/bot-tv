@@ -1,0 +1,109 @@
+/* followers.css — Pestaña de Seguidores */
+.followers-stat {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+  transition: border-color 0.2s, background-color 0.2s;
+  user-select: none;
+}
+.stat-card:hover {
+  border-color: var(--border);
+  background-color: var(--surface3);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+.stat-card.new .stat-value {
+  color: var(--success);
+}
+.stat-card.lost .stat-value {
+  color: var(--danger);
+}
+
+.follower-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Fila de seguidor plana minimalista con punto indicador */
+.follower-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  font-size: 13px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-2);
+  transition: background 0.15s, color 0.15s;
+  background: transparent !important;
+  border-left: none !important;
+  border-radius: 0 !important;
+  user-select: none;
+}
+.follower-item:last-child {
+  border-bottom: none;
+}
+.follower-item:hover {
+  background: rgba(255, 255, 255, 0.01) !important;
+  color: var(--text);
+}
+
+.follower-item::before {
+  content: '●';
+  font-size: 9px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+.follower-item.new::before {
+  color: var(--success);
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
+}
+.follower-item.lost::before {
+  color: var(--danger);
+  text-shadow: 0 0 6px rgba(244, 63, 94, 0.4);
+}
+
+.progress-bar-wrap {
+  background: var(--surface2);
+  border-radius: 99px;
+  overflow: hidden;
+  height: 8px;
+  border: 1px solid var(--border-2);
+  margin-top: 8px;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+}
+
+.progress-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}

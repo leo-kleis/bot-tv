@@ -1,0 +1,113 @@
+/* actions.css — Secciones de la pestaña de Acciones */
+.action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Contenedor del Autocompletado */
+.autocomplete-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 200;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+
+.autocomplete-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.15s;
+  user-select: none;
+}
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
+  background: var(--accent-glow);
+}
+.autocomplete-item .ac-main {
+  color: var(--text);
+  font-weight: 600;
+}
+.autocomplete-item .ac-sub {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.model-select-wrap {
+  flex: 1;
+  min-width: 150px;
+}
+
+.result-msg {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  animation: msg-in 0.2s ease;
+  margin-top: 4px;
+}
+.result-msg.ok {
+  background: rgba(52, 211, 153, 0.08);
+  color: var(--success);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+}
+.result-msg.err {
+  background: rgba(244, 63, 94, 0.08);
+  color: var(--danger);
+  border: 1px solid rgba(244, 63, 94, 0.15);
+}
+
+/* Grilla o lista de clips */
+.clip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.clip-item {
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+.clip-item:hover {
+  border-color: var(--border);
+}
+.clip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.clip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clip-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
