@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -14,6 +13,7 @@ from bot_tv.database.app import (
     sync_followers,
     upsert_user,
 )
+from bot_tv.events import FollowerProgressEvent, FollowerSyncEvent
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -49,31 +49,34 @@ class FollowersComponent(commands.Component):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
+    @commands.Component.listener()
+    async def event_bot_fully_connected(self) -> None:
+        """Sincroniza seguidores al iniciar."""
+        channels = await self.bot.get_channels()
+        for channel in channels:
+            await self.check_and_sync(channel["user_id"])
+
     async def check_and_sync(self, channel_id: str) -> None:
-        """Obtiene seguidores de la API, compara con la DB y reporta cambios."""
-        # 1. Obtener seguidores actuales desde la API
+        """Obtiene seguidores de la API, compara con la DB y emite FollowerSyncEvent."""
         current = await self._fetch_followers(channel_id)
         current_ids = {t[0] for t in current}
-
-        # Dict: id → nombre para los seguidores actuales
         current_names: dict[str, str] = {t[0]: t[1] for t in current}
 
-        # 2. Obtener seguidores previos desde la DB
         previous_ids = await get_follower_ids(self.bot.app_database, channel_id)
 
         perdidos: set[str] = set()
+        new_labels: list[str] = []
+        lost_labels: list[str] = []
+        is_first_sync = not previous_ids
 
-        # 3. Comparar
         if previous_ids:
-            # Ya teniamos datos → comparar
             nuevos = current_ids - previous_ids
             perdidos = previous_ids - current_ids
 
             if nuevos:
-                # Nickname desde la DB; display_name viene de la API (current_names)
                 nuevos_info = await get_users_info(self.bot.app_database, list(nuevos))
                 now_iso = datetime.now(UTC).isoformat()
-                labels = [
+                new_labels = [
                     _format_label(
                         uid,
                         current_names.get(uid, uid),
@@ -82,18 +85,12 @@ class FollowersComponent(commands.Component):
                     )
                     for uid in nuevos
                 ]
-                LOGGER.info(
-                    "[+] Nuevos seguidores (%d): %s",
-                    len(nuevos),
-                    ", ".join(labels),
-                )
+
             if perdidos:
-                # display_name, nickname y followed_at vienen de la DB
-                # (aún no se ha llamado a sync_followers, así que los datos siguen ahí)
                 perdidos_data = await get_unfollowers_data(
                     self.bot.app_database, channel_id, list(perdidos)
                 )
-                labels = [
+                lost_labels = [
                     _format_label(
                         uid,
                         perdidos_data.get(uid, {}).get("display_name") or uid,
@@ -102,18 +99,19 @@ class FollowersComponent(commands.Component):
                     )
                     for uid in perdidos
                 ]
-                LOGGER.warning(
-                    "[-] Dejaron de seguir (%d): %s",
-                    len(perdidos),
-                    ", ".join(labels),
-                )
-            if not nuevos and not perdidos:
-                LOGGER.info("Sin cambios en seguidores (%d total)", len(current_ids))
-        else:
-            # Primera vez → solo informar
-            LOGGER.info("Primera carga: %d seguidores registrados", len(current_ids))
 
-        # 4. Actualizar la DB con los datos actuales (siempre DESPUÉS del log)
+        await self.bot.event_bus.emit(
+            FollowerSyncEvent(
+                timestamp=datetime.now().isoformat(),
+                new_count=len(new_labels),
+                lost_count=len(lost_labels),
+                total=len(current_ids),
+                new_labels=new_labels,
+                lost_labels=lost_labels,
+                is_first_sync=is_first_sync,
+            )
+        )
+
         await sync_followers(
             self.bot.app_database, channel_id, current, unfollowed_ids=list(perdidos)
         )
@@ -143,15 +141,15 @@ class FollowersComponent(commands.Component):
             )
             follower_tuples.append((fid, fname, followed_at))
 
-            # Registrar como usuario en la tabla users
             await upsert_user(self.bot.app_database, fid, fname, fname)
 
-            # Progreso en tiempo real
-            sys.stdout.write(f"\r  Obteniendo seguidores... {count}/{total}")
-            sys.stdout.flush()
-
-        # Limpiar la línea de progreso
-        sys.stdout.write("\r" + " " * 50 + "\r")
-        sys.stdout.flush()
+            # Emitir progreso en tiempo real
+            await self.bot.event_bus.emit(
+                FollowerProgressEvent(
+                    timestamp=datetime.now().isoformat(),
+                    count=count,
+                    total=total,
+                )
+            )
 
         return follower_tuples

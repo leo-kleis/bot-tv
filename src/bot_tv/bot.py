@@ -15,6 +15,7 @@ from bot_tv.components.clip_component import ClipComponent
 from bot_tv.components.followers_component import FollowersComponent
 from bot_tv.components.stream_component import StreamComponent
 from bot_tv.database.tokens import TokenPersistMixin
+from bot_tv.event_bus import EventBus
 from bot_tv.irc import TwitchIRCClient
 from bot_tv.utils.env import (
     BOT_ID,
@@ -36,9 +37,11 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         token_database: asqlite.Pool,
         app_database: asqlite.Pool,
         subs: list[eventsub.SubscriptionPayload],
+        event_bus: EventBus,
     ) -> None:
         self.token_database = token_database
         self.app_database = app_database
+        self.event_bus = event_bus
         self._irc_task: asyncio.Task[None] | None = None
 
         super().__init__(

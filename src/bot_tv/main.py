@@ -7,8 +7,10 @@ from prompt_toolkit.patch_stdout import patch_stdout
 
 from bot_tv.bot import Bot
 from bot_tv.console import AdminConsole
+from bot_tv.consumers.terminal import TerminalConsumer
 from bot_tv.database.app import APP_DB_PATH, setup_app_database
 from bot_tv.database.tokens import DB_PATH, setup_token_database
+from bot_tv.event_bus import EventBus
 from bot_tv.utils.env import DB_DIR
 from bot_tv.utils.logger import setup_logging
 
@@ -16,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Punto de entrada de la aplicación."""
+    """Punto de entrada de la aplicación (terminal con Rich + REPL)."""
     setup_logging(level=logging.INFO)
     DB_DIR.mkdir(exist_ok=True)
 
@@ -36,8 +38,18 @@ def main() -> None:
                 sys.exit(1)
 
             LOGGER.info("Tokens cargados: %d", len(tokens))
+
+            event_bus = EventBus()
+            # Consumer de terminal: reproduce el output Rich de los componentes
+            TerminalConsumer(event_bus)
+
             with patch_stdout(raw=True):
-                async with Bot(token_database=tdb, app_database=adb, subs=subs) as bot:
+                async with Bot(
+                    token_database=tdb,
+                    app_database=adb,
+                    subs=subs,
+                    event_bus=event_bus,
+                ) as bot:
                     for pair in tokens:
                         await bot.add_token(*pair)
 

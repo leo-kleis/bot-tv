@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import keyboard
 import twitchio
 from twitchio.ext import commands
 
+from bot_tv.events import ClipCreatedEvent
 from bot_tv.utils.colors import AMARILLO, RESET, ROJO, VERDE
 
 if TYPE_CHECKING:
@@ -97,6 +99,14 @@ class ClipComponent(commands.Component):
             url_final = edit_url if edit_url else f"https://clips.twitch.tv/{clip_id}"
 
             LOGGER.info("%s¡Clip creado con éxito!%s URL: %s", VERDE, RESET, url_final)
+
+            await self.bot.event_bus.emit(
+                ClipCreatedEvent(
+                    timestamp=datetime.now().isoformat(),
+                    url=url_final,
+                    broadcaster_name=broadcaster_name,
+                )
+            )
 
             # 5. Mandar el link al chat (lo habla el Bot)
             msg = (

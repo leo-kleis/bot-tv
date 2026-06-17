@@ -1,0 +1,43 @@
+import { h, useState } from '/static/vendor/preact.module.js';
+import htm from '/static/vendor/htm.module.js';
+import { apiPost } from '/static/components/api.js';
+
+const html = htm.bind(h);
+
+export function DangerSection({ dispatch }) {
+  const [confirm, setConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function exit() {
+    setLoading(true);
+    const data = await apiPost('/api/exit', {});
+    setLoading(false);
+    if (data.ok) {
+      dispatch({ type: 'BOT_EXITED' });
+    }
+  }
+
+  return html`
+    <div class="section" style="border-color:rgba(224,82,82,0.2)">
+      <div class="section-header" style="color:var(--danger)"><span class="section-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Zona de Peligro</div>
+      <div class="section-body">
+        ${!confirm
+          ? html`
+            <button id="btn-exit-confirm" class="btn btn-danger btn-lg" onClick=${() => setConfirm(true)}>
+              <i class="fa-solid fa-power-off"></i> Apagar bot
+            </button>
+          `
+          : html`
+            <p style="font-size:13px;color:var(--text-2)">¿Seguro? Esto cerrará el proceso del bot.</p>
+            <div class="action-row">
+              <button id="btn-exit-cancel" class="btn" style="flex:1" onClick=${() => setConfirm(false)}>Cancelar</button>
+              <button id="btn-exit-execute" class="btn btn-danger" style="flex:1" onClick=${exit} disabled=${loading}>
+                ${loading ? html`<span class="spinner"></span>` : 'Confirmar'}
+              </button>
+            </div>
+          `
+        }
+      </div>
+    </div>
+  `;
+}

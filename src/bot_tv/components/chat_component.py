@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
@@ -13,19 +14,11 @@ from bot_tv.database.app import (
     save_chat_message,
     upsert_user,
 )
-from bot_tv.utils.colors import (
-    CONSOLE,
-    DIM,
-    RESET,
-    format_colored_name,
-    format_timestamp,
-    get_chatter_rgb,
-)
+from bot_tv.events import ChatMessageEvent
+from bot_tv.utils.colors import get_chatter_rgb
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
-
-print = CONSOLE.print
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,50 +29,43 @@ class ChatComponent(commands.Component):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
-    async def _get_chatter_element(
+    async def _get_chatter_role(
         self, chatter: twitchio.Chatter, broadcaster_id: str | int
     ) -> str:
-        """Determina el elemento (rol) del chatter.
+        """Determina el rol del chatter como string limpio (sin markup Rich).
 
         Prioridad:
-        1. Broadcaster → '(Broadcaster)'
-        2. Nuestro bot → '(Bot)'
-        3. Bot marcado en DB → '(Bot)'
-        4. Seguidor → '(DD/MM/AA)' con la fecha de follow
-        5. Ninguno → '(Visita)'
+        1. Broadcaster → 'Broadcaster'
+        2. Nuestro bot → 'Bot'
+        3. Bot marcado en DB → 'Bot'
+        4. Seguidor → 'DD/MM/AA' con la fecha de follow
+        5. Ninguno → 'Visita'
         """
         user_id = chatter.id
 
-        # 1. Es el broadcaster del canal
         if chatter.id == broadcaster_id:
-            return f"{DIM}(Broadcaster){RESET}"
+            return "Broadcaster"
 
-        # 2. Es nuestro bot
         if user_id == self.bot.bot_id:
-            return f"{DIM}(Bot){RESET}"
+            return "Bot"
 
-        # 3. Está marcado como bot en la DB
         if await is_user_bot(self.bot.app_database, user_id):
-            return f"{DIM}(Bot){RESET}"
+            return "Bot"
 
-        # 4. Es seguidor (consulta en tiempo real)
         follow = await chatter.follow_info()
         if follow and follow.followed_at:
-            fecha = follow.followed_at.strftime("%d/%m/%y")
-            return f"{DIM}({fecha}){RESET}"
+            return follow.followed_at.strftime("%d/%m/%y")
 
-        # 5. No es seguidor
-        return f"{DIM}(Visita){RESET}"
+        return "Visita"
 
     @commands.Component.listener()
     async def event_message(self, payload: twitchio.ChatMessage) -> None:
-        """Guarda el mensaje en el historial y muestra en consola con color."""
+        """Guarda el mensaje en el historial y emite un ChatMessageEvent."""
         chatter = payload.chatter
         user_id = chatter.id
         username = chatter.name or user_id
         display_name = chatter.display_name or username
 
-        # Guardar/actualizar datos del usuario en la DB con sus roles
         await upsert_user(
             self.bot.app_database,
             user_id,
@@ -90,7 +76,6 @@ class ChatComponent(commands.Component):
             is_subscriber=chatter.subscriber,
         )
 
-        # Si el usuario está marcado como bot, no se guarda el mensaje en el historial
         es_bot = await is_user_bot(self.bot.app_database, user_id)
         if not es_bot:
             await save_chat_message(
@@ -100,21 +85,27 @@ class ChatComponent(commands.Component):
                 payload.text,
             )
 
-        # Determinar nombre a mostrar: apodo > display_name
         nickname = await get_user_nickname(self.bot.app_database, user_id)
 
-        # Obtener valores RGB del color de Twitch del chatter, o uno por defecto
-        # pasándole el nombre de usuario (para que asigne consistentemente un color).
         hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)
-        nombre_coloreado = format_colored_name(display_name, nickname, r, g, b)
 
-        timestamp = format_timestamp()
+        role = await self._get_chatter_role(chatter, payload.broadcaster.id)
 
-        # Elemento (rol del chatter)
-        elemento = await self._get_chatter_element(chatter, payload.broadcaster.id)
-
-        print(f"{timestamp} {nombre_coloreado} {elemento}: {payload.text}")
+        await self.bot.event_bus.emit(
+            ChatMessageEvent(
+                timestamp=datetime.now().isoformat(),
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                nickname=nickname,
+                color_rgb=(r, g, b),
+                role=role,
+                text=payload.text,
+                channel_id=payload.broadcaster.id,
+                is_bot=es_bot,
+            )
+        )
 
     @commands.command()
     async def hola(self, ctx: commands.Context) -> None:
@@ -143,7 +134,6 @@ class ChatComponent(commands.Component):
             )
             return
 
-        # Cualquier otro error no manejado lo registramos completo
         LOGGER.exception(
             "Error no manejado en '?%s'",
             ctx.command.name if ctx.command else "?",

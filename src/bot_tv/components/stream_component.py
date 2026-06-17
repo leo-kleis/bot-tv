@@ -3,31 +3,23 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
 from twitchio.ext import commands
 
-from bot_tv.utils.colors import (
-    BOLD,
-    CONSOLE,
-    CYAN,
-    DIM,
-    MORADO,
-    RESET,
-    ROJO,
-    VERDE,
-    format_timestamp,
+from bot_tv.events import (
+    StreamOfflineEvent,
+    StreamOnlineEvent,
+    ViewerUpdateEvent,
 )
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
-print = CONSOLE.print
-
 LOGGER = logging.getLogger(__name__)
 
-# Intervalo de polling para viewers (en segundos)
 VIEWER_POLL_INTERVAL = 60
 
 
@@ -36,7 +28,7 @@ class StreamComponent(commands.Component):
 
     Funcionalidad:
     - Detecta stream online/offline via EventSub (instantáneo)
-    - Muestra viewer count en terminal, solo cuando cambia (polling cada 60s)
+    - Emite ViewerUpdateEvent con el viewer count cuando cambia (polling cada 60s)
     """
 
     def __init__(self, bot: Bot) -> None:
@@ -51,19 +43,14 @@ class StreamComponent(commands.Component):
     @commands.Component.listener()
     async def event_bot_fully_connected(self) -> None:
         """Inicia el monitoreo cuando el bot está completamente conectado."""
-        # Obtener los canales configurados (excluyendo al bot)
         channels = await self.bot.get_channels()
-
         self._channel_ids = [channel["user_id"] for channel in channels]
 
         if not self._channel_ids:
             LOGGER.warning("StreamComponent: no hay canales para monitorear.")
             return
 
-        # Verificar estado inicial del stream
         await self._check_initial_status()
-
-        # Iniciar polling de viewers
         self._viewer_task = asyncio.create_task(self._viewer_poll_loop())
 
     async def component_teardown(self) -> None:
@@ -81,11 +68,8 @@ class StreamComponent(commands.Component):
     ) -> None:
         """Se ejecuta cuando un stream se pone online (EventSub)."""
         self._stream_online = True
-        self._last_viewer_count = None  # Resetear para forzar primer print
+        self._last_viewer_count = None
 
-        timestamp = format_timestamp()
-
-        # Obtener info del stream para título y categoría
         titulo = ""
         categoria = ""
         with contextlib.suppress(Exception):
@@ -95,17 +79,15 @@ class StreamComponent(commands.Component):
                 categoria = stream.game_name or ""
                 break
 
-        nombre = payload.broadcaster.display_name or payload.broadcaster.name
-        info_parts = []
-        if titulo:
-            info_parts.append(f'"{titulo}"')
-        if categoria:
-            info_parts.append(f"({categoria})")
-        info_str = f"  {' '.join(info_parts)}" if info_parts else ""
+        nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
 
-        print(
-            f"{timestamp} {VERDE}{BOLD}STREAM ONLINE{RESET}  "
-            f"{MORADO}►{RESET} {nombre} inició stream{info_str}"
+        await self.bot.event_bus.emit(
+            StreamOnlineEvent(
+                timestamp=datetime.now().isoformat(),
+                broadcaster_name=nombre,
+                title=titulo,
+                category=categoria,
+            )
         )
 
     @commands.Component.listener()
@@ -116,13 +98,13 @@ class StreamComponent(commands.Component):
         self._stream_online = False
         self._last_viewer_count = None
 
-        timestamp = format_timestamp()
+        nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
 
-        nombre = payload.broadcaster.display_name or payload.broadcaster.name
-
-        print(
-            f"{timestamp} {ROJO}{BOLD}STREAM OFFLINE{RESET}  "
-            f"{MORADO}►{RESET} {nombre} terminó su stream"
+        await self.bot.event_bus.emit(
+            StreamOfflineEvent(
+                timestamp=datetime.now().isoformat(),
+                broadcaster_name=nombre,
+            )
         )
 
     # ── Polling de viewers ──────────────────────────────────────────
@@ -137,34 +119,32 @@ class StreamComponent(commands.Component):
                     viewer_count = stream.viewer_count
                     self._last_viewer_count = viewer_count
 
-                    timestamp = format_timestamp()
-
-                    nombre = stream.user.display_name or stream.user.name
+                    nombre = stream.user.display_name or stream.user.name or ""
                     titulo = stream.title or ""
                     categoria = stream.game_name or ""
 
-                    info_parts = []
-                    if titulo:
-                        info_parts.append(f'"{titulo}"')
-                    if categoria:
-                        info_parts.append(f"({categoria})")
-                    info_str = f"  {' '.join(info_parts)}" if info_parts else ""
-
-                    print(
-                        f"{timestamp} {VERDE}{BOLD}STREAM ONLINE{RESET}  "
-                        f"{MORADO}►{RESET} {nombre} en vivo{info_str}"
+                    await self.bot.event_bus.emit(
+                        StreamOnlineEvent(
+                            timestamp=datetime.now().isoformat(),
+                            broadcaster_name=nombre,
+                            title=titulo,
+                            category=categoria,
+                        )
                     )
-                    print(
-                        f"{timestamp} {CYAN}VIEWERS{RESET}         "
-                        f"{MORADO}►{RESET} {viewer_count} espectadores"
+                    await self.bot.event_bus.emit(
+                        ViewerUpdateEvent(
+                            timestamp=datetime.now().isoformat(),
+                            count=viewer_count,
+                            diff=None,
+                        )
                     )
                     break
                 else:
-                    # El stream no está en vivo
-                    timestamp = format_timestamp()
-                    print(
-                        f"{timestamp} {ROJO}{BOLD}STREAM OFFLINE{RESET}  "
-                        f"{MORADO}►{RESET} {DIM}Canal no está en vivo{RESET}"
+                    await self.bot.event_bus.emit(
+                        StreamOfflineEvent(
+                            timestamp=datetime.now().isoformat(),
+                            broadcaster_name="",
+                        )
                     )
             except Exception as e:
                 LOGGER.error("Error al verificar estado inicial del stream: %s", e)
@@ -172,7 +152,7 @@ class StreamComponent(commands.Component):
     async def _viewer_poll_loop(self) -> None:
         """Loop que consulta el conteo de viewers cada VIEWER_POLL_INTERVAL segundos.
 
-        Solo imprime cuando el valor cambia respecto al último conocido.
+        Solo emite ViewerUpdateEvent cuando el valor cambia.
         """
         while True:
             await asyncio.sleep(VIEWER_POLL_INTERVAL)
@@ -188,27 +168,23 @@ class StreamComponent(commands.Component):
                         found = True
                         viewer_count = stream.viewer_count
 
-                        # Solo imprimir si cambió
                         if viewer_count != self._last_viewer_count:
-                            diferencia = ""
-                            if self._last_viewer_count is not None:
-                                diff = viewer_count - self._last_viewer_count
-                                if diff > 0:
-                                    diferencia = f" {VERDE}(+{diff}){RESET}"
-                                elif diff < 0:
-                                    diferencia = f" {ROJO}({diff}){RESET}"
-
+                            diff = (
+                                viewer_count - self._last_viewer_count
+                                if self._last_viewer_count is not None
+                                else None
+                            )
                             self._last_viewer_count = viewer_count
 
-                            timestamp = format_timestamp()
-                            print(
-                                f"{timestamp} {CYAN}VIEWERS{RESET}         "
-                                f"{MORADO}►{RESET} "
-                                f"{viewer_count} espectadores{diferencia}"
+                            await self.bot.event_bus.emit(
+                                ViewerUpdateEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    count=viewer_count,
+                                    diff=diff,
+                                )
                             )
                         break
 
-                    # Si no se encontró stream, se apagó entre polls
                     if not found and self._stream_online:
                         self._stream_online = False
                         self._last_viewer_count = None
