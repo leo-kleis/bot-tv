@@ -150,32 +150,53 @@ class StreamComponent(commands.Component):
                 LOGGER.error("Error al verificar estado inicial del stream: %s", e)
 
     async def _viewer_poll_loop(self) -> None:
-        """Loop que consulta el conteo de viewers cada VIEWER_POLL_INTERVAL segundos.
-
-        Solo emite ViewerUpdateEvent cuando el valor cambia.
-        """
+        """Loop que consulta el estado del stream y viewers periódicamente."""
         while True:
             await asyncio.sleep(VIEWER_POLL_INTERVAL)
-
-            if not self._stream_online:
-                continue
 
             for channel_id in self._channel_ids:
                 try:
                     streams = self.bot.fetch_streams(user_ids=[int(channel_id)])
-                    found = False
+                    stream_obj = None
                     async for stream in streams:
-                        found = True
-                        viewer_count = stream.viewer_count
+                        stream_obj = stream
+                        break
 
-                        if viewer_count != self._last_viewer_count:
+                    if stream_obj:
+                        viewer_count = stream_obj.viewer_count
+                        # Si antes estaba offline
+                        if not self._stream_online:
+                            self._stream_online = True
+                            self._last_viewer_count = viewer_count
+                            nombre = (
+                                stream_obj.user.display_name
+                                or stream_obj.user.name
+                                or ""
+                            )
+                            titulo = stream_obj.title or ""
+                            categoria = stream_obj.game_name or ""
+                            await self.bot.event_bus.emit(
+                                StreamOnlineEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    broadcaster_name=nombre,
+                                    title=titulo,
+                                    category=categoria,
+                                )
+                            )
+                            await self.bot.event_bus.emit(
+                                ViewerUpdateEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    count=viewer_count,
+                                    diff=None,
+                                )
+                            )
+                        elif viewer_count != self._last_viewer_count:
                             diff = (
                                 viewer_count - self._last_viewer_count
                                 if self._last_viewer_count is not None
                                 else None
                             )
                             self._last_viewer_count = viewer_count
-
                             await self.bot.event_bus.emit(
                                 ViewerUpdateEvent(
                                     timestamp=datetime.now().isoformat(),
@@ -183,10 +204,16 @@ class StreamComponent(commands.Component):
                                     diff=diff,
                                 )
                             )
-                        break
-
-                    if not found and self._stream_online:
-                        self._stream_online = False
-                        self._last_viewer_count = None
+                    else:
+                        # Si antes estaba online pero ahora ya no se encuentra el stream
+                        if self._stream_online:
+                            self._stream_online = False
+                            self._last_viewer_count = None
+                            await self.bot.event_bus.emit(
+                                StreamOfflineEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    broadcaster_name="",
+                                )
+                            )
                 except Exception as e:
-                    LOGGER.error("Error al consultar viewers: %s", e)
+                    LOGGER.error("Error al consultar estado/viewers del stream: %s", e)

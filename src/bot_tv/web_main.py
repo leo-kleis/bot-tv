@@ -108,10 +108,20 @@ def main() -> None:
                     WEB_PORT,
                 )
 
-                await asyncio.gather(
-                    bot.start(load_tokens=False),
-                    server.serve(),
+                import contextlib
+
+                bot_task = asyncio.create_task(bot.start(load_tokens=False))
+                server_task = asyncio.create_task(server.serve())
+
+                _done, pending = await asyncio.wait(
+                    [bot_task, server_task],
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
+
+                for task in pending:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
 
     try:
         asyncio.run(runner())
