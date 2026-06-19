@@ -1,4 +1,4 @@
-import { h } from '/static/vendor/preact.module.js';
+import { h, useState, useEffect } from '/static/vendor/preact.module.js';
 import htm from '/static/vendor/htm.module.js';
 
 const html = htm.bind(h);
@@ -10,13 +10,37 @@ function fmtViewers(n) {
 }
 
 export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, onToggleIrc }) {
-  const { online, broadcasterName, title, category, viewerCount, viewerDiff } = stream;
+  const { online, broadcasterName, title, category, viewerCount, startedAt } = stream;
+  const [uptime, setUptime] = useState('');
 
-  const diffEl = viewerDiff != null && viewerDiff !== 0 ? html`
-    <span class="viewers-diff ${viewerDiff > 0 ? 'pos' : 'neg'}">
-      ${viewerDiff > 0 ? '+' : ''}${viewerDiff}
-    </span>
-  ` : null;
+  useEffect(() => {
+    if (!online || !startedAt) {
+      setUptime('');
+      return;
+    }
+
+    const start = new Date(startedAt).getTime();
+
+    function update() {
+      const diff = Date.now() - start;
+      if (diff < 0) {
+        setUptime('00:00:00');
+        return;
+      }
+      const secs = Math.floor(diff / 1000) % 60;
+      const mins = Math.floor(diff / (1000 * 60)) % 60;
+      const hrs = Math.floor(diff / (1000 * 60 * 60));
+
+      const pad = (num) => String(num).padStart(2, '0');
+      setUptime(`${pad(hrs)}:${pad(mins)}:${pad(secs)}`);
+    }
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [online, startedAt]);
+
+
 
   return html`
     <div class="stream-widget">
@@ -27,7 +51,11 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
       <div class="stream-info">
         <div class="stream-name">
           ${broadcasterName || 'bot-tv'}
-          ${online ? html`<span style="color:var(--online);font-size:10px;margin-left:6px;font-weight:800;letter-spacing:0.05em">● LIVE</span>` : html`<span style="color:var(--text-muted);font-size:10px;margin-left:6px">offline</span>`}
+          ${online ? html`
+            <span style="color:var(--online);font-size:10px;margin-left:6px;font-weight:800;letter-spacing:0.05em;display:inline-flex;align-items:center;gap:4px">
+              ● LIVE ${uptime ? html`<span style="color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums">(${uptime})</span>` : ''}
+            </span>
+          ` : html`<span style="color:var(--text-muted);font-size:10px;margin-left:6px">offline</span>`}
         </div>
         ${(title || category) ? html`
           <div class="stream-meta">${[title, category].filter(Boolean).join(' · ')}</div>
@@ -38,7 +66,6 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
         <button class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">
           <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
           <span>${fmtViewers(viewerCount)}</span>
-          ${diffEl}
         </button>
       ` : html`
         <button class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">

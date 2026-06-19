@@ -57,8 +57,8 @@
   .irc-panel {
     position: absolute;
     top: 0;
-    right: -270px; /* Escondido a la derecha */
-    width: 260px;
+    right: -280px; /* Escondido a la derecha */
+    width: 270px;
     height: 100%;
     z-index: 1010;
     border-left: 1px solid var(--border);
@@ -74,7 +74,7 @@
 
   /* Mostrar Drawer */
   .chat-tab.irc-open-mobile .irc-panel {
-    transform: translateX(-270px);
+    transform: translateX(-280px);
     box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
   }
 
@@ -242,11 +242,11 @@
       position: absolute !important;
       top: 0 !important;
       height: 100% !important;
-      right: -270px !important;
+      right: -280px !important;
       z-index: 1010 !important;
     }
     .chat-tab.irc-open-mobile .irc-panel {
-      transform: translateX(-270px) !important;
+      transform: translateX(-280px) !important;
     }
     .irc-overlay-mobile {
       top: 0 !important;

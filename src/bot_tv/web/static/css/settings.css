@@ -1,0 +1,138 @@
+/* settings.css — Interfaz de Configuración y Estilo */
+.settings-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 24px 16px;
+  gap: 20px;
+}
+
+.settings-section {
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  animation: msg-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.settings-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 10px;
+}
+
+.settings-section-title i {
+  color: var(--accent);
+}
+
+.settings-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-label {
+  font-size: 13.5px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.font-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.font-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.font-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.font-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.font-btn i {
+  font-size: 12px;
+}
+
+.font-current-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 80px;
+  text-align: center;
+  background: var(--surface3);
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-light);
+}
+
+.font-preview-box {
+  background: var(--surface2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.font-preview-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.font-preview-text {
+  font-size: var(--font-size);
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.font-preview-chat {
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xs);
+  padding: 8px 12px;
+  font-size: var(--font-size);
+}
+
+.font-preview-chat .user {
+  font-weight: 700;
+  color: var(--accent-text);
+  margin-right: 6px;
+}

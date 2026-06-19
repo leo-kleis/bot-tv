@@ -31,10 +31,12 @@ class TwitchIRCClient:
         self.reader: asyncio.StreamReader | None = None
         self.broadcaster: twitchio.PartialUser | None = None
         self.connected_event = asyncio.Event()
+        self.connected_users: dict[str, UserJoinEvent] = {}
 
     async def connect(self) -> None:
         """Conecta al servidor de IRC de Twitch y mantiene el loop."""
         LOGGER.info("Conectando a irc.chat.twitch.tv:6697...")
+        self.connected_users.clear()
         try:
             try:
                 broadcaster_id = self.bot.owner_id
@@ -174,6 +176,9 @@ class TwitchIRCClient:
 
         if action == "JOIN":
             is_bot = False
+            is_mod = False
+            is_vip = False
+            is_sub = False
             if twitch_user:
                 is_bot = (twitch_user.id == self.bot.bot_id) or (
                     await is_user_bot(self.app_database, str(twitch_user.id))
@@ -181,19 +186,35 @@ class TwitchIRCClient:
             elif user_id:
                 is_bot = await is_user_bot(self.app_database, user_id)
 
-            await self.bot.event_bus.emit(
-                UserJoinEvent(
-                    timestamp=datetime.now().isoformat(),
-                    user_id=user_id,
-                    username=usuario,
-                    display_name=display_name,
-                    nickname=nickname,
-                    color_rgb=(r, g, b),
-                    role=role,
-                    is_bot=is_bot,
-                )
+            if user_id:
+                async with self.app_database.acquire() as conn:
+                    query = (
+                        "SELECT is_moderator, is_vip, is_subscriber "
+                        "FROM users WHERE user_id = ?"
+                    )
+                    row = await conn.fetchone(query, (user_id,))
+                    if row:
+                        is_mod = bool(row["is_moderator"])
+                        is_vip = bool(row["is_vip"])
+                        is_sub = bool(row["is_subscriber"])
+
+            join_event = UserJoinEvent(
+                timestamp=datetime.now().isoformat(),
+                user_id=user_id,
+                username=usuario,
+                display_name=display_name,
+                nickname=nickname,
+                color_rgb=(r, g, b),
+                role=role,
+                is_bot=is_bot,
+                is_moderator=is_mod,
+                is_vip=is_vip,
+                is_subscriber=is_sub,
             )
+            self.connected_users[usuario] = join_event
+            await self.bot.event_bus.emit(join_event)
         else:
+            self.connected_users.pop(usuario, None)
             await self.bot.event_bus.emit(
                 UserPartEvent(
                     timestamp=datetime.now().isoformat(),

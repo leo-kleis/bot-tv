@@ -81,12 +81,21 @@ class StreamComponent(commands.Component):
 
         nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
 
+        started_at = None
+        if hasattr(payload, "started_at") and payload.started_at:
+            started_at = (
+                payload.started_at.isoformat()
+                if hasattr(payload.started_at, "isoformat")
+                else str(payload.started_at)
+            )
+
         await self.bot.event_bus.emit(
             StreamOnlineEvent(
                 timestamp=datetime.now().isoformat(),
                 broadcaster_name=nombre,
                 title=titulo,
                 category=categoria,
+                started_at=started_at,
             )
         )
 
@@ -122,6 +131,11 @@ class StreamComponent(commands.Component):
                     nombre = stream.user.display_name or stream.user.name or ""
                     titulo = stream.title or ""
                     categoria = stream.game_name or ""
+                    started_at = (
+                        stream.started_at.isoformat()
+                        if hasattr(stream.started_at, "isoformat")
+                        else str(stream.started_at)
+                    )
 
                     await self.bot.event_bus.emit(
                         StreamOnlineEvent(
@@ -129,6 +143,7 @@ class StreamComponent(commands.Component):
                             broadcaster_name=nombre,
                             title=titulo,
                             category=categoria,
+                            started_at=started_at,
                         )
                     )
                     await self.bot.event_bus.emit(
@@ -175,12 +190,18 @@ class StreamComponent(commands.Component):
                             )
                             titulo = stream_obj.title or ""
                             categoria = stream_obj.game_name or ""
+                            started_at = (
+                                stream_obj.started_at.isoformat()
+                                if hasattr(stream_obj.started_at, "isoformat")
+                                else str(stream_obj.started_at)
+                            )
                             await self.bot.event_bus.emit(
                                 StreamOnlineEvent(
                                     timestamp=datetime.now().isoformat(),
                                     broadcaster_name=nombre,
                                     title=titulo,
                                     category=categoria,
+                                    started_at=started_at,
                                 )
                             )
                             await self.bot.event_bus.emit(

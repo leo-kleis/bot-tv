@@ -43,6 +43,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.app_database = app_database
         self.event_bus = event_bus
         self._irc_task: asyncio.Task[None] | None = None
+        self.irc: TwitchIRCClient | None = None
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -123,16 +124,16 @@ class Bot(TokenPersistMixin, commands.AutoBot):
                 "El bot iniciará sin IRC."
             )
         elif canales:
-            irc = TwitchIRCClient(
+            self.irc = TwitchIRCClient(
                 bot=self,
                 app_database=self.app_database,
                 bot_username=bot_name,
                 token=IRC_TOKEN,
                 canales=canales,
             )
-            self._irc_task = asyncio.create_task(irc.connect())
+            self._irc_task = asyncio.create_task(self.irc.connect())
             try:
-                await asyncio.wait_for(irc.connected_event.wait(), timeout=15.0)
+                await asyncio.wait_for(self.irc.connected_event.wait(), timeout=15.0)
             except Exception:
                 LOGGER.warning("Continuando arranque sin esperar más al IRC.")
 

@@ -47,6 +47,9 @@ class UserJoinEvent:
     color_rgb: tuple[int, int, int]
     role: str
     is_bot: bool = False
+    is_moderator: bool = False
+    is_vip: bool = False
+    is_subscriber: bool = False
     timestamp: str = field(default_factory=_now)
 
 
@@ -73,6 +76,7 @@ class StreamOnlineEvent:
     broadcaster_name: str
     title: str
     category: str
+    started_at: str | None = None
     timestamp: str = field(default_factory=_now)
 
 

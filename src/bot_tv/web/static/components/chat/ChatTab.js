@@ -26,7 +26,7 @@ function roleClass(role) {
 }
 
 function roleDisplay(role) {
-  if (!role || role === 'Visita') return null;
+  if (!role || role === 'Visita') return 'Visita';
   return role;
 }
 
@@ -54,17 +54,47 @@ function ChatMessage({ msg }) {
 // Usuario IRC
 function IrcUser({ user }) {
   const color = toRgb(user.color_rgb);
-  const rClass = roleClass(user.role);
-  const name = user.nickname || user.display_name || user.username;
+  const timeStr = user.timestamp ? fmtTime(user.timestamp) : '--:--';
+  const nameStr = user.display_name || user.username;
+  
+  let followStatus = '';
+  if (user.role === 'Broadcaster') {
+    followStatus = '[Broadcaster]';
+  } else if (user.role === 'Bot' || user.is_bot) {
+    followStatus = '[Bot]';
+  } else if (user.role && user.role !== 'Visita' && user.role !== 'Desconocido') {
+    followStatus = `[${user.role}]`;
+  } else {
+    followStatus = '[Visita]';
+  }
+
+  const badges = [];
+  if (user.is_moderator) {
+    badges.push(html`<span class="irc-badge badge-moderator">Mod</span>`);
+  }
+  if (user.is_vip) {
+    badges.push(html`<span class="irc-badge badge-vip">VIP</span>`);
+  }
+  if (user.is_subscriber) {
+    badges.push(html`<span class="irc-badge badge-subscriber">Sub</span>`);
+  }
 
   return html`
     <div class="irc-user">
-      <span class="irc-dot" style="background:${color}"></span>
-      <span class="irc-name" style="color:${color}">${name}</span>
-      ${user.role && user.role !== 'Visita'
-        ? html`<span class="irc-role-tag">${user.role}</span>`
-        : null
-      }
+      <div class="irc-user-main">
+        <span class="irc-time">{${timeStr}}</span>
+        <span class="irc-name" style="color:${color}">${nameStr}</span>
+        <div class="irc-user-badges">
+          ${badges}
+        </div>
+      </div>
+      <div class="irc-user-sub">
+        ${user.nickname && user.nickname !== nameStr
+          ? html`<span class="irc-nickname">(${user.nickname})</span>`
+          : null
+        }
+        <span class="irc-follow-status">${followStatus}</span>
+      </div>
     </div>
   `;
 }

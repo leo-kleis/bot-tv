@@ -117,7 +117,7 @@
 
 /* Panel IRC de Usuarios */
 .irc-panel {
-  width: 240px;
+  width: 270px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -159,12 +159,10 @@
 
 .irc-user {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  font-size: 13px;
+  flex-direction: column;
+  padding: 6px 12px;
   border-radius: var(--radius-xs);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   transition: background 0.2s;
   cursor: default;
   user-select: none;
@@ -172,10 +170,16 @@
 .irc-user:hover {
   background: var(--accent-glow);
 }
-.irc-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+.irc-user-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.irc-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
   flex-shrink: 0;
 }
 .irc-name {
@@ -183,12 +187,57 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
+  font-size: 13px;
+  flex: 1;
 }
-.irc-role-tag {
-  font-size: 9px;
-  color: var(--text-muted);
+.irc-user-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.irc-badge {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
   white-space: nowrap;
-  margin-left: auto;
+}
+.badge-moderator {
+  background: rgba(46, 125, 50, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(46, 125, 50, 0.3);
+}
+.badge-vip {
+  background: rgba(236, 64, 122, 0.15);
+  color: #ec407a;
+  border: 1px solid rgba(236, 64, 122, 0.3);
+}
+.badge-subscriber {
+  background: rgba(30, 136, 229, 0.15);
+  color: #2196f3;
+  border: 1px solid rgba(30, 136, 229, 0.3);
+}
+.irc-user-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 48px;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-top: 1px;
+}
+.irc-nickname {
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+.irc-follow-status {
+  white-space: nowrap;
 }
 
 /* Botón flotante para scroll al final */

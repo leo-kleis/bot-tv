@@ -39,9 +39,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 WEB_PORT = 8080
 
 
+
 def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     """Crea y configura la aplicación Starlette con todos los endpoints."""
-    ws_manager = WebSocketManager(event_bus)
+    ws_manager = WebSocketManager(event_bus, bot)
     ws_manager.register()
 
     async def homepage(request: Request) -> Response:

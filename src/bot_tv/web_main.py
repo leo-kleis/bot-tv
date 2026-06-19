@@ -118,6 +118,13 @@ def main() -> None:
                     return_when=asyncio.FIRST_COMPLETED,
                 )
 
+                # Espera 2s para que la tarea restante termine limpiamente
+                if pending:
+                    _done_after, pending = await asyncio.wait(
+                        pending,
+                        timeout=2.0,
+                    )
+
                 for task in pending:
                     task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):

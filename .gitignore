@@ -42,3 +42,6 @@ ignore/
 certs/
 *.pem
 *.key
+
+# RAG
+.lancedb/

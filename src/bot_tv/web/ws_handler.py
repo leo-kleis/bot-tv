@@ -25,6 +25,7 @@ from bot_tv.events import (
 )
 
 if TYPE_CHECKING:
+    from bot_tv.bot import Bot
     from bot_tv.event_bus import EventBus
 
 LOGGER = logging.getLogger(__name__)
@@ -47,8 +48,6 @@ EVENT_TYPE_MAP: dict[type, str] = {
 # Tipos de eventos que se incluyen en el historial inicial al conectar
 HISTORY_EVENT_TYPES: list[type] = [
     ChatMessageEvent,
-    UserJoinEvent,
-    UserPartEvent,
     StreamOnlineEvent,
     StreamOfflineEvent,
     ViewerUpdateEvent,
@@ -77,8 +76,9 @@ def _serialize(event: object) -> str | None:
 class WebSocketManager:
     """Gestiona las conexiones WebSocket activas y el broadcast de eventos."""
 
-    def __init__(self, event_bus: EventBus) -> None:
+    def __init__(self, event_bus: EventBus, bot: Bot | None = None) -> None:
         self._event_bus = event_bus
+        self._bot = bot
         self._connections: set[WebSocket] = set()
         self._registered = False
 
@@ -158,3 +158,13 @@ class WebSocketManager:
                     await ws.send_text(message)
                 except Exception:
                     break
+
+        # Enviar usuarios conectados actualmente en IRC
+        if self._bot and getattr(self._bot, "irc", None) is not None:
+            for join_event in list(self._bot.irc.connected_users.values()):
+                message = _serialize(join_event)
+                if message:
+                    try:
+                        await ws.send_text(message)
+                    except Exception:
+                        break

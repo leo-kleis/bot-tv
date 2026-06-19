@@ -36,6 +36,7 @@
   --radius-sm:   12px;
   --radius-xs:   8px;
   --font:        'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size:   14.5px;
   --mono:        'Cascadia Code', 'Fira Code', Consolas, monospace;
   --tab-h:       64px;
   --header-h:    60px;
@@ -55,7 +56,7 @@ html, body {
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);
-  font-size: 14.5px;
+  font-size: var(--font-size);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
