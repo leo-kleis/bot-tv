@@ -13,13 +13,6 @@ from typing import TYPE_CHECKING
 
 from bot_tv.agent.models import AVAILABLE_MODELS
 from bot_tv.agent.rate_limiter import RateLimitStatus
-from bot_tv.database.app import (
-    get_user_id_by_name,
-    is_user_bot,
-    set_nickname,
-    set_user_bot,
-    upsert_user,
-)
 from bot_tv.events import ClipCreatedEvent
 
 if TYPE_CHECKING:
@@ -94,7 +87,7 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
 
     logger = logging.getLogger(__name__)
 
-    user_id = await get_user_id_by_name(bot.app_database, username)
+    user_id = await bot.user_repo.get_user_id_by_name(username)
     if user_id:
         return UserResolveResult(
             user_id=user_id, found_locally=True, found_on_twitch=False
@@ -111,8 +104,7 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
             )
 
         user_id = twitch_user.id
-        await upsert_user(
-            bot.app_database,
+        await bot.user_repo.upsert_user(
             user_id,
             twitch_user.name or username,
             twitch_user.display_name,
@@ -135,12 +127,12 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
 
 async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
     """Marca/desmarca un usuario como bot. Retorna BotToggleResult o string de error."""
-    user_id = await get_user_id_by_name(bot.app_database, username.lower())
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
     if not user_id:
         return f"El usuario '{username}' no existe en la base de datos."
 
-    es_bot = await is_user_bot(bot.app_database, user_id)
-    await set_user_bot(bot.app_database, user_id, not es_bot)
+    es_bot = await bot.user_repo.is_user_bot(user_id)
+    await bot.user_repo.set_user_bot(user_id, not es_bot)
     return BotToggleResult(
         username=username,
         is_bot=not es_bot,
@@ -152,11 +144,11 @@ async def action_set_nickname(
     bot: Bot, username: str, nickname: str | None
 ) -> NicknameResult | str:
     """Asigna o elimina el apodo de un usuario."""
-    user_id = await get_user_id_by_name(bot.app_database, username.lower())
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
     if not user_id:
         return f"El usuario '{username}' no existe en la base de datos."
 
-    await set_nickname(bot.app_database, user_id, nickname)
+    await bot.user_repo.set_nickname(user_id, nickname)
     return NicknameResult(username=username, nickname=nickname)
 
 

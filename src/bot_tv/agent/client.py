@@ -13,12 +13,8 @@ from bot_tv.agent.models import AVAILABLE_MODELS, DEFAULT_MODEL
 from bot_tv.agent.prompts import SYSTEM_INSTRUCTIONS
 from bot_tv.agent.rate_limiter import RateLimiter, RateLimitStatus
 from bot_tv.agent.tools import build_agent_tools
-from bot_tv.database.app import (
-    get_api_consumption_history,
-    get_setting,
-    log_api_consumption,
-    set_setting,
-)
+
+# Sin imports directos de base de datos obsoletos
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -92,14 +88,14 @@ class TalkAgent:
     async def initialize(self) -> None:
         """Carga el modelo activo y el consumo histórico desde la base de datos."""
         # 1. Cargar modelo activo guardado
-        saved_model = await get_setting(
-            self.bot.app_database, "active_model", self.current_model
+        saved_model = await self.bot.settings_repo.get_setting(
+            "active_model", self.current_model
         )
         if saved_model in AVAILABLE_MODELS and AVAILABLE_MODELS[saved_model].enabled:
             self.current_model = saved_model
 
         # 2. Cargar consumo histórico
-        history = await get_api_consumption_history(self.bot.app_database)
+        history = await self.bot.settings_repo.get_api_consumption_history()
         self.rate_limiter.load_history(history)
         LOGGER.info(
             "TalkAgent inicializado con modelo activo: %s y %d registros de consumo.",
@@ -120,7 +116,7 @@ class TalkAgent:
         self.current_model = model
         # Persistir selección en segundo plano
         task = asyncio.create_task(
-            set_setting(self.bot.app_database, "active_model", model)
+            self.bot.settings_repo.set_setting("active_model", model)
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -174,8 +170,8 @@ class TalkAgent:
 
                 # Registrar consumo localmente y en base de datos
                 self.rate_limiter.record_request(model_to_use)
-                await log_api_consumption(
-                    self.bot.app_database, model_to_use, time.time(), "request"
+                await self.bot.settings_repo.log_api_consumption(
+                    model_to_use, time.time(), "request"
                 )
 
                 text = await response.text()
@@ -193,8 +189,7 @@ class TalkAgent:
                 )
                 # Registrar el bloqueo localmente y en base de datos
                 self.rate_limiter.record_rate_limit_hit(model_to_use, retry_after)
-                await log_api_consumption(
-                    self.bot.app_database,
+                await self.bot.settings_repo.log_api_consumption(
                     model_to_use,
                     time.time(),
                     f"hit:{retry_after or 60.0}",

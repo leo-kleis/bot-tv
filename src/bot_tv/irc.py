@@ -4,12 +4,6 @@ from datetime import datetime
 
 import twitchio
 
-from bot_tv.database.app import (
-    get_user_id_by_name,
-    get_user_nickname,
-    is_user_bot,
-    upsert_user,
-)
 from bot_tv.events import UserJoinEvent, UserPartEvent
 from bot_tv.utils.colors import get_chatter_rgb
 
@@ -119,7 +113,7 @@ class TwitchIRCClient:
         if usuario.id == self.bot.bot_id:
             return "Bot"
 
-        if await is_user_bot(self.app_database, usuario.id):
+        if await self.bot.user_repo.is_user_bot(usuario.id):
             return "Bot"
 
         follow = await broadcaster.fetch_followers(user=usuario, first=1)
@@ -132,7 +126,7 @@ class TwitchIRCClient:
         if usuario == self.bot_username:
             return
 
-        user_id = await get_user_id_by_name(self.app_database, usuario)
+        user_id = await self.bot.user_repo.get_user_id_by_name(usuario)
         display_name = usuario
 
         twitch_user = None
@@ -142,8 +136,7 @@ class TwitchIRCClient:
                 display_name = twitch_user.display_name
                 if not user_id and action == "JOIN":
                     user_id = str(twitch_user.id)
-                    await upsert_user(
-                        self.app_database,
+                    await self.bot.user_repo.upsert_user(
                         user_id,
                         twitch_user.name,
                         display_name,
@@ -153,7 +146,7 @@ class TwitchIRCClient:
 
         nickname = None
         if user_id:
-            nickname = await get_user_nickname(self.app_database, user_id)
+            nickname = await self.bot.user_repo.get_user_nickname(user_id)
 
         r, g, b = get_chatter_rgb(None, usuario)
 
@@ -181,22 +174,17 @@ class TwitchIRCClient:
             is_sub = False
             if twitch_user:
                 is_bot = (twitch_user.id == self.bot.bot_id) or (
-                    await is_user_bot(self.app_database, str(twitch_user.id))
+                    await self.bot.user_repo.is_user_bot(str(twitch_user.id))
                 )
             elif user_id:
-                is_bot = await is_user_bot(self.app_database, user_id)
+                is_bot = await self.bot.user_repo.is_user_bot(user_id)
 
             if user_id:
-                async with self.app_database.acquire() as conn:
-                    query = (
-                        "SELECT is_moderator, is_vip, is_subscriber "
-                        "FROM users WHERE user_id = ?"
-                    )
-                    row = await conn.fetchone(query, (user_id,))
-                    if row:
-                        is_mod = bool(row["is_moderator"])
-                        is_vip = bool(row["is_vip"])
-                        is_sub = bool(row["is_subscriber"])
+                roles = await self.bot.user_repo.get_user_roles(user_id)
+                if roles:
+                    is_mod = roles["is_moderator"]
+                    is_vip = roles["is_vip"]
+                    is_sub = roles["is_subscriber"]
 
             join_event = UserJoinEvent(
                 timestamp=datetime.now().isoformat(),

@@ -21,25 +21,13 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
     async def get_follower_stats() -> str:
         """Obtiene estadísticas generales sobre los seguidores en la base de datos."""
         try:
-            query = """
-                SELECT 
-                    COUNT(*) as total_records,
-                    SUM(CASE WHEN unfollowed_at IS NULL 
-                             THEN 1 ELSE 0 END) as active_followers,
-                    SUM(CASE WHEN unfollowed_at IS NOT NULL 
-                             THEN 1 ELSE 0 END) as unfollowers
-                FROM followers
-                WHERE channel_id = ?
-            """
-            async with bot.app_database.acquire() as conn:
-                row = await conn.fetchone(query, (OWNER_ID,))
-
-            if not row or row["total_records"] == 0:
+            row = await bot.follower_repo.get_follower_stats(OWNER_ID)
+            if not row:
                 return "No hay datos de seguidores registrados en la base de datos."
 
             total = row["total_records"]
-            active = row["active_followers"] or 0
-            unfollowed = row["unfollowers"] or 0
+            active = row["active_followers"]
+            unfollowed = row["unfollowers"]
 
             return (
                 f"Estadísticas de seguidores:\n"
@@ -64,26 +52,12 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            query = """
-                SELECT u.username, u.display_name, u.nickname,
-                       f.followed_at, f.unfollowed_at
-                FROM followers f
-                JOIN users u ON f.user_id = u.user_id
-                WHERE f.channel_id = ? AND (
-                    u.username LIKE ? OR 
-                    u.display_name LIKE ? OR 
-                    u.nickname LIKE ?
-                )
-            """
-            if active_only:
-                query += " AND f.unfollowed_at IS NULL"
-            query += " ORDER BY f.followed_at DESC LIMIT ?"
-
-            like_pattern = f"%{search_term}%"
-            async with bot.app_database.acquire() as conn:
-                rows = await conn.fetchall(
-                    query, (OWNER_ID, like_pattern, like_pattern, like_pattern, limit)
-                )
+            rows = await bot.follower_repo.search_followers(
+                channel_id=OWNER_ID,
+                search_term=search_term,
+                active_only=active_only,
+                limit=limit,
+            )
 
             if not rows:
                 suffix = " activos" if active_only else ""
@@ -115,16 +89,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             username: El nombre de usuario de Twitch exacto (ej: 'twitchdev').
         """
         try:
-            query = """
-                SELECT u.username, u.display_name, u.nickname,
-                       f.followed_at, f.unfollowed_at
-                FROM users u
-                LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
-                WHERE u.username = ? COLLATE NOCASE
-            """
-            async with bot.app_database.acquire() as conn:
-                row = await conn.fetchone(query, (OWNER_ID, username))
-
+            row = await bot.user_repo.get_user_detail_by_name(username, OWNER_ID)
             if not row:
                 return (
                     f"No se encontró información del usuario "
@@ -151,19 +116,9 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            query = """
-                SELECT u.username, u.display_name, u.nickname,
-                       f.followed_at, f.unfollowed_at
-                FROM followers f
-                JOIN users u ON f.user_id = u.user_id
-                WHERE f.channel_id = ?
-            """
-            if active_only:
-                query += " AND f.unfollowed_at IS NULL"
-            query += " ORDER BY f.followed_at DESC LIMIT ?"
-
-            async with bot.app_database.acquire() as conn:
-                rows = await conn.fetchall(query, (OWNER_ID, limit))
+            rows = await bot.follower_repo.get_recent_followers(
+                channel_id=OWNER_ID, limit=limit, active_only=active_only
+            )
 
             if not rows:
                 suffix = " activos" if active_only else ""
@@ -194,16 +149,9 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            query = """
-                SELECT u.username, u.display_name, u.nickname,
-                       f.followed_at, f.unfollowed_at
-                FROM followers f
-                JOIN users u ON f.user_id = u.user_id
-                WHERE f.channel_id = ? AND f.unfollowed_at IS NOT NULL
-                ORDER BY f.unfollowed_at DESC LIMIT ?
-            """
-            async with bot.app_database.acquire() as conn:
-                rows = await conn.fetchall(query, (OWNER_ID, limit))
+            rows = await bot.follower_repo.get_recent_unfollowers(
+                channel_id=OWNER_ID, limit=limit
+            )
 
             if not rows:
                 return (

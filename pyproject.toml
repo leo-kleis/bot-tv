@@ -15,6 +15,7 @@ dependencies = [
     "rich==15.0.0",
     "starlette==1.3.1",
     "uvicorn==0.49.0",
+    "cryptography==49.0.0",
 ]
 
 [project.urls]
@@ -63,7 +64,7 @@ fixable = ["ALL"]
 [tool.ruff.lint.per-file-ignores]
 "extra/**/*.py" = ["T201", "T203", "S105", "S113"] # Permitir print/input/urls/requests sin timeout en scripts interactivos
 "src/bot_tv/agent/tools/chat.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
-"src/bot_tv/database/app.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
+"src/bot_tv/database/repositories/*.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
 
 [tool.ruff.format]
 quote-style = "double"

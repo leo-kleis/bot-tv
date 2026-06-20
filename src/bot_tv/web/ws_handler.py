@@ -160,7 +160,7 @@ class WebSocketManager:
                     break
 
         # Enviar usuarios conectados actualmente en IRC
-        if self._bot and getattr(self._bot, "irc", None) is not None:
+        if self._bot and self._bot.irc is not None:
             for join_event in list(self._bot.irc.connected_users.values()):
                 message = _serialize(join_event)
                 if message:

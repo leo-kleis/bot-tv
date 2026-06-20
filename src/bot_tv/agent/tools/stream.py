@@ -190,17 +190,9 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 start_utc = video.created_at.isoformat()
                 end_utc = (video.created_at + duration).isoformat()
 
-                count_query = """
-                    SELECT COUNT(*) as msg_count
-                    FROM chat_history
-                    WHERE channel_id = ? AND timestamp >= ? AND timestamp <= ?
-                """
-                async with bot.app_database.acquire() as conn:
-                    row = await conn.fetchone(
-                        count_query, (OWNER_ID, start_utc, end_utc)
-                    )
-
-                msg_count = row["msg_count"] if row else 0
+                msg_count = await bot.chat_repo.get_message_count_in_range(
+                    OWNER_ID, start_utc, end_utc
+                )
 
                 start_local = format_date(start_utc)
                 end_local = format_date(end_utc)

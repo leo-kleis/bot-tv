@@ -196,24 +196,7 @@ async def endpoint_search_users(request: Request) -> Response:
     if len(q) < 2:
         return _ok([])
 
-    async with bot.app_database.acquire() as conn:
-        rows = await conn.fetchall(
-            """
-            SELECT u.user_id, u.username, u.display_name,
-                   COALESCE(u.nickname, '') AS nickname,
-                   u.is_bot, u.is_moderator, u.is_vip, u.is_subscriber,
-                   (f.user_id IS NOT NULL AND f.unfollowed_at IS NULL)
-                   AS is_follower
-            FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id
-            WHERE u.username LIKE ? OR u.display_name LIKE ?
-                  OR u.nickname LIKE ?
-            GROUP BY u.user_id
-            ORDER BY u.display_name
-            LIMIT 10
-            """,
-            (f"%{q}%", f"%{q}%", f"%{q}%"),
-        )
+    rows = await bot.user_repo.search_users(q, limit=10)
 
     return _ok(
         [

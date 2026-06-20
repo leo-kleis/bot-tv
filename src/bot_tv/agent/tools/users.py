@@ -26,16 +26,7 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             username: El nombre de usuario a consultar (ej: 'twitchdev').
         """
         try:
-            query = """
-                SELECT u.username, u.display_name, u.nickname, u.is_bot,
-                       u.is_moderator, u.is_vip, u.is_subscriber,
-                       f.followed_at, f.unfollowed_at
-                FROM users u
-                LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
-                WHERE u.username = ? COLLATE NOCASE
-            """
-            async with bot.app_database.acquire() as conn:
-                row = await conn.fetchone(query, (OWNER_ID, username))
+            row = await bot.user_repo.get_user_detail_by_name(username, OWNER_ID)
 
             if not row:
                 return (
@@ -83,51 +74,35 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            where_clauses = []
-            params: list[Any] = [OWNER_ID]
-
             if role:
                 role_clean = role.lower()
-                if role_clean in ("bot", "bots"):
-                    where_clauses.append("u.is_bot = 1")
-                elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                    where_clauses.append("u.is_moderator = 1")
-                elif role_clean in ("vip", "vips"):
-                    where_clauses.append("u.is_vip = 1")
-                elif role_clean in (
+                valid_roles = {
+                    "bot",
+                    "bots",
+                    "moderator",
+                    "moderador",
+                    "mods",
+                    "mod",
+                    "vip",
+                    "vips",
                     "subscriber",
                     "suscriptor",
                     "subscribers",
                     "sub",
                     "subs",
-                ):
-                    where_clauses.append("u.is_subscriber = 1")
-                else:
+                }
+                if role_clean not in valid_roles:
                     return (
                         f"Rol '{role}' no reconocido. Roles válidos: "
                         "bot, moderator, vip, subscriber."
                     )
 
-            if has_nickname is not None:
-                if has_nickname:
-                    where_clauses.append("u.nickname IS NOT NULL AND u.nickname != ''")
-                else:
-                    where_clauses.append("(u.nickname IS NULL OR u.nickname = '')")
-
-            query = """
-                SELECT u.username, u.display_name, u.nickname, u.is_bot,
-                       u.is_moderator, u.is_vip, u.is_subscriber,
-                       f.followed_at, f.unfollowed_at
-                FROM users u
-                LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
-            """
-            if where_clauses:
-                query += " WHERE " + " AND ".join(where_clauses)
-            query += " ORDER BY u.username ASC LIMIT ?"
-            params.append(limit)
-
-            async with bot.app_database.acquire() as conn:
-                rows = await conn.fetchall(query, tuple(params))
+            rows = await bot.user_repo.list_users_with_filters(
+                channel_id=OWNER_ID,
+                role=role,
+                has_nickname=has_nickname,
+                limit=limit,
+            )
 
             if not rows:
                 return (

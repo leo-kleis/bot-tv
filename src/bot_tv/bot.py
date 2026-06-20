@@ -14,7 +14,14 @@ from bot_tv.components.chat_component import ChatComponent
 from bot_tv.components.clip_component import ClipComponent
 from bot_tv.components.followers_component import FollowersComponent
 from bot_tv.components.stream_component import StreamComponent
-from bot_tv.database.tokens import TokenPersistMixin
+from bot_tv.database import (
+    ChatRepository,
+    FollowerRepository,
+    SettingsRepository,
+    TokenPersistMixin,
+    TokenRepository,
+    UserRepository,
+)
 from bot_tv.event_bus import EventBus
 from bot_tv.irc import TwitchIRCClient
 from bot_tv.utils.env import (
@@ -44,6 +51,13 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.event_bus = event_bus
         self._irc_task: asyncio.Task[None] | None = None
         self.irc: TwitchIRCClient | None = None
+
+        # Instanciar repositorios
+        self.token_repo = TokenRepository(token_database)
+        self.user_repo = UserRepository(app_database)
+        self.chat_repo = ChatRepository(app_database)
+        self.follower_repo = FollowerRepository(app_database)
+        self.settings_repo = SettingsRepository(app_database)
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -86,11 +100,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def get_channels(self) -> list[dict[str, str]]:
         """Retorna la lista de canales configurados (excluyendo al bot)."""
-        async with self.token_database.acquire() as conn:
-            rows = await conn.fetchall("SELECT user_id, username FROM tokens")
+        tokens_metadata = await self.token_repo.get_all_tokens_metadata()
         return [
             {"user_id": row["user_id"], "username": row["username"]}
-            for row in rows
+            for row in tokens_metadata
             if row["user_id"] != self.bot_id
         ]
 
@@ -100,12 +113,11 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
-        async with self.token_database.acquire() as connection:
-            rows = await connection.fetchall("SELECT user_id, username FROM tokens")
+        tokens_metadata = await self.token_repo.get_all_tokens_metadata()
 
         bot_name = self.bot_id
         canales: list[str] = []
-        for row in rows:
+        for row in tokens_metadata:
             if row["user_id"] == self.bot_id:
                 bot_name = row["username"]
             else:

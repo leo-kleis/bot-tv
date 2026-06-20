@@ -6,13 +6,6 @@ from typing import TYPE_CHECKING
 
 from twitchio.ext import commands
 
-from bot_tv.database.app import (
-    get_follower_ids,
-    get_unfollowers_data,
-    get_users_info,
-    sync_followers,
-    upsert_user,
-)
 from bot_tv.events import FollowerProgressEvent, FollowerSyncEvent
 
 if TYPE_CHECKING:
@@ -62,7 +55,7 @@ class FollowersComponent(commands.Component):
         current_ids = {t[0] for t in current}
         current_names: dict[str, str] = {t[0]: t[1] for t in current}
 
-        previous_ids = await get_follower_ids(self.bot.app_database, channel_id)
+        previous_ids = await self.bot.follower_repo.get_follower_ids(channel_id)
 
         perdidos: set[str] = set()
         new_labels: list[str] = []
@@ -74,7 +67,7 @@ class FollowersComponent(commands.Component):
             perdidos = previous_ids - current_ids
 
             if nuevos:
-                nuevos_info = await get_users_info(self.bot.app_database, list(nuevos))
+                nuevos_info = await self.bot.user_repo.get_users_info(list(nuevos))
                 now_iso = datetime.now(UTC).isoformat()
                 new_labels = [
                     _format_label(
@@ -87,8 +80,8 @@ class FollowersComponent(commands.Component):
                 ]
 
             if perdidos:
-                perdidos_data = await get_unfollowers_data(
-                    self.bot.app_database, channel_id, list(perdidos)
+                perdidos_data = await self.bot.user_repo.get_unfollowers_data(
+                    channel_id, list(perdidos)
                 )
                 lost_labels = [
                     _format_label(
@@ -112,8 +105,8 @@ class FollowersComponent(commands.Component):
             )
         )
 
-        await sync_followers(
-            self.bot.app_database, channel_id, current, unfollowed_ids=list(perdidos)
+        await self.bot.follower_repo.sync_followers(
+            channel_id, current, unfollowed_ids=list(perdidos)
         )
 
     async def _fetch_followers(
@@ -141,7 +134,7 @@ class FollowersComponent(commands.Component):
             )
             follower_tuples.append((fid, fname, followed_at))
 
-            await upsert_user(self.bot.app_database, fid, fname, fname)
+            await self.bot.user_repo.upsert_user(fid, fname, fname)
 
             # Emitir progreso en tiempo real
             await self.bot.event_bus.emit(

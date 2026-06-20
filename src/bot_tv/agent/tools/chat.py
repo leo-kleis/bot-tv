@@ -50,47 +50,24 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            where_clauses = ["c.channel_id = ?"]
-            params: list[Any] = [OWNER_ID]
-
+            since_param = since.replace(" ", "T") if since else None
             if hours_ago is not None:
-                since_time = (
+                since_param = (
                     datetime.datetime.now(datetime.UTC)
                     - datetime.timedelta(hours=hours_ago)
                 ).isoformat()
-                where_clauses.append("c.timestamp >= ?")
-                params.append(since_time)
 
-            if since:
-                since_iso = since.replace(" ", "T")
-                where_clauses.append("c.timestamp >= ?")
-                params.append(since_iso)
-
-            if until:
-                until_iso = until.replace(" ", "T")
-                where_clauses.append("c.timestamp <= ?")
-                params.append(until_iso)
+            until_param = until.replace(" ", "T") if until else None
 
             user_details = ""
             if username:
-                # Primero, busquemos el usuario y su estado de seguidor
-                user_query = """
-                    SELECT u.user_id, u.username, u.display_name, u.nickname,
-                           f.followed_at, f.unfollowed_at
-                    FROM users u
-                    LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
-                    WHERE u.username = ? COLLATE NOCASE
-                """
-                async with bot.app_database.acquire() as conn:
-                    user_row = await conn.fetchone(user_query, (OWNER_ID, username))
-
+                user_row = await bot.user_repo.get_user_detail_by_name(
+                    username, OWNER_ID
+                )
                 if not user_row:
                     return (
                         f"No se encontró al usuario '{username}' en la base de datos."
                     )
-
-                where_clauses.append("u.username = ? COLLATE NOCASE")
-                params.append(username)
 
                 user_details = format_user_details(
                     user_row["username"],
@@ -100,43 +77,15 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
                     user_row["unfollowed_at"],
                 )
 
-            if search_term:
-                where_clauses.append("c.message LIKE ?")
-                params.append(f"%{search_term}%")
-
-            if role:
-                role_clean = role.lower()
-                if role_clean in ("bot", "bots"):
-                    where_clauses.append("u.is_bot = 1")
-                elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                    where_clauses.append("u.is_moderator = 1")
-                elif role_clean in ("vip", "vips"):
-                    where_clauses.append("u.is_vip = 1")
-                elif role_clean in (
-                    "subscriber",
-                    "suscriptor",
-                    "subscribers",
-                    "sub",
-                    "subs",
-                ):
-                    where_clauses.append("u.is_subscriber = 1")
-                else:
-                    return (
-                        f"Rol '{role}' no reconocido. Roles válidos: "
-                        "bot, moderator, vip, subscriber."
-                    )
-
-            query = f"""
-                SELECT u.username, u.display_name, u.nickname, c.message, c.timestamp
-                FROM chat_history c
-                JOIN users u ON c.user_id = u.user_id
-                WHERE {" AND ".join(where_clauses)}
-                ORDER BY c.timestamp DESC LIMIT ?
-            """
-            params.append(limit)
-
-            async with bot.app_database.acquire() as conn:
-                rows = await conn.fetchall(query, tuple(params))
+            rows = await bot.chat_repo.get_messages_with_filters(
+                channel_id=OWNER_ID,
+                username=username,
+                role=role,
+                search_term=search_term,
+                since=since_param,
+                until=until_param,
+                limit=limit,
+            )
 
             if not rows:
                 if user_details:
@@ -173,25 +122,8 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
         usuarios únicos y top chatters.
         """
         try:
-            stats_query = """
-                SELECT 
-                    COUNT(*) as total_messages,
-                    COUNT(DISTINCT user_id) as unique_users
-                FROM chat_history
-                WHERE channel_id = ?
-            """
-            top_query = """
-                SELECT u.username, u.display_name, u.nickname, COUNT(c.id) as msg_count
-                FROM chat_history c
-                JOIN users u ON c.user_id = u.user_id
-                WHERE c.channel_id = ?
-                GROUP BY c.user_id
-                ORDER BY msg_count DESC LIMIT 5
-            """
-
-            async with bot.app_database.acquire() as conn:
-                stats_row = await conn.fetchone(stats_query, (OWNER_ID,))
-                top_rows = await conn.fetchall(top_query, (OWNER_ID,))
+            stats_row = await bot.chat_repo.get_chat_stats(OWNER_ID)
+            top_rows = await bot.chat_repo.get_top_chatters(OWNER_ID, limit=5)
 
             if not stats_row or stats_row["total_messages"] == 0:
                 return "No hay estadísticas de chat registradas aún."

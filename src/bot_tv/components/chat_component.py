@@ -8,12 +8,6 @@ from typing import TYPE_CHECKING
 import twitchio
 from twitchio.ext import commands
 
-from bot_tv.database.app import (
-    get_user_nickname,
-    is_user_bot,
-    save_chat_message,
-    upsert_user,
-)
 from bot_tv.events import ChatMessageEvent
 from bot_tv.utils.colors import get_chatter_rgb
 
@@ -49,7 +43,7 @@ class ChatComponent(commands.Component):
         if user_id == self.bot.bot_id:
             return "Bot"
 
-        if await is_user_bot(self.bot.app_database, user_id):
+        if await self.bot.user_repo.is_user_bot(user_id):
             return "Bot"
 
         follow = await chatter.follow_info()
@@ -66,8 +60,7 @@ class ChatComponent(commands.Component):
         username = chatter.name or user_id
         display_name = chatter.display_name or username
 
-        await upsert_user(
-            self.bot.app_database,
+        await self.bot.user_repo.upsert_user(
             user_id,
             username,
             display_name,
@@ -76,16 +69,15 @@ class ChatComponent(commands.Component):
             is_subscriber=chatter.subscriber,
         )
 
-        es_bot = await is_user_bot(self.bot.app_database, user_id)
+        es_bot = await self.bot.user_repo.is_user_bot(user_id)
         if not es_bot:
-            await save_chat_message(
-                self.bot.app_database,
+            await self.bot.chat_repo.save_chat_message(
                 payload.broadcaster.id,
                 user_id,
                 payload.text,
             )
 
-        nickname = await get_user_nickname(self.bot.app_database, user_id)
+        nickname = await self.bot.user_repo.get_user_nickname(user_id)
 
         hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)

@@ -5,10 +5,11 @@ import asqlite
 import twitchio
 from twitchio.ext import commands
 
-from bot_tv.database.tokens import (
-    DB_PATH,
+from bot_tv.database import (
     TokenPersistMixin,
-    setup_token_database,
+    TokenRepository,
+    create_token_db_pool,
+    run_token_migrations,
 )
 from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, DB_DIR, OWNER_ID
 from bot_tv.utils.logger import setup_logging
@@ -102,7 +103,7 @@ class SetupBot(TokenPersistMixin, commands.AutoBot):
     """Cliente mínimo para autorizar cuentas y guardar tokens."""
 
     def __init__(self, *, token_database: asqlite.Pool) -> None:
-        self.token_database = token_database
+        self.token_repo = TokenRepository(token_database)
         # Rastrear qué cuentas fueron autorizadas durante esta sesión
         self._authorized: set[str] = set()
 
@@ -168,8 +169,8 @@ def setup() -> None:
     DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
-        async with asqlite.create_pool(str(DB_PATH)) as tdb:
-            await setup_token_database(tdb)
+        async with create_token_db_pool() as tdb:
+            await run_token_migrations(tdb)
             async with SetupBot(token_database=tdb) as bot:
                 await bot.start(load_tokens=False)
 

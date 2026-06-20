@@ -10,12 +10,16 @@ import asyncio
 import logging
 import sys
 
-import asqlite
 import uvicorn
 
 from bot_tv.bot import Bot
-from bot_tv.database.app import APP_DB_PATH, setup_app_database
-from bot_tv.database.tokens import DB_PATH, setup_token_database
+from bot_tv.database import (
+    TokenRepository,
+    create_app_db_pool,
+    create_token_db_pool,
+    run_app_migrations,
+    run_token_migrations,
+)
 from bot_tv.event_bus import EventBus
 from bot_tv.utils.env import DB_DIR
 from bot_tv.utils.logger import setup_logging
@@ -31,11 +35,14 @@ def main() -> None:
 
     async def runner() -> None:
         async with (
-            asqlite.create_pool(str(DB_PATH)) as tdb,
-            asqlite.create_pool(str(APP_DB_PATH)) as adb,
+            create_token_db_pool() as tdb,
+            create_app_db_pool() as adb,
         ):
-            tokens, subs = await setup_token_database(tdb)
-            await setup_app_database(adb)
+            await run_token_migrations(tdb)
+            await run_app_migrations(adb)
+
+            token_repo = TokenRepository(tdb)
+            tokens, subs = await token_repo.load_tokens_and_subscriptions()
 
             if not tokens:
                 LOGGER.error(
@@ -71,6 +78,7 @@ def main() -> None:
                 ssl_keyfile = None
                 ssl_certfile = None
                 from pathlib import Path
+
                 certs_dir = Path("certs")
                 if certs_dir.exists():
                     key_files = list(certs_dir.glob("*-key.pem"))
