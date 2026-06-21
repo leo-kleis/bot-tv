@@ -40,6 +40,38 @@ class TokenRepository(BaseRepository):
                 query, (user_id, username, encrypted_token, encrypted_refresh)
             )
 
+    @staticmethod
+    def get_user_subscriptions(
+        user_id: str, bot_id: str
+    ) -> list[eventsub.SubscriptionPayload]:
+        """Retorna las suscripciones de EventSub de un broadcaster."""
+        return [
+            eventsub.ChatMessageSubscription(
+                broadcaster_user_id=user_id, user_id=bot_id
+            ),
+            eventsub.StreamOnlineSubscription(broadcaster_user_id=user_id),
+            eventsub.StreamOfflineSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelRaidSubscription(to_broadcaster_user_id=user_id),
+            eventsub.ChannelSubscribeSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelSubscribeMessageSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelSubscriptionGiftSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelCheerSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelPointsRedeemAddSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelPredictionBeginSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelPredictionProgressSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelPredictionLockSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelPredictionEndSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelBanSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelUnbanSubscription(broadcaster_user_id=user_id),
+            eventsub.ChatClearSubscription(broadcaster_user_id=user_id, user_id=bot_id),
+            eventsub.ChatClearUserMessagesSubscription(
+                broadcaster_user_id=user_id, user_id=bot_id
+            ),
+            eventsub.ChatMessageDeleteSubscription(
+                broadcaster_user_id=user_id, user_id=bot_id
+            ),
+        ]
+
     async def load_tokens_and_subscriptions(
         self,
     ) -> tuple[list[tuple[str, str]], list[eventsub.SubscriptionPayload]]:
@@ -69,20 +101,8 @@ class TokenRepository(BaseRepository):
             tokens.append((dec_token, dec_refresh))
 
             if row["user_id"] != BOT_ID:
-                subs.append(
-                    eventsub.ChatMessageSubscription(
-                        broadcaster_user_id=row["user_id"], user_id=BOT_ID
-                    )
-                )
-                subs.append(
-                    eventsub.StreamOnlineSubscription(
-                        broadcaster_user_id=row["user_id"]
-                    )
-                )
-                subs.append(
-                    eventsub.StreamOfflineSubscription(
-                        broadcaster_user_id=row["user_id"]
-                    )
+                subs.extend(
+                    TokenRepository.get_user_subscriptions(row["user_id"], BOT_ID)
                 )
 
         return tokens, subs

@@ -46,7 +46,7 @@
   padding: 6px 20px;
   display: flex;
   gap: 12px;
-  font-size: 13.5px;
+  font-size: var(--font-size);
   line-height: 1.5;
   align-items: flex-start;
   animation: msg-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -61,7 +61,7 @@
 
 .chat-time {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 0.75em;
   flex-shrink: 0;
   margin-top: 3.5px;
   font-variant-numeric: tabular-nums;
@@ -77,11 +77,11 @@
 .chat-display {
   font-weight: 400;
   opacity: 0.65;
-  font-size: 11px;
+  font-size: 0.8em;
   margin-left: 2px;
 }
 .chat-role {
-  font-size: 10px;
+  font-size: 0.75em;
   color: var(--accent-text);
   flex-shrink: 0;
   margin-top: 2px;
@@ -104,14 +104,14 @@
   justify-content: center;
   height: 100%;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 0.95em;
   text-align: center;
   padding: 32px;
   flex-direction: column;
   gap: 12px;
 }
 .chat-empty .empty-icon {
-  font-size: 48px;
+  font-size: 3.2em;
   color: var(--surface3);
 }
 
@@ -177,7 +177,7 @@
   width: 100%;
 }
 .irc-time {
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--text-muted);
   font-family: var(--font-mono, monospace);
   flex-shrink: 0;
@@ -187,7 +187,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 0.9em;
   flex: 1;
 }
 .irc-user-badges {
@@ -197,7 +197,7 @@
   flex-shrink: 0;
 }
 .irc-badge {
-  font-size: 8px;
+  font-size: 0.65em;
   font-weight: 800;
   text-transform: uppercase;
   padding: 1px 4px;
@@ -224,7 +224,7 @@
   align-items: center;
   gap: 6px;
   padding-left: 48px;
-  font-size: 11px;
+  font-size: 0.75em;
   color: var(--text-muted);
   width: 100%;
   margin-top: 1px;
@@ -278,3 +278,101 @@
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* Mensajes de Alertas de Sistema en el Chat */
+.chat-msg.is-system {
+  border-left: 3px solid var(--border);
+  padding-left: 17px; /* 20px padding original - 3px del borde */
+  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.015);
+  align-items: center;
+}
+
+.chat-msg.is-system .sys-icon {
+  font-size: 0.9em;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.chat-msg.is-system .sys-text {
+  font-size: 0.9em;
+  color: var(--text);
+}
+
+.chat-msg.is-system .sys-text strong {
+  font-weight: 700;
+  color: #fff;
+}
+
+/* Colores de Alertas en Chat */
+
+/* 1. Raid */
+.chat-msg.is-system.sys-raid {
+  border-left-color: #d53f8c;
+  background: rgba(213, 63, 140, 0.05);
+}
+.chat-msg.is-system.sys-raid .sys-icon {
+  color: #f687b3;
+}
+
+/* 2. Subs */
+.chat-msg.is-system.sys-sub,
+.chat-msg.is-system.sys-sub-gift,
+.chat-msg.is-system.sys-sub-resub {
+  border-left-color: #38a169;
+  background: rgba(56, 161, 105, 0.05);
+}
+.chat-msg.is-system.sys-sub .sys-icon,
+.chat-msg.is-system.sys-sub-gift .sys-icon,
+.chat-msg.is-system.sys-sub-resub .sys-icon {
+  color: #48bb78;
+}
+
+/* 3. Cheers */
+.chat-msg.is-system.sys-cheer {
+  border-left-color: #ecc94b;
+  background: rgba(236, 201, 75, 0.05);
+}
+.chat-msg.is-system.sys-cheer .sys-icon {
+  color: #f6e05e;
+}
+
+/* 4. Puntos */
+.chat-msg.is-system.sys-points {
+  border-left-color: #00b5d8;
+  background: rgba(0, 181, 216, 0.05);
+}
+.chat-msg.is-system.sys-points .sys-icon {
+  color: #9decf9;
+}
+
+/* 5. Predicciones */
+.chat-msg.is-system.sys-prediction {
+  border-left-color: #805ad5;
+  background: rgba(128, 90, 213, 0.05);
+}
+.chat-msg.is-system.sys-prediction .sys-icon {
+  color: #b794f4;
+}
+
+/* 6. Moderación */
+.chat-msg.is-system.sys-mod {
+  border-left-color: #e53e3e;
+  background: rgba(229, 62, 62, 0.05);
+}
+.chat-msg.is-system.sys-mod .sys-icon {
+  color: #feb2b2;
+}
+
+.chat-msg.is-system.sys-mod-green {
+  border-left-color: #38a169;
+  background: rgba(56, 161, 105, 0.05);
+}
+.chat-msg.is-system.sys-mod-green .sys-icon {
+  color: #48bb78;
+}
+

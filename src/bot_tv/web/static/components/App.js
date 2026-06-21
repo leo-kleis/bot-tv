@@ -6,6 +6,7 @@ import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab }    from '/static/components/agent/AgentTab.js';
 import { ActionsTab }  from '/static/components/actions/ActionsTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
+import { ToastOverlay } from '/static/components/ToastOverlay.js';
 
 const html = htm.bind(h);
 
@@ -92,6 +93,7 @@ export function App({ state, dispatch, onReconnect }) {
         ${active === 'actions'   && html`<${ActionsTab} clips=${state.clips} dispatch=${dispatch} />`}
         ${active === 'settings'  && html`<${SettingsTab} />`}
       </main>
+      <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />
     </div>
   `;
 }

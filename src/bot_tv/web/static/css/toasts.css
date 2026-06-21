@@ -1,0 +1,168 @@
+.toast-overlay {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 380px;
+  width: calc(100% - 32px);
+  pointer-events: none;
+}
+
+.toast-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(20, 19, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.toast-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.toast-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.toast-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Colores específicos de Alertas */
+
+/* 1. Raid (Magenta) */
+.toast-card.toast-raid::before {
+  background: #d53f8c;
+}
+.toast-card.toast-raid .toast-icon {
+  background: rgba(213, 63, 140, 0.15);
+  color: #f687b3;
+}
+
+/* 2. Subs (Verde) */
+.toast-card.toast-sub::before,
+.toast-card.toast-sub-gift::before,
+.toast-card.toast-sub-resub::before {
+  background: #38a169;
+}
+.toast-card.toast-sub .toast-icon,
+.toast-card.toast-sub-gift .toast-icon,
+.toast-card.toast-sub-resub .toast-icon {
+  background: rgba(56, 161, 105, 0.15);
+  color: #48bb78;
+}
+
+/* 3. Cheers (Amarillo/Oro) */
+.toast-card.toast-cheer::before {
+  background: #ecc94b;
+}
+.toast-card.toast-cheer .toast-icon {
+  background: rgba(236, 201, 75, 0.15);
+  color: #f6e05e;
+}
+
+/* 4. Puntos (Cyan) */
+.toast-card.toast-points::before {
+  background: #00b5d8;
+}
+.toast-card.toast-points .toast-icon {
+  background: rgba(0, 181, 216, 0.15);
+  color: #9decf9;
+}
+
+/* 5. Predicciones (Violeta/Azul) */
+.toast-card.toast-prediction::before {
+  background: #805ad5;
+}
+.toast-card.toast-prediction .toast-icon {
+  background: rgba(128, 90, 213, 0.15);
+  color: #b794f4;
+}
+
+/* 6. Moderación (Rojo / Verde si es Unban) */
+.toast-card.toast-mod::before {
+  background: #e53e3e;
+}
+.toast-card.toast-mod .toast-icon {
+  background: rgba(229, 62, 62, 0.15);
+  color: #feb2b2;
+}
+
+.toast-card.toast-mod-green::before {
+  background: #38a169;
+}
+.toast-card.toast-mod-green .toast-icon {
+  background: rgba(56, 161, 105, 0.15);
+  color: #48bb78;
+}

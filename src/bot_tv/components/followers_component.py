@@ -71,8 +71,7 @@ class FollowersComponent(commands.Component):
                 now_iso = datetime.now(UTC).isoformat()
                 # Ordenar alfabéticamente por display_name
                 nuevos_ordenados = sorted(
-                    nuevos,
-                    key=lambda uid: current_names.get(uid, uid).lower()
+                    nuevos, key=lambda uid: current_names.get(uid, uid).lower()
                 )
                 new_labels = [
                     _format_label(

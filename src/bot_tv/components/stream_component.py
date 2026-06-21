@@ -63,9 +63,7 @@ class StreamComponent(commands.Component):
     # ── EventSub: Stream Online/Offline ─────────────────────────────
 
     @commands.Component.listener()
-    async def event_eventsub_notification_stream_start(
-        self, payload: twitchio.StreamOnline
-    ) -> None:
+    async def event_stream_online(self, payload: twitchio.StreamOnline) -> None:
         """Se ejecuta cuando un stream se pone online (EventSub)."""
         self._stream_online = True
         self._last_viewer_count = None
@@ -100,9 +98,7 @@ class StreamComponent(commands.Component):
         )
 
     @commands.Component.listener()
-    async def event_eventsub_notification_stream_end(
-        self, payload: twitchio.StreamOffline
-    ) -> None:
+    async def event_stream_offline(self, payload: twitchio.StreamOffline) -> None:
         """Se ejecuta cuando un stream se pone offline (EventSub)."""
         self._stream_online = False
         self._last_viewer_count = None

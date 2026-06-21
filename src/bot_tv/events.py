@@ -158,3 +158,166 @@ class BotLogEvent:
     module: str
     message: str
     timestamp: str = field(default_factory=_now)
+
+
+# ── Twitch EventSub Alerts ──────────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchRaidEvent:
+    """Evento que representa una raid recibida."""
+
+    from_username: str
+    from_display_name: str
+    viewer_count: int
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchSubscribeEvent:
+    """Evento que representa una nueva suscripción."""
+
+    username: str
+    display_name: str
+    tier: str  # "1000", "2000", "3000"
+    is_gift: bool
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchSubscriptionGiftEvent:
+    """Evento que representa el regalo de suscripciones."""
+
+    username: str | None  # None si es anónimo
+    display_name: str | None
+    tier: str
+    total: int
+    cumulative_total: int | None
+    is_anonymous: bool
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchSubscriptionMessageEvent:
+    """Evento que representa un mensaje de resuscripción."""
+
+    username: str
+    display_name: str
+    tier: str
+    cumulative_months: int
+    streak_months: int | None
+    message: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchCheerEvent:
+    """Evento que representa un cheer (donación de bits)."""
+
+    username: str | None  # None si es anónimo
+    display_name: str | None
+    bits: int
+    message: str
+    is_anonymous: bool
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchChannelPointsRedeemEvent:
+    """Evento que representa el canje de puntos de canal."""
+
+    username: str
+    display_name: str
+    reward_title: str
+    reward_cost: int
+    user_input: str
+    timestamp: str = field(default_factory=_now)
+
+
+# Predicciones
+@dataclass(frozen=True, slots=True)
+class TwitchPredictionBeginEvent:
+    """Evento de inicio de una predicción."""
+
+    title: str
+    outcomes: list[str]
+    locks_at: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchPredictionProgressEvent:
+    """Evento de progreso en una predicción."""
+
+    title: str
+    outcomes_votes: list[tuple[str, int, int]]  # (opción, votos, puntos)
+    locks_at: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchPredictionLockEvent:
+    """Evento de bloqueo de una predicción."""
+
+    title: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchPredictionEndEvent:
+    """Evento de finalización de una predicción."""
+
+    title: str
+    status: str  # "resolved" o "canceled"
+    winning_outcome_title: str | None
+    timestamp: str = field(default_factory=_now)
+
+
+# Moderación
+@dataclass(frozen=True, slots=True)
+class TwitchBanEvent:
+    """Evento de ban o timeout de un usuario."""
+
+    username: str
+    display_name: str
+    moderator_name: str
+    reason: str | None
+    permanent: bool
+    duration_seconds: int | None
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchUnbanEvent:
+    """Evento de desbaneo de un usuario."""
+
+    username: str
+    display_name: str
+    moderator_name: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchChatClearEvent:
+    """Evento que se dispara cuando se limpia el chat."""
+
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchChatClearUserEvent:
+    """Evento que se dispara cuando se purgan los mensajes de un usuario."""
+
+    username: str
+    display_name: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchMessageDeleteEvent:
+    """Evento que representa la eliminación de un mensaje individual."""
+
+    username: str
+    display_name: str
+    message_text: str
+    timestamp: str = field(default_factory=_now)

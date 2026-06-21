@@ -41,6 +41,7 @@ function makeInitialState() {
     clips: [],
     agentConversations: [],
     exited: false,
+    toasts: [],
   };
 }
 
@@ -150,6 +151,40 @@ function reducer(state, action) {
     case 'BOT_EXITED':
       return { ...state, exited: true };
 
+    case 'twitch_raid':
+    case 'twitch_subscribe':
+    case 'twitch_sub_gift':
+    case 'twitch_sub_message':
+    case 'twitch_cheer':
+    case 'twitch_points_redeem':
+    case 'prediction_begin':
+    case 'prediction_lock':
+    case 'prediction_end':
+    case 'twitch_ban':
+    case 'twitch_unban':
+    case 'twitch_chat_clear':
+    case 'twitch_chat_clear_user':
+    case 'twitch_message_delete': {
+      const systemMsg = {
+        isSystem: true,
+        type: action.type,
+        timestamp: action.data.timestamp || new Date().toISOString(),
+        data: action.data,
+      };
+      const msgs = [...state.chatMessages, systemMsg];
+      return { ...state, chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs };
+    }
+
+    case 'prediction_progress':
+      // Ignorar del feed de chat para evitar spam, o manejar si es necesario.
+      return state;
+
+    case 'ADD_TOAST':
+      return { ...state, toasts: [...state.toasts, action.toast] };
+
+    case 'REMOVE_TOAST':
+      return { ...state, toasts: state.toasts.filter(t => t.id !== action.id) };
+
     default:
       return state;
   }
@@ -162,6 +197,11 @@ function Root() {
   const reconnectRef = useRef(1000);
   const timeoutIdRef = useRef(null);
   const connectFnRef = useRef(null);
+  const historyLoadedRef = useRef(false);
+
+  useEffect(() => {
+    historyLoadedRef.current = state.historyLoaded;
+  }, [state.historyLoaded]);
 
   useEffect(() => {
     let destroyed = false;
@@ -194,6 +234,34 @@ function Root() {
             dispatch({ type: 'HISTORY_END' });
           } else {
             dispatch({ type: msg.type, data: msg.data });
+
+            const alertTypes = [
+              'twitch_raid',
+              'twitch_subscribe',
+              'twitch_sub_gift',
+              'twitch_sub_message',
+              'twitch_cheer',
+              'twitch_points_redeem',
+              'prediction_begin',
+              'prediction_lock',
+              'prediction_end',
+              'twitch_ban',
+              'twitch_unban',
+              'twitch_chat_clear',
+              'twitch_chat_clear_user',
+              'twitch_message_delete'
+            ];
+
+            if (alertTypes.includes(msg.type) && historyLoadedRef.current) {
+              const toastId = Date.now() + Math.random().toString(36).substr(2, 9);
+              dispatch({
+                type: 'ADD_TOAST',
+                toast: { id: toastId, type: msg.type, data: msg.data }
+              });
+              setTimeout(() => {
+                dispatch({ type: 'REMOVE_TOAST', id: toastId });
+              }, 5000);
+            }
           }
         } catch (_) {}
       };

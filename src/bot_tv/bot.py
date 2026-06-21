@@ -14,6 +14,7 @@ from bot_tv.components.chat_component import ChatComponent
 from bot_tv.components.clip_component import ClipComponent
 from bot_tv.components.followers_component import FollowersComponent
 from bot_tv.components.stream_component import StreamComponent
+from bot_tv.components.twitch_events_component import TwitchEventsComponent
 from bot_tv.database import (
     ChatRepository,
     FollowerRepository,
@@ -75,6 +76,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         await self.add_component(FollowersComponent(self))
         await self.add_component(ClipComponent(self))
         await self.add_component(StreamComponent(self))
+        await self.add_component(TwitchEventsComponent(self))
 
     async def event_oauth_authorized(
         self, payload: twitchio.authentication.UserTokenPayload
@@ -85,11 +87,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         if not payload.user_id or payload.user_id == self.bot_id:
             return
 
-        subs: list[eventsub.SubscriptionPayload] = [
-            eventsub.ChatMessageSubscription(
-                broadcaster_user_id=payload.user_id, user_id=self.bot_id
-            ),
-        ]
+        subs = TokenRepository.get_user_subscriptions(payload.user_id, self.bot_id)
         resp: twitchio.MultiSubscribePayload = await self.multi_subscribe(subs)
         if resp.errors:
             LOGGER.warning(

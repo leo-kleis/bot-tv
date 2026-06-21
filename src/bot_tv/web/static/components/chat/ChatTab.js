@@ -30,8 +30,130 @@ function roleDisplay(role) {
   return role;
 }
 
+function getSystemMessageDetails(msg) {
+  const type = msg.type;
+  const data = msg.data;
+
+  switch (type) {
+    case 'twitch_raid':
+      return {
+        icon: 'fa-people-group',
+        text: html`<strong>${data.from_display_name}</strong> nos hizo raid con <strong>${data.viewer_count}</strong> espectadores!`,
+        className: 'sys-raid',
+      };
+    case 'twitch_subscribe':
+      const regalo = data.is_gift ? ' (Regalo)' : '';
+      return {
+        icon: 'fa-star',
+        text: html`<strong>${data.display_name}</strong> se suscribió en Tier <strong>${data.tier}</strong>${regalo}!`,
+        className: 'sys-sub',
+      };
+    case 'twitch_sub_gift':
+      const donante = data.is_anonymous ? 'Anónimo' : data.display_name;
+      const acum = data.cumulative_total ? ` (Total: ${data.cumulative_total})` : '';
+      return {
+        icon: 'fa-gift',
+        text: html`<strong>${donante}</strong> regaló <strong>${data.total}</strong> subs de Tier <strong>${data.tier}</strong>${acum}!`,
+        className: 'sys-sub-gift',
+      };
+    case 'twitch_sub_message':
+      const msgStr = data.message ? ` - "${data.message}"` : '';
+      const rachaStr = data.streak_months ? ` (Racha: ${data.streak_months} meses)` : '';
+      return {
+        icon: 'fa-comments',
+        text: html`<strong>${data.display_name}</strong> se resuscribió por <strong>${data.cumulative_months}</strong> meses${rachaStr}!${msgStr}`,
+        className: 'sys-sub-resub',
+      };
+    case 'twitch_cheer':
+      const cheerDonante = data.is_anonymous ? 'Anónimo' : data.display_name;
+      const cheerMsg = data.message ? ` - "${data.message}"` : '';
+      return {
+        icon: 'fa-gem',
+        text: html`<strong>${cheerDonante}</strong> envió <strong>${data.bits}</strong> bits!${cheerMsg}`,
+        className: 'sys-cheer',
+      };
+    case 'twitch_points_redeem':
+      const inputStr = data.user_input ? ` ("${data.user_input}")` : '';
+      return {
+        icon: 'fa-ticket',
+        text: html`<strong>${data.display_name}</strong> canjeó <strong>${data.reward_title}</strong> por <strong>${data.reward_cost}</strong> puntos!${inputStr}`,
+        className: 'sys-points',
+      };
+    case 'prediction_begin':
+      return {
+        icon: 'fa-circle-question',
+        text: html`Predicción iniciada: "<strong>${data.title}</strong>" - Opciones: ${data.outcomes.join(', ')}`,
+        className: 'sys-prediction',
+      };
+    case 'prediction_lock':
+      return {
+        icon: 'fa-lock',
+        text: html`Apuestas cerradas para: "<strong>${data.title}</strong>"`,
+        className: 'sys-prediction',
+      };
+    case 'prediction_end':
+      const resultado = data.winning_outcome_title 
+        ? html`Ganador: <strong>${data.winning_outcome_title}</strong>` 
+        : `Estado: ${data.status}`;
+      return {
+        icon: 'fa-flag-checkered',
+        text: html`Predicción finalizada: "<strong>${data.title}</strong>" - ${resultado}`,
+        className: 'sys-prediction',
+      };
+    case 'twitch_ban':
+      const tipo = data.permanent ? 'Baneo permanente' : `Timeout de ${data.duration_seconds}s`;
+      const razon = data.reason ? ` (Razón: "${data.reason}")` : '';
+      return {
+        icon: 'fa-ban',
+        text: html`<strong>${data.display_name}</strong> sancionado (${tipo}) por <strong>${data.moderator_name}</strong>${razon}.`,
+        className: 'sys-mod',
+      };
+    case 'twitch_unban':
+      return {
+        icon: 'fa-key',
+        text: html`<strong>${data.display_name}</strong> desbaneado por <strong>${data.moderator_name}</strong>.`,
+        className: 'sys-mod-green',
+      };
+    case 'twitch_chat_clear':
+      return {
+        icon: 'fa-trash-can',
+        text: 'El chat fue limpiado por un moderador.',
+        className: 'sys-mod',
+      };
+    case 'twitch_chat_clear_user':
+      return {
+        icon: 'fa-broom',
+        text: html`Los mensajes de <strong>${data.display_name}</strong> fueron eliminados por un moderador.`,
+        className: 'sys-mod',
+      };
+    case 'twitch_message_delete':
+      return {
+        icon: 'fa-eraser',
+        text: html`Se eliminó un mensaje de <strong>${data.display_name}</strong>.`,
+        className: 'sys-mod',
+      };
+    default:
+      return {
+        icon: 'fa-bell',
+        text: 'Alerta del sistema recibida.',
+        className: 'sys-default',
+      };
+  }
+}
+
 // Mensaje de chat
 function ChatMessage({ msg }) {
+  if (msg.isSystem) {
+    const details = getSystemMessageDetails(msg);
+    return html`
+      <div class="chat-msg is-system ${details.className}">
+        <span class="chat-time">${fmtTime(msg.timestamp)}</span>
+        <span class="sys-icon"><i class="fa-solid ${details.icon}"></i></span>
+        <span class="sys-text">${details.text}</span>
+      </div>
+    `;
+  }
+
   const color = toRgb(msg.color_rgb);
   const rClass = roleClass(msg.role);
   const rLabel = roleDisplay(msg.role);
