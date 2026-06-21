@@ -27,6 +27,7 @@ from bot_tv.utils.colors import (
     CYAN,
     DIM,
     MORADO,
+    NARANJA,
     RESET,
     ROJO,
     VERDE,
@@ -130,38 +131,48 @@ class TerminalConsumer:
     # ── Seguidores ───────────────────────────────────────────────────────────
 
     async def _on_follower_sync(self, event: FollowerSyncEvent) -> None:
+        timestamp = format_timestamp()
+
         if event.is_first_sync:
-            LOGGER.info("Primera carga: %d seguidores registrados", event.total)
+            CONSOLE.print(
+                f"{timestamp} {NARANJA}FOLLOWERS{RESET}      "
+                f"{MORADO}►{RESET} Primera carga: {event.total} seguidores registrados"
+            )
             return
 
-        if event.new_count:
-            LOGGER.info(
-                "[+] Nuevos seguidores (%d): %s",
-                event.new_count,
-                ", ".join(event.new_labels),
-            )
-        if event.lost_count:
-            LOGGER.warning(
-                "[-] Dejaron de seguir (%d): %s",
-                event.lost_count,
-                ", ".join(event.lost_labels),
-            )
         if not event.new_count and not event.lost_count:
-            LOGGER.info("Sin cambios en seguidores (%d total)", event.total)
+            CONSOLE.print(
+                f"{timestamp} {NARANJA}FOLLOWERS{RESET}      "
+                f"{MORADO}►{RESET} Sin cambios ({event.total} total)"
+            )
+            return
+
+        CONSOLE.print(
+            f"{timestamp} {NARANJA}FOLLOWERS{RESET}      "
+            f"{MORADO}►{RESET} Sincronización finalizada ({event.total} total):"
+        )
+
+        if event.new_count:
+            CONSOLE.print(f"  [green][+] Nuevos seguidores ({event.new_count}):[/]")
+            for label in event.new_labels:
+                CONSOLE.print(f"    [green]●[/] {label}")
+
+        if event.lost_count:
+            CONSOLE.print(f"  [red][-] Dejaron de seguir ({event.lost_count}):[/]")
+            for label in event.lost_labels:
+                CONSOLE.print(f"    [red]●[/] {label}")
 
     async def _on_follower_progress(self, event: FollowerProgressEvent) -> None:
         # Progreso en tiempo real (línea que se sobreescribe)
-        import sys
-
         if event.count < event.total:
-            sys.stdout.write(
-                f"\r  Obteniendo seguidores... {event.count}/{event.total}"
+            msg = (
+                f"\r  {NARANJA}Sincronizando seguidores...{RESET} "
+                f"{event.count}/{event.total}"
             )
-            sys.stdout.flush()
+            CONSOLE.print(msg, end="")
         else:
             # Limpiar la línea al terminar
-            sys.stdout.write("\r" + " " * 50 + "\r")
-            sys.stdout.flush()
+            CONSOLE.print("\r" + " " * 60 + "\r", end="")
 
     # ── Clips ────────────────────────────────────────────────────────────────
 

@@ -22,12 +22,12 @@ def _format_label(
 ) -> str:
     """Formatea una entrada de seguidor para el log.
 
-    Ejemplo: [194638791] NombreUsuario (08-03-26) - apodo
+    Ejemplo: [194638791] NombreUsuario (08/03/26) - apodo
     """
     if followed_at_iso:
         try:
             dt = datetime.fromisoformat(followed_at_iso)
-            date_str = f" ({dt.strftime('%d-%m-%y')})"
+            date_str = f" ({dt.strftime('%d/%m/%y')})"
         except ValueError:
             date_str = ""
     else:
@@ -69,6 +69,11 @@ class FollowersComponent(commands.Component):
             if nuevos:
                 nuevos_info = await self.bot.user_repo.get_users_info(list(nuevos))
                 now_iso = datetime.now(UTC).isoformat()
+                # Ordenar alfabéticamente por display_name
+                nuevos_ordenados = sorted(
+                    nuevos,
+                    key=lambda uid: current_names.get(uid, uid).lower()
+                )
                 new_labels = [
                     _format_label(
                         uid,
@@ -76,12 +81,19 @@ class FollowersComponent(commands.Component):
                         now_iso,
                         nuevos_info.get(uid, {}).get("nickname"),
                     )
-                    for uid in nuevos
+                    for uid in nuevos_ordenados
                 ]
 
             if perdidos:
                 perdidos_data = await self.bot.user_repo.get_unfollowers_data(
                     channel_id, list(perdidos)
+                )
+                # Ordenar alfabéticamente por display_name
+                perdidos_ordenados = sorted(
+                    perdidos,
+                    key=lambda uid: (
+                        perdidos_data.get(uid, {}).get("display_name") or uid
+                    ).lower(),
                 )
                 lost_labels = [
                     _format_label(
@@ -90,7 +102,7 @@ class FollowersComponent(commands.Component):
                         perdidos_data.get(uid, {}).get("followed_at"),
                         perdidos_data.get(uid, {}).get("nickname"),
                     )
-                    for uid in perdidos
+                    for uid in perdidos_ordenados
                 ]
 
         await self.bot.event_bus.emit(
