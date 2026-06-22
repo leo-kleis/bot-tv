@@ -102,6 +102,7 @@ def main() -> None:
                     host="0.0.0.0",  # noqa: S104 — intencional para LAN
                     port=WEB_PORT,
                     log_level="info",
+                    log_config=None,
                     loop="none",  # usamos el loop de asyncio existente
                     ssl_keyfile=ssl_keyfile,
                     ssl_certfile=ssl_certfile,

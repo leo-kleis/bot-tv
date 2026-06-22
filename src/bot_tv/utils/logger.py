@@ -85,6 +85,12 @@ def setup_logging(level: int = logging.INFO) -> None:
     app_logger.setLevel(level)
     app_logger.propagate = True
 
+    # Configurar los loggers de uvicorn para usar nuestro formateador
+    for logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        u_logger = logging.getLogger(logger_name)
+        u_logger.setLevel(level)
+        u_logger.propagate = True
+
     # Silenciar explícitamente otros loggers de Google SDK
     logging.getLogger("google").setLevel(logging.WARNING)
     logging.getLogger("google.antigravity").setLevel(logging.WARNING)
@@ -94,3 +100,4 @@ def setup_logging(level: int = logging.INFO) -> None:
     logging.getLogger("twitchio.eventsub.websockets").addFilter(
         EventSubReconnectFilter()
     )
+
