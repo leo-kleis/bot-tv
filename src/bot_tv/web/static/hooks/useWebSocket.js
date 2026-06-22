@@ -71,7 +71,7 @@ export function useWebSocket(dispatch, historyLoaded) {
               }, 5000);
             }
           }
-        } catch (_) {}
+        } catch {}
       };
 
       ws.onclose = () => {

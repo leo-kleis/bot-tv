@@ -1,0 +1,10 @@
+{
+  "ignorePatterns": [
+    "src/bot_tv/web/static/vendor/**",
+    "node_modules/**",
+    ".venv/**",
+    ".lancedb/**",
+    "dist/**",
+    "build/**"
+  ]
+}

@@ -2,13 +2,7 @@ import { html, useEffect, useRef, useState } from 'preact-setup';
 import { getEventDetails } from '../event-config.js';
 import { toRgb, fmtTime } from 'lib/utils';
 
-function roleClass(role) {
-  if (!role) return 'visitor';
-  if (role === 'Broadcaster') return 'broadcaster';
-  if (role === 'Bot') return 'bot';
-  if (role === 'Visita') return 'visitor';
-  return 'follower'; // fecha de follow
-}
+
 
 function roleDisplay(role) {
   if (!role || role === 'Visita') return 'Visita';
@@ -30,7 +24,6 @@ function ChatMessage({ msg }) {
   }
 
   const color = toRgb(msg.color_rgb);
-  const rClass = roleClass(msg.role);
   const rLabel = roleDisplay(msg.role);
 
   return html`

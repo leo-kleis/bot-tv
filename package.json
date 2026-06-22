@@ -1,0 +1,17 @@
+{
+  "name": "bot-tv",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint src/bot_tv/web/static && eslint src/bot_tv/web/static",
+    "lint:fix": "oxlint --fix src/bot_tv/web/static && eslint --fix src/bot_tv/web/static",
+    "format": "prettier --write \"src/bot_tv/web/static/**/*.{js,html,css}\"",
+    "format:check": "prettier --check \"src/bot_tv/web/static/**/*.{js,html,css}\""
+  },
+  "devDependencies": {
+    "eslint": "10.5.0",
+    "oxlint": "1.71.0",
+    "prettier": "3.8.4"
+  }
+}

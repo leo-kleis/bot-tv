@@ -9,7 +9,6 @@ if ('serviceWorker' in navigator) {
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 const MAX_CHAT = 300;
-const MAX_IRC_HISTORY = 100;
 
 // ── Estado inicial ───────────────────────────────────────────────────────────
 function makeInitialState() {
