@@ -47,7 +47,7 @@
 
   /* Ajustar padding del panel interno en móviles para ganar espacio y dejar holgura al final */
   .panel {
-    padding: 16px 16px 40px 16px !important;
+    padding: 16px 16px 40px 16px;
     height: 100%;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -115,150 +115,148 @@
     gap: 10px;
   }
   .actions-grid, .followers-grid {
-    flex-direction: column !important;
-    gap: 16px !important;
+    flex-direction: column;
+    gap: 16px;
   }
   .actions-col, .followers-col {
-    gap: 16px !important;
+    gap: 16px;
   }
 }
 
 /* CELULARES EN MODO HORIZONTAL (LANDSCAPE — MENÚ SIDEBAR A LA IZQUIERDA) */
 @media (max-height: 480px) {
   :root {
-    --header-h: 44px !important;
-    --tab-h: auto !important;
+    --header-h: 44px;
+    --tab-h: auto;
   }
   
   #app-root {
-    display: grid !important;
+    display: grid;
     grid-template-areas: 
       "header header"
-      "sidebar content" !important;
-    grid-template-rows: var(--header-h) 1fr !important;
-    grid-template-columns: 64px 1fr !important;
-    height: 100dvh !important;
+      "sidebar content";
+    grid-template-rows: var(--header-h) 1fr;
+    grid-template-columns: 64px 1fr;
+    height: 100dvh;
   }
 
-  .app-header {
-    grid-area: header !important;
-    height: 100% !important;
-    width: 100% !important;
-    border-bottom: 1px solid var(--border) !important;
+  #app-root .app-header {
+    grid-area: header;
+    height: 100%;
+    width: 100%;
+    border-bottom: 1px solid var(--border);
   }
 
   /* Barra de pestañas como Sidebar a la izquierda */
-  .tab-bar {
-    grid-area: sidebar !important;
-    width: 100% !important;
-    height: 100% !important;
-    flex-direction: column !important;
-    background: rgba(12, 10, 16, 0.95) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-    border-bottom: none !important;
-    border-top: none !important;
-    border-right: 1px solid var(--border) !important;
-    padding-bottom: 0 !important;
-    flex-shrink: 0 !important;
-    justify-content: flex-start !important;
-    padding-top: 8px !important;
-    gap: 4px !important;
+  #app-root .tab-bar {
+    grid-area: sidebar;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background: rgba(12, 10, 16, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: none;
+    border-top: none;
+    border-right: 1px solid var(--border);
+    padding-bottom: 0;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    padding-top: 8px;
+    gap: 4px;
   }
 
-  .tab-content {
-    grid-area: content !important;
-    width: 100% !important;
-    height: 100% !important;
-    overflow: hidden !important;
-    background: var(--bg) !important;
+  #app-root .tab-content {
+    grid-area: content;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
   }
 
   /* Botones verticales del Sidebar */
-  .tab-btn {
-    width: 100% !important;
-    flex: none !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-    padding: 10px 4px !important;
+  #app-root .tab-btn {
+    width: 100%;
+    flex: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 4px;
   }
-  .tab-btn .tab-icon {
-    font-size: 18px !important;
+  #app-root .tab-btn .tab-icon {
+    font-size: 18px;
   }
-  .tab-btn .tab-label {
-    font-size: 8px !important;
+  #app-root .tab-btn .tab-label {
+    font-size: 8px;
   }
   
   /* Indicador activo vertical en el lateral derecho del botón */
-  .tab-btn::after {
-    width: 3px !important;
-    height: 60% !important;
-    top: 20% !important;
-    bottom: 20% !important;
-    left: auto !important;
-    right: 0 !important;
-    border-radius: 4px 0 0 4px !important;
-    transform: scaleY(0) !important;
-    transform-origin: right center !important;
+  #app-root .tab-btn::after {
+    width: 3px;
+    height: 60%;
+    top: 20%;
+    bottom: 20%;
+    left: auto;
+    right: 0;
+    border-radius: 4px 0 0 4px;
+    transform: scaleY(0);
+    transform-origin: right center;
   }
-  .tab-btn.active::after {
-    transform: scaleY(1) !important;
-    opacity: 1 !important;
-  }
-
-  .stream-meta {
-    display: none !important;
-  }
-  .viewers-badge.clickable {
-    padding: 4px 8px !important;
-    font-size: 11px !important;
-    min-height: auto !important;
+  #app-root .tab-btn.active::after {
+    transform: scaleY(1);
+    opacity: 1;
   }
 
-  .panel {
-    padding: 12px 16px 24px 16px !important;
+  #app-root .stream-meta {
+    display: none;
   }
-  .section {
-    padding-bottom: 16px !important;
-    margin-bottom: 8px !important;
+  #app-root .viewers-badge.clickable {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: auto;
   }
-  .section-body {
-    gap: 10px !important;
+
+  #app-root .panel {
+    padding: 12px 16px 24px 16px;
   }
-  .agent-input-area {
-    padding: 8px 12px !important;
+  #app-root .section {
+    padding-bottom: 16px;
+    margin-bottom: 8px;
   }
-  .actions-grid, .followers-grid {
-    flex-direction: column !important;
-    gap: 16px !important;
+  #app-root .section-body {
+    gap: 10px;
   }
-  .actions-col, .followers-col {
-    gap: 16px !important;
+  #app-root .agent-input-area {
+    padding: 8px 12px;
+  }
+  #app-root .actions-grid, #app-root .followers-grid {
+    flex-direction: column;
+    gap: 16px;
+  }
+  #app-root .actions-col, #app-root .followers-col {
+    gap: 16px;
   }
   
   /* Ajustar la posición absoluta del drawer IRC en móvil horizontal solo en pantallas angostas */
   @media (max-width: 600px) {
-    .irc-panel {
-      position: absolute !important;
-      top: 0 !important;
-      height: 100% !important;
-      right: -280px !important;
-      z-index: 1010 !important;
+    #app-root .irc-panel {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      right: -280px;
+      z-index: 1010;
     }
-    .chat-tab.irc-open-mobile .irc-panel {
-      transform: translateX(-280px) !important;
+    #app-root .chat-tab.irc-open-mobile .irc-panel {
+      transform: translateX(-280px);
     }
-    .irc-overlay-mobile {
-      top: 0 !important;
-      height: 100% !important;
+    #app-root .irc-overlay-mobile {
+      top: 0;
+      height: 100%;
     }
   }
 }
 
-/* TABLETS Y PANTALLAS DE ANCHO INTERMEDIO (Las columnas Flex paralelas fluyen de forma nativa) */
-
-/* ESCRITORIO (Desde 1025px) */
-@media (min-width: 1025px) {
+/* TABLETS Y PANTALLAS DE ESCRITORIO (Ancho mayor a 600px) */
+@media (min-width: 601px) {
   #app-root {
     display: grid;
     grid-template-rows: var(--header-h) var(--tab-h) 1fr;
@@ -281,89 +279,65 @@
   .irc-overlay-mobile {
     display: none;
   }
-}
-@media (min-width: 601px) and (max-width: 1024px) {
-  #app-root {
-    display: grid;
-    grid-template-rows: var(--header-h) var(--tab-h) 1fr;
-    height: 100%;
-  }
-  .tab-bar {
-    border-bottom: 1px solid var(--border);
-  }
-  .tab-content {
-    height: 100%;
-    overflow: hidden;
-  }
-  .chat-tab.irc-open-mobile .irc-panel {
-    transform: none;
-  }
-  .irc-overlay-mobile {
-    display: none;
+
+  /* DESACTIVAR INTERACCIÓN DE VIEWERS EN PANTALLAS GRANDES DONDE EL IRC YA ESTÁ VISIBLE */
+  .viewers-badge.clickable {
+    cursor: default;
+    pointer-events: none;
   }
 }
 
 /* AJUSTES PARA PANTALLAS ULTRA ESTRECHAS (Hasta 480px) */
 @media (max-width: 480px) {
   .app-header {
-    padding: 8px 12px !important;
+    padding: 8px 12px;
   }
   .stream-widget {
-    gap: 8px !important;
+    gap: 8px;
   }
   .stream-meta {
-    display: none !important;
+    display: none;
   }
   .stream-name {
-    font-size: 13px !important;
+    font-size: 13px;
   }
   .viewers-badge.clickable,
   .viewers-badge.offline-irc-btn {
-    padding: 4px 8px !important;
-    font-size: 11px !important;
-    min-height: auto !important;
-    gap: 4px !important;
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: auto;
+    gap: 4px;
   }
   .conn-badge,
   .stream-status-dot {
-    width: 6px !important;
-    height: 6px !important;
+    width: 6px;
+    height: 6px;
   }
 
   .tab-btn {
-    padding: 6px 2px !important;
-    gap: 2px !important;
+    padding: 6px 2px;
+    gap: 2px;
   }
   .tab-btn .tab-icon {
-    font-size: 17px !important;
+    font-size: 17px;
   }
   .tab-btn .tab-label {
-    font-size: 8px !important;
-    letter-spacing: 0.02em !important;
+    font-size: 8px;
+    letter-spacing: 0.02em;
   }
 
   .panel {
-    padding: 12px 12px 32px 12px !important;
-    gap: 16px !important;
+    padding: 12px 12px 32px 12px;
+    gap: 16px;
   }
   .section {
-    margin-bottom: 8px !important;
-    padding-bottom: 16px !important;
+    margin-bottom: 8px;
+    padding-bottom: 16px;
   }
   .section-body {
-    gap: 12px !important;
+    gap: 12px;
   }
   .action-row {
-    gap: 8px !important;
+    gap: 8px;
   }
 }
-
-/* DESACTIVAR INTERACCIÓN DE VIEWERS EN PANTALLAS GRANDES DONDE EL IRC YA ESTÁ VISIBLE */
-@media (min-width: 601px) {
-  .viewers-badge.clickable {
-    cursor: default !important;
-    pointer-events: none !important;
-  }
-}
-
-

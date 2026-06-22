@@ -1,5 +1,10 @@
 export async function apiGet(path) {
-  try { return await (await fetch(path)).json(); } catch (e) { return { ok: false }; }
+  try {
+    const r = await fetch(path);
+    const data = await r.json();
+    if (!r.ok) return { ok: false, error: data.error || `HTTP ${r.status}` };
+    return data;
+  } catch (e) { return { ok: false, error: e.message }; }
 }
 
 export async function apiPost(path, body) {
@@ -9,6 +14,8 @@ export async function apiPost(path, body) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    return await r.json();
+    const data = await r.json();
+    if (!r.ok) return { ok: false, error: data.error || `HTTP ${r.status}` };
+    return data;
   } catch (e) { return { ok: false, error: e.message }; }
 }

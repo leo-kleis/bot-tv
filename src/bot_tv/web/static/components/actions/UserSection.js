@@ -1,9 +1,6 @@
-import { h, useState } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState } from '/static/lib/preact-setup.js';
 import { apiPost } from '/static/components/api.js';
 import { UserAutocomplete } from '/static/components/actions/UserAutocomplete.js';
-
-const html = htm.bind(h);
 
 export function UserSection() {
   const [username, setUsername] = useState('');

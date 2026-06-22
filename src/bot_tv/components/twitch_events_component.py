@@ -68,7 +68,7 @@ class TwitchEventsComponent(commands.Component):
                 username=username,
                 display_name=display_name,
                 tier=payload.tier or "1000",
-                is_gift=bool(payload.gift),
+                is_gift=payload.gift,
             )
         )
 
@@ -86,7 +86,7 @@ class TwitchEventsComponent(commands.Component):
                 tier=payload.tier or "1000",
                 total=payload.total or 1,
                 cumulative_total=payload.cumulative_total,
-                is_anonymous=bool(payload.anonymous),
+                is_anonymous=payload.anonymous,
             )
         )
 
@@ -124,7 +124,7 @@ class TwitchEventsComponent(commands.Component):
                 display_name=display_name,
                 bits=payload.bits or 0,
                 message=payload.message or "",
-                is_anonymous=bool(payload.anonymous),
+                is_anonymous=payload.anonymous,
             )
         )
 
@@ -247,7 +247,7 @@ class TwitchEventsComponent(commands.Component):
                 display_name=display_name,
                 moderator_name=mod_name,
                 reason=payload.reason,
-                permanent=bool(payload.permanent),
+                permanent=payload.permanent,
                 duration_seconds=duration,
             )
         )

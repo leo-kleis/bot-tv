@@ -1,8 +1,5 @@
-import { h, useState } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState } from '/static/lib/preact-setup.js';
 import { apiPost } from '/static/components/api.js';
-
-const html = htm.bind(h);
 
 export function DangerSection({ dispatch }) {
   const [confirm, setConfirm] = useState(false);

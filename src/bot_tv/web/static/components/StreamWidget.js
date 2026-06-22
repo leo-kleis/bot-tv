@@ -1,7 +1,4 @@
-import { h, useState, useEffect } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
-
-const html = htm.bind(h);
+import { html, useState, useEffect } from '/static/lib/preact-setup.js';
 
 function fmtViewers(n) {
   if (n == null) return '—';

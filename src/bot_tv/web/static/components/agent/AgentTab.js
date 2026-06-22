@@ -1,13 +1,6 @@
-import { h, useState, useEffect, useRef } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState, useEffect, useRef } from '/static/lib/preact-setup.js';
 import { apiGet, apiPost } from '/static/components/api.js';
-
-const html = htm.bind(h);
-
-function fmtTime(iso) {
-  try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }
-  catch (_) { return ''; }
-}
+import { fmtTime } from '../../lib/utils.js';
 
 export function AgentTab({ conversations = [], dispatch }) {
   const [input, setInput] = useState('');

@@ -1,8 +1,5 @@
-import { h, useState, useEffect } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState, useEffect } from '/static/lib/preact-setup.js';
 import { apiGet, apiPost } from '/static/components/api.js';
-
-const html = htm.bind(h);
 
 export function ModelSection() {
   const [models, setModels] = useState([]);

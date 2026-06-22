@@ -1,5 +1,4 @@
-import { h, useState } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState } from '/static/lib/preact-setup.js';
 import { StreamWidget } from '/static/components/StreamWidget.js';
 import { ChatTab }     from '/static/components/chat/ChatTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
@@ -7,8 +6,6 @@ import { AgentTab }    from '/static/components/agent/AgentTab.js';
 import { ActionsTab }  from '/static/components/actions/ActionsTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
 import { ToastOverlay } from '/static/components/ToastOverlay.js';
-
-const html = htm.bind(h);
 
 const TABS = [
   { id: 'chat',      icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },

@@ -1,8 +1,5 @@
-import { h, useState, useEffect, useRef, useCallback } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { html, useState, useEffect, useRef, useCallback } from '/static/lib/preact-setup.js';
 import { apiGet } from '/static/components/api.js';
-
-const html = htm.bind(h);
 
 function useDebounce(fn, delay) {
   const timer = useRef(null);
