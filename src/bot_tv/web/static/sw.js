@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bot-tv-v2';
+const CACHE_NAME = 'bot-tv-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -29,7 +29,10 @@ const STATIC_ASSETS = [
   '/static/components/actions/UserSection.js',
   '/static/components/actions/ModelSection.js',
   '/static/components/actions/DangerSection.js',
+  '/static/lib/preact-setup.js',
+  '/static/lib/utils.js',
   '/static/vendor/preact.module.js',
+  '/static/vendor/preact-hooks.module.js',
   '/static/vendor/htm.module.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',

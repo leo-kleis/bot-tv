@@ -1,4 +1,4 @@
-import { html } from '/static/lib/preact-setup.js';
+import { html } from 'preact-setup';
 import { getEventDetails } from './event-config.js';
 
 export function ToastOverlay({ toasts, dispatch }) {

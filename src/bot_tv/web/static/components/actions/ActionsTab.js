@@ -1,4 +1,4 @@
-import { html } from '/static/lib/preact-setup.js';
+import { html } from 'preact-setup';
 import { ClipSection } from '/static/components/actions/ClipSection.js';
 import { UserSection } from '/static/components/actions/UserSection.js';
 import { ModelSection } from '/static/components/actions/ModelSection.js';

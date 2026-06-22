@@ -1,10 +1,6 @@
-import { html, render, useReducer } from '/static/lib/preact-setup.js';
+import { html, render, useReducer } from 'preact-setup';
 import { App } from '/static/components/App.js';
 import { useWebSocket } from '/static/hooks/useWebSocket.js';
-
-// Cargar y aplicar tamaño de fuente guardado antes de renderizar
-const savedFontSize = localStorage.getItem('font-size') || '14.5px';
-document.documentElement.style.setProperty('--font-size', savedFontSize);
 
 // ── Registro del service worker ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -20,6 +16,7 @@ function makeInitialState() {
   return {
     connected: false,
     historyLoaded: false,
+    initialLoad: true,
     stream: {
       online: false,
       broadcasterName: '',
@@ -47,10 +44,10 @@ function makeInitialState() {
 function reducer(state, action) {
   switch (action.type) {
     case 'WS_CONNECTED':
-      return { ...state, connected: true, exited: false };
+      return { ...state, connected: true, exited: false, initialLoad: false };
 
     case 'WS_DISCONNECTED':
-      return { ...state, connected: false, historyLoaded: false };
+      return { ...state, connected: false, historyLoaded: false, initialLoad: false };
 
     case 'HISTORY_END':
       return { ...state, historyLoaded: true };

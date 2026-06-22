@@ -1,4 +1,4 @@
-import { html, useState } from '/static/lib/preact-setup.js';
+import { html, useState } from 'preact-setup';
 import { apiPost } from '/static/components/api.js';
 import { UserAutocomplete } from '/static/components/actions/UserAutocomplete.js';
 

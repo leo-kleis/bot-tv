@@ -1,5 +1,6 @@
-import { h, render, useState, useEffect, useReducer, useRef, useCallback } from '/static/vendor/preact.module.js';
-import htm from '/static/vendor/htm.module.js';
+import { h, render } from 'preact';
+import { useState, useEffect, useReducer, useRef, useCallback } from 'preact/hooks';
+import htm from 'htm';
 
 const html = htm.bind(h);
 

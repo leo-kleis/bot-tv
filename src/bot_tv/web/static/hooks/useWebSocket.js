@@ -1,4 +1,4 @@
-import { useEffect, useRef } from '/static/lib/preact-setup.js';
+import { useEffect, useRef } from 'preact-setup';
 
 export function useWebSocket(dispatch, historyLoaded) {
   const wsRef = useRef(null);

@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from '/static/lib/preact-setup.js';
+import { html, useState, useEffect } from 'preact-setup';
 
 function fmtViewers(n) {
   if (n == null) return '—';

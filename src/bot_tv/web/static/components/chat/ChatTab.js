@@ -1,6 +1,6 @@
-import { html, useEffect, useRef, useState } from '/static/lib/preact-setup.js';
+import { html, useEffect, useRef, useState } from 'preact-setup';
 import { getEventDetails } from '../event-config.js';
-import { toRgb, fmtTime } from '../../lib/utils.js';
+import { toRgb, fmtTime } from 'lib/utils';
 
 function roleClass(role) {
   if (!role) return 'visitor';

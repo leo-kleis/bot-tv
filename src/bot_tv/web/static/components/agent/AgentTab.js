@@ -1,6 +1,6 @@
-import { html, useState, useEffect, useRef } from '/static/lib/preact-setup.js';
+import { html, useState, useEffect, useRef } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
-import { fmtTime } from '../../lib/utils.js';
+import { fmtTime } from 'lib/utils';
 
 export function AgentTab({ conversations = [], dispatch }) {
   const [input, setInput] = useState('');

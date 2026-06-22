@@ -1,4 +1,4 @@
-import { html, useState } from '/static/lib/preact-setup.js';
+import { html, useState, useEffect } from 'preact-setup';
 import { StreamWidget } from '/static/components/StreamWidget.js';
 import { ChatTab }     from '/static/components/chat/ChatTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
@@ -18,6 +18,30 @@ const TABS = [
 export function App({ state, dispatch, onReconnect }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
+  const [showOffline, setShowOffline] = useState(false);
+
+  useEffect(() => {
+    if (state.connected || state.initialLoad) {
+      setShowOffline(false);
+    } else {
+      const timer = setTimeout(() => {
+        setShowOffline(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.connected, state.initialLoad]);
+
+  if (state.initialLoad || (!state.connected && !showOffline && !state.exited)) {
+    return html`
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0e0d12; color: #a5a1b8; font-family: 'Outfit', sans-serif; gap: 1.25rem;">
+        <div style="width: 36px; height: 36px; border: 3px solid rgba(130, 87, 229, 0.1); border-top: 3px solid #8257e5; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+        <span style="font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px; opacity: 0.8;">Iniciando conexión...</span>
+        <style>
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      </div>
+    `;
+  }
 
   if (state.exited || !state.connected) {
     const isCleanExit = state.exited;

@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from '/static/lib/preact-setup.js';
+import { html, useState, useEffect } from 'preact-setup';
 
 const MIN_FONT = 12;
 const MAX_FONT = 22;

@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.routing import Mount, Route, WebSocketRoute
@@ -74,7 +76,10 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]
 
-    app = Starlette(routes=routes)
+    app = Starlette(
+        routes=routes,
+        middleware=[Middleware(GZipMiddleware, minimum_size=500, compresslevel=5)],
+    )
 
     # Inyectar dependencias via app.state
     app.state.bot = bot

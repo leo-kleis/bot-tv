@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, useCallback } from '/static/lib/preact-setup.js';
+import { html, useState, useEffect, useRef, useCallback } from 'preact-setup';
 import { apiGet } from '/static/components/api.js';
 
 function useDebounce(fn, delay) {
