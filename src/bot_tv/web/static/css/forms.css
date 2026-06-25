@@ -52,8 +52,8 @@
 }
 
 /* Formularios y Cajas de Entrada con Volumen Interno */
-input[type="text"],
-input[type="search"],
+input[type='text'],
+input[type='search'],
 textarea,
 select {
   width: 100%;
@@ -65,7 +65,9 @@ select {
   font-size: 14px;
   padding: 11px 16px;
   outline: none;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), var(--shadow-inset-light);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.45),
+    var(--shadow-inset-light);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-appearance: none;
 }
@@ -74,7 +76,9 @@ textarea:focus,
 select:focus {
   border-color: var(--accent);
   background: rgba(26, 22, 36, 0.7);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 3px var(--accent-glow);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 0 0 3px var(--accent-glow);
 }
 input::placeholder {
   color: var(--text-muted);
@@ -123,38 +127,48 @@ select option {
   background: linear-gradient(180deg, #2d263a 0%, #1e1a26 100%);
   border-color: var(--accent);
   color: var(--text);
-  box-shadow: var(--shadow-inset), 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    var(--shadow-inset),
+    0 4px 12px rgba(0, 0, 0, 0.3);
 }
 .btn:active {
   transform: scale(0.97);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .btn-primary {
   background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dim) 100%);
   border-color: var(--accent);
   color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 14px rgba(155, 92, 255, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 4px 14px rgba(155, 92, 255, 0.25);
 }
 .btn-primary:hover {
   background: linear-gradient(180deg, #ab70ff 0%, #8348d6 100%);
   border-color: #ab70ff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 18px rgba(155, 92, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 6px 18px rgba(155, 92, 255, 0.35);
 }
 .btn-primary:active {
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .btn-danger {
   background: linear-gradient(180deg, rgba(244, 63, 94, 0.2) 0%, rgba(244, 63, 94, 0.08) 100%);
   border-color: rgba(244, 63, 94, 0.3);
   color: var(--danger);
-  box-shadow: var(--shadow-inset), 0 2px 8px rgba(244, 63, 94, 0.05);
+  box-shadow:
+    var(--shadow-inset),
+    0 2px 8px rgba(244, 63, 94, 0.05);
 }
 .btn-danger:hover {
   background: linear-gradient(180deg, rgba(244, 63, 94, 0.3) 0%, rgba(244, 63, 94, 0.15) 100%);
   border-color: var(--danger);
-  box-shadow: var(--shadow-inset), 0 4px 12px rgba(244, 63, 94, 0.15);
+  box-shadow:
+    var(--shadow-inset),
+    0 4px 12px rgba(244, 63, 94, 0.15);
 }
 
 /* Botón de Apagado Discreto (Zona de Peligro Simplificada) */
@@ -185,12 +199,16 @@ select option {
   background: linear-gradient(180deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.08) 100%);
   border-color: rgba(16, 185, 129, 0.3);
   color: var(--success);
-  box-shadow: var(--shadow-inset), 0 2px 8px rgba(16, 185, 129, 0.05);
+  box-shadow:
+    var(--shadow-inset),
+    0 2px 8px rgba(16, 185, 129, 0.05);
 }
 .btn-success:hover {
   background: linear-gradient(180deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.15) 100%);
   border-color: var(--online);
-  box-shadow: var(--shadow-inset), 0 4px 12px rgba(16, 185, 129, 0.15);
+  box-shadow:
+    var(--shadow-inset),
+    0 4px 12px rgba(16, 185, 129, 0.15);
 }
 
 .btn-lg {
@@ -217,7 +235,11 @@ select option {
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Badges con Bordes Definidos */
 .role-badge {
@@ -299,8 +321,15 @@ select option {
   text-shadow: 0 0 16px rgba(155, 92, 255, 0.4);
 }
 @keyframes pulse-offline {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.8; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
 }
 .offline-card h2 {
   font-size: 24px;
@@ -341,4 +370,3 @@ select option {
 .reconnect-btn i {
   font-size: 12px;
 }
-

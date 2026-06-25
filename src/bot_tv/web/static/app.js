@@ -26,11 +26,11 @@ function makeInitialState() {
       startedAt: null,
     },
     chatMessages: [],
-    ircUsers: new Map(),           // username → {display_name, nickname, color_rgb, role}
-    ircEvents: [],                  // log de JOIN/PART para mostrar en historial si hace falta
+    ircUsers: new Map(), // username → {display_name, nickname, color_rgb, role}
+    ircEvents: [], // log de JOIN/PART para mostrar en historial si hace falta
     followers: {
-      lastSync: null,              // FollowerSyncEvent más reciente
-      progress: null,              // FollowerProgressEvent en curso
+      lastSync: null, // FollowerSyncEvent más reciente
+      progress: null, // FollowerProgressEvent en curso
     },
     clips: [],
     agentConversations: [],
@@ -131,7 +131,9 @@ function reducer(state, action) {
 
     case 'agent_response': {
       const list = [...state.agentConversations];
-      const pendingIdx = list.findLastIndex(c => c.question === action.data.question && c.response === null);
+      const pendingIdx = list.findLastIndex(
+        c => c.question === action.data.question && c.response === null
+      );
       if (pendingIdx !== -1) {
         list[pendingIdx] = action.data;
       } else {

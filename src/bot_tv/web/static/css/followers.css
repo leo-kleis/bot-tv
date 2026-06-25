@@ -11,7 +11,9 @@
   border-radius: var(--radius-sm);
   padding: 12px;
   text-align: center;
-  transition: border-color 0.2s, background-color 0.2s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
   user-select: none;
 }
 .stat-card:hover {
@@ -58,7 +60,9 @@
   font-size: 13px;
   color: var(--text-2);
   border-bottom: 1px solid var(--border-2);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   background: transparent !important;
   border-left: none !important;
   border-radius: 0 !important;

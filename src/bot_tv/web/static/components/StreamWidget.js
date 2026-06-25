@@ -28,7 +28,7 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
       const mins = Math.floor(diff / (1000 * 60)) % 60;
       const hrs = Math.floor(diff / (1000 * 60 * 60));
 
-      const pad = (num) => String(num).padStart(2, '0');
+      const pad = num => String(num).padStart(2, '0');
       setUptime(`${pad(hrs)}:${pad(mins)}:${pad(secs)}`);
     }
 
@@ -37,39 +37,64 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
     return () => clearInterval(interval);
   }, [online, startedAt]);
 
-
-
   return html`
     <div class="stream-widget">
-      <span class="conn-badge ${connected ? 'connected' : ''}" title=${connected ? 'WebSocket conectado' : 'Reconectando...'}></span>
+      <span
+        class="conn-badge ${connected ? 'connected' : ''}"
+        title=${connected ? 'WebSocket conectado' : 'Reconectando...'}
+      ></span>
 
       <span class="stream-status-dot ${online ? 'online' : ''}"></span>
 
       <div class="stream-info">
         <div class="stream-name">
           ${broadcasterName || 'bot-tv'}
-          ${online ? html`
-            <span style="color:var(--online);font-size:10px;margin-left:6px;font-weight:800;letter-spacing:0.05em;display:inline-flex;align-items:center;gap:4px">
-              ● LIVE ${uptime ? html`<span style="color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums">(${uptime})</span>` : ''}
-            </span>
-          ` : html`<span style="color:var(--text-muted);font-size:10px;margin-left:6px">offline</span>`}
+          ${online
+            ? html`
+                <span
+                  style="color:var(--online);font-size:10px;margin-left:6px;font-weight:800;letter-spacing:0.05em;display:inline-flex;align-items:center;gap:4px"
+                >
+                  ● LIVE
+                  ${uptime
+                    ? html`<span
+                        style="color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums"
+                        >(${uptime})</span
+                      >`
+                    : ''}
+                </span>
+              `
+            : html`<span style="color:var(--text-muted);font-size:10px;margin-left:6px"
+                >offline</span
+              >`}
         </div>
-        ${(title || category) ? html`
-          <div class="stream-meta">${[title, category].filter(Boolean).join(' · ')}</div>
-        ` : null}
+        ${title || category
+          ? html` <div class="stream-meta">${[title, category].filter(Boolean).join(' · ')}</div> `
+          : null}
       </div>
 
-      ${online && viewerCount != null ? html`
-        <button class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">
-          <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
-          <span>${fmtViewers(viewerCount)}</span>
-        </button>
-      ` : html`
-        <button class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}" onClick=${onToggleIrc} title="Ver usuarios en canal" aria-label="Ver usuarios en canal">
-          <span class="users-icon"><i class="fa-solid fa-users"></i></span>
-          <span>${ircCount}</span>
-        </button>
-      `}
+      ${online && viewerCount != null
+        ? html`
+            <button
+              class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}"
+              onClick=${onToggleIrc}
+              title="Ver usuarios en canal"
+              aria-label="Ver usuarios en canal"
+            >
+              <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
+              <span>${fmtViewers(viewerCount)}</span>
+            </button>
+          `
+        : html`
+            <button
+              class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}"
+              onClick=${onToggleIrc}
+              title="Ver usuarios en canal"
+              aria-label="Ver usuarios en canal"
+            >
+              <span class="users-icon"><i class="fa-solid fa-users"></i></span>
+              <span>${ircCount}</span>
+            </button>
+          `}
     </div>
   `;
 }

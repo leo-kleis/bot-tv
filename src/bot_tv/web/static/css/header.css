@@ -26,7 +26,9 @@
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--danger);
-  transition: background 0.3s, box-shadow 0.3s;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
 }
 .conn-badge.connected {
   background: var(--accent);
@@ -48,9 +50,15 @@
 }
 
 @keyframes pulse-online {
-  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-  70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
 }
 
 .stream-info {
@@ -119,5 +127,9 @@
   margin-left: 2px;
   font-weight: 700;
 }
-.viewers-diff.pos { color: var(--success); }
-.viewers-diff.neg { color: var(--danger); }
+.viewers-diff.pos {
+  color: var(--success);
+}
+.viewers-diff.neg {
+  color: var(--danger);
+}

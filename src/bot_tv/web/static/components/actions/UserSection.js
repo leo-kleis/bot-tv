@@ -44,11 +44,20 @@ export function UserSection() {
 
   return html`
     <div class="section">
-      <div class="section-header"><span class="section-icon"><i class="fa-solid fa-user-gear"></i></span> Gestión de Usuario</div>
+      <div class="section-header">
+        <span class="section-icon"><i class="fa-solid fa-user-gear"></i></span> Gestión de Usuario
+      </div>
       <div class="section-body">
         <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px">Usuario</label>
-          <${UserAutocomplete} id="input-username" value=${username} onChange=${setUsername} placeholder="Buscar usuario..." />
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px"
+            >Usuario</label
+          >
+          <${UserAutocomplete}
+            id="input-username"
+            value=${username}
+            onChange=${setUsername}
+            placeholder="Buscar usuario..."
+          />
         </div>
 
         <div class="action-row">
@@ -59,12 +68,16 @@ export function UserSection() {
             onClick=${toggleBot}
             disabled=${!username.trim() || loading === 'bot'}
           >
-            ${loading === 'bot' ? html`<span class="spinner"></span>` : html`<i class="fa-solid fa-robot"></i> Toggle Bot`}
+            ${loading === 'bot'
+              ? html`<span class="spinner"></span>`
+              : html`<i class="fa-solid fa-robot"></i> Toggle Bot`}
           </button>
         </div>
 
         <div>
-          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px">Apodo (vacío = eliminar)</label>
+          <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:5px"
+            >Apodo (vacío = eliminar)</label
+          >
           <div class="action-row">
             <input
               id="input-nickname"
@@ -85,7 +98,9 @@ export function UserSection() {
           </div>
         </div>
 
-        ${result ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>` : null}
+        ${result
+          ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>`
+          : null}
       </div>
     </div>
   `;

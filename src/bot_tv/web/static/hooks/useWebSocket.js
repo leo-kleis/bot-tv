@@ -35,7 +35,7 @@ export function useWebSocket(dispatch, historyLoaded) {
         dispatch({ type: 'WS_CONNECTED' });
       };
 
-      ws.onmessage = (e) => {
+      ws.onmessage = e => {
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === 'history_end') {
@@ -57,14 +57,14 @@ export function useWebSocket(dispatch, historyLoaded) {
               'twitch_unban',
               'twitch_chat_clear',
               'twitch_chat_clear_user',
-              'twitch_message_delete'
+              'twitch_message_delete',
             ];
 
             if (alertTypes.includes(msg.type) && historyLoadedRef.current) {
               const toastId = Date.now() + Math.random().toString(36).substr(2, 9);
               dispatch({
                 type: 'ADD_TOAST',
-                toast: { id: toastId, type: msg.type, data: msg.data }
+                toast: { id: toastId, type: msg.type, data: msg.data },
               });
               setTimeout(() => {
                 dispatch({ type: 'REMOVE_TOAST', id: toastId });
@@ -77,7 +77,7 @@ export function useWebSocket(dispatch, historyLoaded) {
       ws.onclose = () => {
         if (destroyed) return;
         dispatch({ type: 'WS_DISCONNECTED' });
-        
+
         if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
 
         timeoutIdRef.current = setTimeout(() => {

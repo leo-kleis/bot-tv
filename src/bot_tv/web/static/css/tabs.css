@@ -24,7 +24,9 @@
   font-family: var(--font);
   padding: 8px 4px;
   position: relative;
-  transition: color 0.2s, transform 0.1s;
+  transition:
+    color 0.2s,
+    transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
 .tab-btn .tab-icon {
@@ -50,7 +52,9 @@
   border-radius: 4px 4px 0 0;
   opacity: 0;
   transform: scaleX(0);
-  transition: opacity 0.2s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.2s,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tab-btn.active {

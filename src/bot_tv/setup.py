@@ -54,6 +54,7 @@ CHANNEL_SCOPES: list[str] = [
     # Chat y bot
     "channel:bot",
     "user:read:chat",
+    "user:write:chat",
     "channel:moderate",
     # Anuncios y ads
     "channel:manage:ads",

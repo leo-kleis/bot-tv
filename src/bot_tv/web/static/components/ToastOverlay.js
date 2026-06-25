@@ -6,7 +6,7 @@ export function ToastOverlay({ toasts, dispatch }) {
 
   return html`
     <div class="toast-overlay">
-      ${toasts.map((toast) => {
+      ${toasts.map(toast => {
         const details = getEventDetails(toast.type);
         return html`
           <div key=${toast.id} class="toast-card ${details.toastClassName}">

@@ -10,7 +10,9 @@ export function AgentTab({ conversations = [], dispatch }) {
 
   // Cargar estado RPM al montar
   useEffect(() => {
-    apiGet('/api/rpm').then(d => { if (d.ok && d.data?.length) setRpmInfo(d.data[0]); });
+    apiGet('/api/rpm').then(d => {
+      if (d.ok && d.data?.length) setRpmInfo(d.data[0]);
+    });
   }, []);
 
   // Auto-scroll al final
@@ -28,14 +30,16 @@ export function AgentTab({ conversations = [], dispatch }) {
 
     dispatch({
       type: 'agent_question_pending',
-      data: { question: msg, timestamp: ts }
+      data: { question: msg, timestamp: ts },
     });
 
     const data = await apiPost('/api/talk', { message: msg });
     setLoading(false);
 
     // Recargar RPM después de la consulta
-    apiGet('/api/rpm').then(d => { if (d.ok && d.data?.length) setRpmInfo(d.data[0]); });
+    apiGet('/api/rpm').then(d => {
+      if (d.ok && d.data?.length) setRpmInfo(d.data[0]);
+    });
 
     if (!data.ok) {
       dispatch({
@@ -44,8 +48,8 @@ export function AgentTab({ conversations = [], dispatch }) {
           timestamp: ts,
           question: msg,
           response: `Error: ${data.error}`,
-          model: 'error'
-        }
+          model: 'error',
+        },
       });
     }
   }
@@ -62,36 +66,56 @@ export function AgentTab({ conversations = [], dispatch }) {
 
   return html`
     <div class="agent-tab">
-
       <!-- Conversación -->
       <div class="agent-convo" ref=${feedRef} id="agent-convo">
-        ${conversations.length === 0 ? html`
-          <div class="agent-empty">
-            <span class="empty-icon"><i class="fa-solid fa-robot fa-3x" style="color:var(--text-muted);margin-bottom:12px"></i></span>
-            <span style="font-size:13px;color:var(--text-muted)">Escribe un mensaje para consultar al agente</span>
-          </div>
-        ` : conversations.map(c => html`
-          <div class="convo-pair" key=${c.id}>
-            <div class="convo-q">${c.question}</div>
-            ${c.response == null
-              ? html`<div class="convo-a loading"><span class="spinner" style="border-top-color:var(--accent)"></span> Pensando...</div>`
-              : html`
-                <div class="convo-a">${c.response}</div>
-                <div class="convo-meta">${fmtTime(c.timestamp)}${c.model ? ` · ${c.model}` : ''}</div>
+        ${conversations.length === 0
+          ? html`
+              <div class="agent-empty">
+                <span class="empty-icon"
+                  ><i
+                    class="fa-solid fa-robot fa-3x"
+                    style="color:var(--text-muted);margin-bottom:12px"
+                  ></i
+                ></span>
+                <span style="font-size:13px;color:var(--text-muted)"
+                  >Escribe un mensaje para consultar al agente</span
+                >
+              </div>
+            `
+          : conversations.map(
+              c => html`
+                <div class="convo-pair" key=${c.id}>
+                  <div class="convo-q">${c.question}</div>
+                  ${c.response == null
+                    ? html`<div class="convo-a loading">
+                        <span class="spinner" style="border-top-color:var(--accent)"></span>
+                        Pensando...
+                      </div>`
+                    : html`
+                        <div class="convo-a">${c.response}</div>
+                        <div class="convo-meta">
+                          ${fmtTime(c.timestamp)}${c.model ? ` · ${c.model}` : ''}
+                        </div>
+                      `}
+                </div>
               `
-            }
-          </div>
-        `)}
+            )}
       </div>
 
       <!-- Info RPM -->
-      ${rpm ? html`
-        <div class="agent-model-info">
-          <span class="rpm-dot ${rpmDotClass}"></span>
-          <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
-          ${rpm.is_blocked ? html`<span style="color:var(--danger)">Bloqueado ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span>` : null}
-        </div>
-      ` : null}
+      ${rpm
+        ? html`
+            <div class="agent-model-info">
+              <span class="rpm-dot ${rpmDotClass}"></span>
+              <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
+              ${rpm.is_blocked
+                ? html`<span style="color:var(--danger)"
+                    >Bloqueado ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
+                  >`
+                : null}
+            </div>
+          `
+        : null}
 
       <!-- Input -->
       <div class="agent-input-area">

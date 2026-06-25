@@ -93,8 +93,12 @@
   }
 
   @keyframes fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .chat-panel {
@@ -114,11 +118,13 @@
     flex-direction: column;
     gap: 10px;
   }
-  .actions-grid, .followers-grid {
+  .actions-grid,
+  .followers-grid {
     flex-direction: column;
     gap: 16px;
   }
-  .actions-col, .followers-col {
+  .actions-col,
+  .followers-col {
     gap: 16px;
   }
 }
@@ -129,12 +135,12 @@
     --header-h: 44px;
     --tab-h: auto;
   }
-  
+
   #app-root {
     display: grid;
-    grid-template-areas: 
-      "header header"
-      "sidebar content";
+    grid-template-areas:
+      'header header'
+      'sidebar content';
     grid-template-rows: var(--header-h) 1fr;
     grid-template-columns: 64px 1fr;
     height: 100dvh;
@@ -188,7 +194,7 @@
   #app-root .tab-btn .tab-label {
     font-size: 8px;
   }
-  
+
   /* Indicador activo vertical en el lateral derecho del botón */
   #app-root .tab-btn::after {
     width: 3px;
@@ -228,14 +234,16 @@
   #app-root .agent-input-area {
     padding: 8px 12px;
   }
-  #app-root .actions-grid, #app-root .followers-grid {
+  #app-root .actions-grid,
+  #app-root .followers-grid {
     flex-direction: column;
     gap: 16px;
   }
-  #app-root .actions-col, #app-root .followers-col {
+  #app-root .actions-col,
+  #app-root .followers-col {
     gap: 16px;
   }
-  
+
   /* Ajustar la posición absoluta del drawer IRC en móvil horizontal solo en pantallas angostas */
   @media (max-width: 600px) {
     #app-root .irc-panel {

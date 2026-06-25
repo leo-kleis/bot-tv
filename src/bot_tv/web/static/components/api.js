@@ -4,7 +4,9 @@ export async function apiGet(path) {
     const data = await r.json();
     if (!r.ok) return { ok: false, error: data.error || `HTTP ${r.status}` };
     return data;
-  } catch (e) { return { ok: false, error: e.message }; }
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
 
 export async function apiPost(path, body) {
@@ -17,5 +19,7 @@ export async function apiPost(path, body) {
     const data = await r.json();
     if (!r.ok) return { ok: false, error: data.error || `HTTP ${r.status}` };
     return data;
-  } catch (e) { return { ok: false, error: e.message }; }
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 }
