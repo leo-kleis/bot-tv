@@ -32,3 +32,21 @@
 ## Pyrefly (Type Checker)
 - `uv run pyrefly check` (Revisa tipos de forma estricta)
 - `uv run pyrefly check --min-severity warn` (Revisa tipos y muestra advertencias)
+
+## Prettier (Formatter)
+- `pnpm run format` (Formatea archivos de frontend)
+- `pnpm run format:check` (Verifica el formato de archivos de frontend)
+- `pnpm exec prettier --write <ruta>` (Formatea una ruta específica)
+
+## Oxlint (Linter rápido)
+- `pnpm exec oxlint <ruta>` (Analiza problemas en una ruta específica)
+- `pnpm exec oxlint --fix <ruta>` (Corrige problemas automáticamente en una ruta específica)
+
+## Eslint (Linter detallado)
+- `pnpm exec eslint <ruta>` (Analiza problemas en una ruta específica)
+- `pnpm exec eslint --fix <ruta>` (Corrige problemas automáticamente en una ruta específica)
+
+## Scripts de Frontend (Linter & Formatter combinados)
+- `pnpm run lint` (Ejecuta oxlint y eslint en el directorio static)
+- `pnpm run lint:fix` (Ejecuta oxlint y eslint con corrección automática en el directorio static)
+

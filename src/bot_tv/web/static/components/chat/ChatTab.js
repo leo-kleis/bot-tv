@@ -152,20 +152,6 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
 
     if (res.ok) {
       setInputText('');
-      if (dispatch) {
-        const toastId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-        dispatch({
-          type: 'ADD_TOAST',
-          toast: {
-            id: toastId,
-            type: 'api_success',
-            data: { message: 'Mensaje enviado correctamente.' },
-          },
-        });
-        setTimeout(() => {
-          dispatch({ type: 'REMOVE_TOAST', id: toastId });
-        }, 5000);
-      }
     } else {
       if (dispatch) {
         const toastId = Date.now().toString() + Math.random().toString(36).substr(2, 9);

@@ -215,7 +215,7 @@
   #app-root .stream-meta {
     display: none;
   }
-  #app-root .viewers-badge.clickable {
+  #app-root .viewers-badge {
     padding: 4px 8px;
     font-size: 11px;
     min-height: auto;
@@ -309,8 +309,7 @@
   .stream-name {
     font-size: 13px;
   }
-  .viewers-badge.clickable,
-  .viewers-badge.offline-irc-btn {
+  .viewers-badge {
     padding: 4px 8px;
     font-size: 11px;
     min-height: auto;

@@ -82,8 +82,8 @@
   margin-top: 1px;
 }
 
-/* Badge de espectadores/usuarios interactivo */
-.viewers-badge.clickable {
+/* Badge de espectadores/usuarios */
+.viewers-badge {
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text-2);
@@ -94,12 +94,16 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  font-family: var(--font);
+  user-select: none;
+}
+
+/* Badge interactivo */
+.viewers-badge.clickable {
   cursor: pointer;
   outline: none;
-  font-family: var(--font);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
 }
 .viewers-badge.clickable:hover {
   background: var(--surface3);

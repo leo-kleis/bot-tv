@@ -74,22 +74,26 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
 
       ${online && viewerCount != null
         ? html`
+            <div class="viewers-badge" title="Espectadores en vivo">
+              <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
+              <span>${fmtViewers(viewerCount)}</span>
+            </div>
             <button
               class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}"
               onClick=${onToggleIrc}
-              title="Ver usuarios en canal"
-              aria-label="Ver usuarios en canal"
+              title="Ver usuarios en el chat"
+              aria-label="Ver usuarios en el chat"
             >
-              <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
-              <span>${fmtViewers(viewerCount)}</span>
+              <span class="users-icon"><i class="fa-solid fa-users"></i></span>
+              <span>${ircCount}</span>
             </button>
           `
         : html`
             <button
               class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}"
               onClick=${onToggleIrc}
-              title="Ver usuarios en canal"
-              aria-label="Ver usuarios en canal"
+              title="Ver usuarios en el chat"
+              aria-label="Ver usuarios en el chat"
             >
               <span class="users-icon"><i class="fa-solid fa-users"></i></span>
               <span>${ircCount}</span>

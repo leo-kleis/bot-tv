@@ -1,6 +1,6 @@
 [project]
 name = "bot-tv"
-version = "0.3.0"
+version = "0.4.0"
 description = "Bot de Twitch"
 authors = [{ name = "leo-kleis" }]
 requires-python = ">=3.14,<4.0"
@@ -29,8 +29,8 @@ build-backend = "hatchling.build"
 packages = ["src/bot_tv"]
 
 [project.scripts]
-bot-tv    = "bot_tv.main:main"
-bot-web   = "bot_tv.web_main:main"
+bot-tv = "bot_tv.main:main"
+bot-web = "bot_tv.web_main:main"
 bot-setup = "bot_tv.setup:setup"
 
 # ── Ruff ────────────────────────────────────────────────────────────
@@ -62,9 +62,18 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"extra/**/*.py" = ["T201", "T203", "S105", "S113"] # Permitir print/input/urls/requests sin timeout en scripts interactivos
-"src/bot_tv/agent/tools/chat.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
-"src/bot_tv/database/repositories/*.py" = ["S608"] # Permitir f-string SQL query dinámico controlado
+"extra/**/*.py" = [
+    "T201",
+    "T203",
+    "S105",
+    "S113",
+] # Permitir print/input/urls/requests sin timeout en scripts interactivos
+"src/bot_tv/agent/tools/chat.py" = [
+    "S608",
+] # Permitir f-string SQL query dinámico controlado
+"src/bot_tv/database/repositories/*.py" = [
+    "S608",
+] # Permitir f-string SQL query dinámico controlado
 
 [tool.ruff.format]
 quote-style = "double"
