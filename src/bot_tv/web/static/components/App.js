@@ -133,7 +133,12 @@ export function App({ state, dispatch, onReconnect }) {
         ${active === 'followers' && html`<${FollowersTab} followers=${state.followers} />`}
         ${active === 'agent' &&
         html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}
-        ${active === 'actions' && html`<${ActionsTab} clips=${state.clips} dispatch=${dispatch} />`}
+        ${active === 'actions' &&
+        html`<${ActionsTab}
+          clips=${state.clips}
+          dispatch=${dispatch}
+          streamOnline=${state.stream.online}
+        />`}
         ${active === 'settings' && html`<${SettingsTab} />`}
       </main>
       <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />

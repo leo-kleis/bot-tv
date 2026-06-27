@@ -1,5 +1,6 @@
 import { html, useState, useEffect } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
+import { CustomSelect } from '/static/components/CustomSelect.js';
 
 export function ModelSection() {
   const [models, setModels] = useState([]);
@@ -59,19 +60,19 @@ export function ModelSection() {
 
         <div class="action-row">
           <div class="model-select-wrap">
-            <select
+            <${CustomSelect}
               id="select-model"
               value=${selected}
-              onChange=${e => setSelected(e.target.value)}
-            >
-              <option value="">— Seleccionar modelo —</option>
-              ${models.map(
-                m =>
-                  html`<option key=${m.name} value=${m.name}>
-                    ${m.display_name} (${m.rpm_limit} RPM)
-                  </option>`
-              )}
-            </select>
+              onChange=${setSelected}
+              options=${[
+                { value: '', label: '— Seleccionar modelo —' },
+                ...models.map(m => ({
+                  value: m.name,
+                  label: `${m.display_name} (${m.rpm_limit} RPM)`,
+                })),
+              ]}
+              disabled=${loading}
+            />
           </div>
           <button
             id="btn-switch-model"

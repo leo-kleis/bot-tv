@@ -274,12 +274,13 @@ async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
     bot.event_bus.emit = capture_and_restore  # type: ignore[assignment]
 
     try:
-        await component.hacer_clip()
+        await component.hacer_clip(raise_on_error=True)
         result = await asyncio.wait_for(future, timeout=15)
     except TimeoutError:
         result = "Timeout: el clip tardó demasiado."
     except Exception as e:
-        result = str(e)
+        msg = str(e) or "Fallo al crear el clip en Twitch"
+        result = f"Error al crear el clip: {msg}"
     finally:
         bot.event_bus.emit = original_emit  # type: ignore[assignment]
 

@@ -14,3 +14,4 @@ El proyecto cuenta con un RAG local embebido basado en LanceDB y la API de Gemin
 - **Idioma y Filtros de Búsqueda**: 
   - Formula la consulta (`query`) en inglés para obtener mayor coincidencia semántica y reducir tokens.
   - Filtra mediante el parámetro `scope` (`'angular'` para Angular, `'nestjs'` para NestJS/Prisma, o `'python'` para Python) para evitar ruido de resultados de otros entornos de ejecución.
+- **Uso Actual**: Para este proyecto no usar `scope`.

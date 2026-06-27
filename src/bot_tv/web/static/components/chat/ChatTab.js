@@ -2,6 +2,7 @@ import { html, useEffect, useRef, useState } from 'preact-setup';
 import { getEventDetails } from '../event-config.js';
 import { toRgb, fmtTime } from 'lib/utils';
 import { apiGet, apiPost } from '../api.js';
+import { CustomSelect } from '../CustomSelect.js';
 
 function roleDisplay(role) {
   if (!role || role === 'Visita') return 'Visita';
@@ -224,20 +225,16 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
           <form onSubmit=${handleSend} class="chat-input-form">
             ${accounts.length > 0
               ? html`
-                  <select
-                    class="chat-select-field"
+                  <${CustomSelect}
+                    className="chat-select-field"
                     value=${selectedSenderId}
-                    onChange=${e => setSelectedSenderId(e.target.value)}
+                    onChange=${setSelectedSenderId}
                     disabled=${sending}
-                  >
-                    ${accounts.map(
-                      acc => html`
-                        <option key=${acc.user_id} value=${acc.user_id}>
-                          ${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})
-                        </option>
-                      `
-                    )}
-                  </select>
+                    options=${accounts.map(acc => ({
+                      value: acc.user_id,
+                      label: `${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})`,
+                    }))}
+                  />
                 `
               : null}
             <input

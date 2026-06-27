@@ -48,10 +48,26 @@ class ClipComponent(commands.Component):
         # Delegar al loop asíncrono sin bloquear el hilo de keyboard
         asyncio.run_coroutine_threadsafe(self.hacer_clip(), self._loop)
 
-    async def hacer_clip(self) -> None:
+    async def hacer_clip(self, raise_on_error: bool = False) -> None:
         """Llama a la API de Twitch para crear un clip y lo envía al chat."""
         try:
             LOGGER.info("%sCreando clip...%s", AMARILLO, RESET)
+
+            # Verificar si el stream está online
+            from bot_tv.components.stream_component import StreamComponent
+            stream_comp = self.bot._components.get("StreamComponent")
+            if (
+                isinstance(stream_comp, StreamComponent)
+                and not stream_comp._stream_online
+            ):
+                LOGGER.error(
+                    "%sEl canal no está en vivo. No se puede crear un clip.%s",
+                    ROJO,
+                    RESET,
+                )
+                if raise_on_error:
+                    raise ValueError("El canal no está en vivo.")
+                return
 
             # 1. Buscar a nuestro propio broadcaster (dueño del canal a clipear)
             # Acorde a bot.py, el canal es aquel cuyo user_id != bot_id
@@ -67,6 +83,10 @@ class ClipComponent(commands.Component):
                     ROJO,
                     RESET,
                 )
+                if raise_on_error:
+                    raise ValueError(
+                        "No se encontró la cuenta del canal para hacer el clip."
+                    )
                 return
 
             broadcaster_id = row["user_id"]
@@ -86,6 +106,8 @@ class ClipComponent(commands.Component):
 
             if not clip:
                 LOGGER.error("%sTwitch no devolvió ningún clip válido.%s", ROJO, RESET)
+                if raise_on_error:
+                    raise ValueError("Twitch no devolvió ningún clip válido.")
                 return
 
             # 4. Extraemos la URL (por defecto, Twitch y TwitchIO devuelven edit_url)
@@ -124,7 +146,11 @@ class ClipComponent(commands.Component):
             )
             if e.status in (401, 403, 400):
                 LOGGER.error("Error de la API (%s)", e.status)
+            if raise_on_error:
+                raise
         except Exception as e:
             LOGGER.exception("Error inesperado al crear el clip: %s", e)
+            if raise_on_error:
+                raise
         finally:
             self._clip_en_progreso = False

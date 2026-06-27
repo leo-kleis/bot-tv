@@ -21,35 +21,33 @@ export function DangerSection({ dispatch }) {
         Peligro
       </div>
       <div class="section-body">
-        ${!confirm
-          ? html`
-              <div>
-                <button
-                  id="btn-exit-confirm"
-                  class="btn btn-exit"
-                  onClick=${() => setConfirm(true)}
-                >
-                  <i class="fa-solid fa-power-off"></i> Apagar bot
-                </button>
-              </div>
-            `
-          : html`
-              <p style="font-size:13px;color:var(--text-2)">
-                ¿Seguro? Esto cerrará el proceso del bot.
-              </p>
-              <div class="action-row">
+        <div>
+          <button id="btn-exit-confirm" class="btn btn-exit" onClick=${() => setConfirm(true)}>
+            <i class="fa-solid fa-power-off"></i> Apagar bot
+          </button>
+        </div>
+
+        ${confirm &&
+        html`
+          <div class="modal-backdrop" onClick=${() => !loading && setConfirm(false)}>
+            <div class="modal-card" onClick=${e => e.stopPropagation()}>
+              <span class="modal-icon">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </span>
+              <h3>¿Apagar bot?</h3>
+              <p>Esto cerrará el proceso del bot de forma inmediata.</p>
+              <div class="modal-actions">
                 <button
                   id="btn-exit-cancel"
                   class="btn"
-                  style="flex:1"
                   onClick=${() => setConfirm(false)}
+                  disabled=${loading}
                 >
                   Cancelar
                 </button>
                 <button
                   id="btn-exit-execute"
-                  class="btn btn-exit"
-                  style="flex:1"
+                  class="btn btn-danger"
                   onClick=${exit}
                   disabled=${loading}
                 >
@@ -58,7 +56,9 @@ export function DangerSection({ dispatch }) {
                     : 'Confirmar'}
                 </button>
               </div>
-            `}
+            </div>
+          </div>
+        `}
       </div>
     </div>
   `;

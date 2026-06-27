@@ -4,11 +4,11 @@ import { UserSection } from '/static/components/actions/UserSection.js';
 import { ModelSection } from '/static/components/actions/ModelSection.js';
 import { DangerSection } from '/static/components/actions/DangerSection.js';
 
-export function ActionsTab({ clips, dispatch }) {
+export function ActionsTab({ clips, dispatch, streamOnline }) {
   return html`
     <div class="panel actions-grid" id="actions-panel">
       <div class="actions-col">
-        <${ClipSection} clips=${clips} />
+        <${ClipSection} clips=${clips} streamOnline=${streamOnline} />
         <${ModelSection} />
       </div>
       <div class="actions-col">

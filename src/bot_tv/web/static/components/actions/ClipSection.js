@@ -1,7 +1,7 @@
 import { html, useState } from 'preact-setup';
 import { apiPost } from '/static/components/api.js';
 
-export function ClipSection({ clips = [] }) {
+export function ClipSection({ clips = [], streamOnline = false }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -27,11 +27,13 @@ export function ClipSection({ clips = [] }) {
           id="btn-create-clip"
           class="btn btn-primary btn-lg"
           onClick=${createClip}
-          disabled=${loading}
+          disabled=${loading || !streamOnline}
         >
           ${loading
             ? html`<span class="spinner"></span> Creando...`
-            : html`<i class="fa-solid fa-scissors"></i> Crear clip ahora`}
+            : !streamOnline
+              ? html`<i class="fa-solid fa-circle-xmark"></i> Canal offline`
+              : html`<i class="fa-solid fa-scissors"></i> Crear clip ahora`}
         </button>
         ${result
           ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}" style="word-break:break-all">

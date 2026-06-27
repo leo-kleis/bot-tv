@@ -407,30 +407,36 @@
 }
 
 .chat-select-field {
+  max-width: 160px;
+  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+}
+
+.chat-select-field .custom-select-trigger {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  padding: 0 10px;
-  color: var(--text);
-  font-family: inherit;
+  padding: 10px 12px;
   font-size: 0.85rem;
-  outline: none;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  max-width: 160px;
-  flex-shrink: 0;
+  min-height: auto;
+  box-shadow: none;
 }
 
-.chat-select-field:focus {
+.chat-select-field.open .custom-select-trigger,
+.chat-select-field .custom-select-trigger:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-glow);
+  background: rgba(26, 22, 36, 0.7);
 }
 
-.chat-select-field option {
-  background: var(--surface-solid);
-  color: var(--text);
+.chat-select-field .custom-select-dropdown {
+  border-radius: var(--radius-xs);
+}
+
+.chat-select-field .custom-select-item {
+  font-size: 12.5px;
+  padding: 8px 12px;
 }
 
 .chat-input-field {
@@ -496,8 +502,10 @@
 @media (max-width: 576px) {
   .chat-select-field {
     max-width: 90px;
+  }
+  .chat-select-field .custom-select-trigger {
     font-size: 0.75rem;
-    padding: 0 4px;
+    padding: 8px 6px;
   }
   .chat-input-field {
     font-size: 0.85rem;
