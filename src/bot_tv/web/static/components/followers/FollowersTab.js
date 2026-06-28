@@ -66,6 +66,14 @@ const SELECT_OPTIONS = [
   { value: 'unfollower', label: 'Dejó de Seguir' },
 ];
 
+const ROLE_OPTIONS = [
+  { value: 'all', label: 'Todos los roles' },
+  { value: 'moderator', label: 'Moderador' },
+  { value: 'vip', label: 'VIP' },
+  { value: 'subscriber', label: 'Suscriptor' },
+  { value: 'bot', label: 'Bot' },
+];
+
 export function FollowersTab({ followers }) {
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState(null);
@@ -74,6 +82,7 @@ export function FollowersTab({ followers }) {
   const [nameInput, setNameInput] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [isFollower, setIsFollower] = useState('all'); // 'all', 'true', 'false'
+  const [role, setRole] = useState('all');
   const [followedAfter, setFollowedAfter] = useState('');
   const [followedBefore, setFollowedBefore] = useState('');
   const [unfollowedAfter, setUnfollowedAfter] = useState('');
@@ -85,6 +94,13 @@ export function FollowersTab({ followers }) {
   const [page, setPage] = useState(1);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(null); // trackea acciones rápidas por usuario
+  const [selectedUserForRoles, setSelectedUserForRoles] = useState(null);
+  const [tempRoles, setTempRoles] = useState({
+    is_bot: false,
+    is_moderator: false,
+    is_vip: false,
+    is_subscriber: false,
+  });
 
   const limit = 50;
   const sync = followers.lastSync;
@@ -94,6 +110,7 @@ export function FollowersTab({ followers }) {
   const prevFilters = useRef({
     nameSearch,
     isFollower,
+    role,
     followedAfter,
     followedBefore,
     unfollowedAfter,
@@ -113,6 +130,7 @@ export function FollowersTab({ followers }) {
     const filtersChanged =
       prevFilters.current.nameSearch !== nameSearch ||
       prevFilters.current.isFollower !== isFollower ||
+      prevFilters.current.role !== role ||
       prevFilters.current.followedAfter !== followedAfter ||
       prevFilters.current.followedBefore !== followedBefore ||
       prevFilters.current.unfollowedAfter !== unfollowedAfter ||
@@ -121,6 +139,7 @@ export function FollowersTab({ followers }) {
     prevFilters.current = {
       nameSearch,
       isFollower,
+      role,
       followedAfter,
       followedBefore,
       unfollowedAfter,
@@ -136,6 +155,7 @@ export function FollowersTab({ followers }) {
     page,
     nameSearch,
     isFollower,
+    role,
     followedAfter,
     followedBefore,
     unfollowedAfter,
@@ -163,6 +183,7 @@ export function FollowersTab({ followers }) {
     const params = new window.URLSearchParams();
     if (nameSearch.trim()) params.append('name', nameSearch.trim());
     if (isFollower !== 'all') params.append('is_follower', isFollower);
+    if (role !== 'all') params.append('role', role);
     if (followedAfter) params.append('followed_after', followedAfter);
     if (followedBefore) params.append('followed_before', followedBefore);
     if (unfollowedAfter) params.append('unfollowed_after', unfollowedAfter);
@@ -195,12 +216,31 @@ export function FollowersTab({ followers }) {
   }
 
   // Acciones rápidas sobre los usuarios de la tabla
-  async function handleToggleBot(u) {
-    setActionInProgress(u.username);
-    const res = await apiPost('/api/toggle_bot', { username: u.username });
+  function openRolesModal(u) {
+    setSelectedUserForRoles(u);
+    setTempRoles({
+      is_bot: !!u.is_bot,
+      is_moderator: !!u.is_moderator,
+      is_vip: !!u.is_vip,
+      is_subscriber: !!u.is_subscriber,
+    });
+  }
+
+  async function handleSaveRoles() {
+    if (!selectedUserForRoles) return;
+    setActionInProgress(selectedUserForRoles.username);
+    const res = await apiPost('/api/update_user_roles', {
+      username: selectedUserForRoles.username,
+      is_bot: tempRoles.is_bot,
+      is_moderator: tempRoles.is_moderator,
+      is_vip: tempRoles.is_vip,
+    });
     setActionInProgress(null);
+    setSelectedUserForRoles(null);
     if (res && res.ok) {
       fetchUsers();
+    } else {
+      window.alert(res.error || 'Error al actualizar los roles.');
     }
   }
 
@@ -220,10 +260,24 @@ export function FollowersTab({ followers }) {
     }
   }
 
+  async function handleSyncRoles(u) {
+    setActionInProgress(u.username);
+    const res = await apiPost('/api/sync_user_roles', {
+      username: u.username,
+    });
+    setActionInProgress(null);
+    if (res && res.ok) {
+      fetchUsers();
+    } else {
+      window.alert(res.error || 'Error al sincronizar roles con Twitch.');
+    }
+  }
+
   function handleClearFilters() {
     setNameInput('');
     setNameSearch('');
     setIsFollower('all');
+    setRole('all');
     setFollowedAfter('');
     setFollowedBefore('');
     setUnfollowedAfter('');
@@ -392,6 +446,12 @@ export function FollowersTab({ followers }) {
                 onChange=${setIsFollower}
                 options=${SELECT_OPTIONS}
               />
+            </div>
+
+            <!-- Rol -->
+            <div class="filter-group">
+              <label class="filter-label">Rol</label>
+              <${CustomSelect} value=${role} onChange=${setRole} options=${ROLE_OPTIONS} />
             </div>
 
             <!-- Rango Fecha Seguimiento -->
@@ -604,14 +664,22 @@ export function FollowersTab({ followers }) {
                               <td data-label="Acciones">
                                 <div class="user-table-actions">
                                   <button
-                                    class="btn btn-secondary btn-sm ${u.is_bot
-                                      ? 'active-bot-btn'
-                                      : ''}"
-                                    onClick=${() => handleToggleBot(u)}
-                                    title=${u.is_bot ? 'Desmarcar como bot' : 'Marcar como bot'}
+                                    class="btn btn-secondary btn-sm"
+                                    onClick=${() => openRolesModal(u)}
+                                    title=${u.is_broadcaster
+                                      ? 'No se pueden modificar los roles del broadcaster'
+                                      : 'Gestionar roles'}
+                                    disabled=${isActioning || u.is_broadcaster}
+                                  >
+                                    <i class="fa-solid fa-user-shield"></i>
+                                  </button>
+                                  <button
+                                    class="btn btn-secondary btn-sm"
+                                    onClick=${() => handleSyncRoles(u)}
+                                    title="Sincronizar roles con Twitch"
                                     disabled=${isActioning}
                                   >
-                                    <i class="fa-solid fa-robot"></i>
+                                    <i class="fa-solid fa-arrows-rotate"></i>
                                   </button>
                                   <button
                                     class="btn btn-secondary btn-sm"
@@ -677,6 +745,163 @@ export function FollowersTab({ followers }) {
           </div>
         </div>
       </div>
+
+      ${selectedUserForRoles &&
+      html`
+        <div class="modal-backdrop" onClick=${() => setSelectedUserForRoles(null)}>
+          <div
+            class="modal-card"
+            style="text-align: left; max-width: 450px;"
+            onClick=${e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            <div
+              style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;"
+            >
+              <h3 id="modal-title" style="margin:0; font-size:18px;">Gestionar Roles</h3>
+              <button
+                class="btn-close"
+                style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px;"
+                onClick=${() => setSelectedUserForRoles(null)}
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Info del Usuario -->
+            <div
+              style="background:var(--surface2); border: 1px solid var(--border-2); border-radius:var(--radius-sm); padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:8px;"
+            >
+              <div>
+                <span
+                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                  >Usuario</span
+                >
+                <strong style="color:var(--accent-text); font-size:15px;"
+                  >${selectedUserForRoles.display_name || selectedUserForRoles.username}</strong
+                >
+                ${selectedUserForRoles.display_name &&
+                selectedUserForRoles.display_name.toLowerCase() !==
+                  selectedUserForRoles.username.toLowerCase()
+                  ? html`<span style="color:var(--text-muted); font-size:13px; margin-left:6px;"
+                      >@${selectedUserForRoles.username}</span
+                    >`
+                  : null}
+              </div>
+
+              <div>
+                <span
+                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                  >Apodo</span
+                >
+                <span style="font-size:13.5px; color:var(--text-2);"
+                  >${selectedUserForRoles.nickname || 'Sin apodo'}</span
+                >
+              </div>
+
+              <div>
+                <span
+                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                  >Estado Seguimiento</span
+                >
+                <span style="font-size:13px;">
+                  ${selectedUserForRoles.is_broadcaster
+                    ? html`<span class="irc-badge badge-broadcaster">Broadcaster</span>`
+                    : selectedUserForRoles.is_follower
+                      ? html`<span class="irc-badge badge-follower" style="margin-right:6px;"
+                            >Seguidor</span
+                          >
+                          <span style="color:var(--text-muted);"
+                            >desde ${formatDate(selectedUserForRoles.followed_at)}</span
+                          >`
+                      : selectedUserForRoles.unfollowed_at
+                        ? html`<span class="irc-badge badge-unfollower" style="margin-right:6px;"
+                              >Dejó de seguir</span
+                            >
+                            <span style="color:var(--text-muted);"
+                              >(${formatDate(selectedUserForRoles.unfollowed_at)})</span
+                            >`
+                        : html`<span class="irc-badge badge-never-follower"
+                            >Nunca ha seguido</span
+                          >`}
+                </span>
+              </div>
+            </div>
+
+            <!-- Listado de Roles (Toggles) -->
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+              <span
+                style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.05em;"
+                >Asignar Roles</span
+              >
+
+              <!-- Fila: Moderador -->
+              <div
+                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+              >
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="irc-badge badge-moderator" style="width:50px; text-align:center;"
+                    >Mod</span
+                  >
+                  <span style="font-size:13.5px; color:var(--text);">Moderador</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="role-toggle-checkbox"
+                  checked=${tempRoles.is_moderator}
+                  onChange=${e => setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
+                />
+              </div>
+
+              <!-- Fila: VIP -->
+              <div
+                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+              >
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="irc-badge badge-vip" style="width:50px; text-align:center;"
+                    >VIP</span
+                  >
+                  <span style="font-size:13.5px; color:var(--text);">VIP</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="role-toggle-checkbox"
+                  checked=${tempRoles.is_vip}
+                  onChange=${e => setTempRoles({ ...tempRoles, is_vip: e.target.checked })}
+                />
+              </div>
+
+              <!-- Fila: Bot -->
+              <div
+                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+              >
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="irc-badge badge-bot" style="width:50px; text-align:center;"
+                    >Bot</span
+                  >
+                  <span style="font-size:13.5px; color:var(--text);">Bot de chat</span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="role-toggle-checkbox"
+                  checked=${tempRoles.is_bot}
+                  onChange=${e => setTempRoles({ ...tempRoles, is_bot: e.target.checked })}
+                />
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="modal-actions">
+              <button class="btn btn-secondary" onClick=${() => setSelectedUserForRoles(null)}>
+                Cancelar
+              </button>
+              <button class="btn btn-primary" onClick=${handleSaveRoles}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      `}
     </div>
   `;
 }

@@ -246,7 +246,7 @@ class UserRepository(BaseRepository):
         if is_follower and is_follower in ("follower", "not_follower", "unfollower"):
             if broadcaster_id:
                 where_clauses.append("u.user_id != ?")
-                params.append(str(broadcaster_id))
+                params.append(broadcaster_id)
 
             if is_follower == "follower":
                 where_clauses.append(
@@ -287,6 +287,32 @@ class UserRepository(BaseRepository):
             rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(data_params))
 
         return [dict(row) for row in rows], total_count
+
+    async def update_user_roles(
+        self,
+        user_id: str,
+        is_bot: bool,
+        is_moderator: bool,
+        is_vip: bool,
+    ) -> None:
+        """Actualiza los roles de un usuario en la base de datos."""
+        query = """
+            UPDATE users
+            SET is_bot = ?,
+                is_moderator = ?,
+                is_vip = ?
+            WHERE user_id = ?
+        """
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                query,
+                (
+                    int(is_bot),
+                    int(is_moderator),
+                    int(is_vip),
+                    user_id,
+                ),
+            )
 
     async def search_users(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""

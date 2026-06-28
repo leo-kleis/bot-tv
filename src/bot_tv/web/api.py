@@ -21,8 +21,10 @@ from bot_tv.actions import (
     action_set_nickname,
     action_switch_model,
     action_sync_followers,
+    action_sync_user_roles,
     action_talk,
     action_toggle_bot,
+    action_update_user_roles,
 )
 from bot_tv.events import AgentResponseEvent
 
@@ -87,6 +89,60 @@ async def endpoint_set_nickname(request: Request) -> Response:
         return _err(result)
 
     return _ok({"username": result.username, "nickname": result.nickname})
+
+
+async def endpoint_update_user_roles(request: Request) -> Response:
+    bot: Bot = request.app.state.bot
+    body = await _parse_body(request)
+    username = body.get("username", "").strip()
+    if not username:
+        return _err("Campo 'username' requerido.")
+
+    is_bot = bool(body.get("is_bot", False))
+    is_moderator = bool(body.get("is_moderator", False))
+    is_vip = bool(body.get("is_vip", False))
+
+    result = await action_update_user_roles(
+        bot,
+        username,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+    )
+    if isinstance(result, str):
+        return _err(result)
+
+    return _ok(
+        {
+            "username": result.username,
+            "is_bot": result.is_bot,
+            "is_moderator": result.is_moderator,
+            "is_vip": result.is_vip,
+            "is_subscriber": result.is_subscriber,
+        }
+    )
+
+
+async def endpoint_sync_user_roles(request: Request) -> Response:
+    bot: Bot = request.app.state.bot
+    body = await _parse_body(request)
+    username = body.get("username", "").strip()
+    if not username:
+        return _err("Campo 'username' requerido.")
+
+    result = await action_sync_user_roles(bot, username)
+    if isinstance(result, str):
+        return _err(result)
+
+    return _ok(
+        {
+            "username": result.username,
+            "is_bot": result.is_bot,
+            "is_moderator": result.is_moderator,
+            "is_vip": result.is_vip,
+            "is_subscriber": result.is_subscriber,
+        }
+    )
 
 
 async def endpoint_switch_model(request: Request) -> Response:
@@ -360,7 +416,7 @@ async def endpoint_list_users(request: Request) -> Response:
                 "unfollowed_at": r.get("unfollowed_at"),
                 "is_follower": r.get("followed_at") is not None
                 and r.get("unfollowed_at") is None,
-                "is_broadcaster": str(r.get("user_id")) == str(channel_id),
+                "is_broadcaster": r.get("user_id") == channel_id,
             }
             for r in rows
         ]

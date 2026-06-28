@@ -74,6 +74,9 @@ CHANNEL_SCOPES: list[str] = [
     # VIPs
     "channel:read:vips",
     "channel:manage:vips",
+    # Moderadores
+    "channel:read:moderators",
+    "channel:manage:moderators",
     # Videos y clips
     "channel:manage:videos",
     # Programación

@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import twitchio
+
 from bot_tv.agent.models import AVAILABLE_MODELS
 from bot_tv.agent.rate_limiter import RateLimitStatus
 from bot_tv.events import ClipCreatedEvent
@@ -48,6 +50,18 @@ class NicknameResult:
 
     username: str
     nickname: str | None  # None = eliminado
+
+
+@dataclass
+class UserRolesResult:
+    """Resultado de actualizar los roles de un usuario."""
+
+    username: str
+    user_id: str
+    is_bot: bool
+    is_moderator: bool
+    is_vip: bool
+    is_subscriber: bool
 
 
 @dataclass
@@ -150,6 +164,328 @@ async def action_set_nickname(
 
     await bot.user_repo.set_nickname(user_id, nickname)
     return NicknameResult(username=username, nickname=nickname)
+
+
+async def action_update_user_roles(
+    bot: Bot,
+    username: str,
+    is_bot: bool,
+    is_moderator: bool,
+    is_vip: bool,
+) -> UserRolesResult | str:
+    """Actualiza los roles de un usuario en Twitch y en la DB."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    if not user_id:
+        # Intentar buscarlo en Twitch si no está en la base de datos local
+        try:
+            twitch_user = await bot.fetch_user(login=username)
+            if not twitch_user:
+                return (
+                    f"El usuario '{username}' no existe en Twitch "
+                    "ni en la base de datos."
+                )
+            user_id = twitch_user.id
+            await bot.user_repo.upsert_user(
+                user_id,
+                twitch_user.name or username,
+                twitch_user.display_name,
+            )
+        except Exception as e:
+            logger.exception("Error al buscar usuario en Twitch: %s", e)
+            return f"Error al buscar al usuario '{username}' en Twitch: {e}"
+
+    # Evitar cambiar roles al broadcaster
+    channels = await bot.get_channels()
+    if not channels:
+        return "No hay canales configurados."
+    broadcaster_id = channels[0]["user_id"]
+
+    if user_id == broadcaster_id:
+        return "No se pueden modificar los roles del broadcaster."
+
+    # Obtener roles actuales
+    current_roles = await bot.user_repo.get_user_roles(user_id)
+    current_mod = current_roles.get("is_moderator", False) if current_roles else False
+    current_vip = current_roles.get("is_vip", False) if current_roles else False
+    current_sub = current_roles.get("is_subscriber", False) if current_roles else False
+
+    # Actualizar en Twitch Helix a nombre del broadcaster
+    broadcaster = twitchio.PartialUser(id=broadcaster_id, http=bot._http)
+
+    # 1. Ejecutar las remociones primero para evitar conflictos de exclusión mutua
+    # Remoción de Moderador
+    if not is_moderator and current_mod:
+        try:
+            await broadcaster.remove_moderator(user=user_id)
+        except twitchio.HTTPException as e:
+            logger.error("Error al quitar moderador para %s en Twitch: %s", username, e)
+            if e.status in (401, 403):
+                return (
+                    "Error de permisos en Twitch. Asegúrate de tener los tokens "
+                    "del Broadcaster autorizados con los permisos de moderación."
+                )
+            msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
+            return f"Error de Twitch al quitar moderación: {msg_twitch}"
+
+    # Remoción de VIP
+    if not is_vip and current_vip:
+        try:
+            await broadcaster.remove_vip(user=user_id)
+        except twitchio.HTTPException as e:
+            logger.error("Error al quitar VIP para %s en Twitch: %s", username, e)
+            if e.status in (401, 403):
+                return (
+                    "Error de permisos en Twitch. Asegúrate de tener los tokens "
+                    "del Broadcaster autorizados con los permisos de VIP."
+                )
+            msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
+            return f"Error de Twitch al quitar VIP: {msg_twitch}"
+
+    # 2. Ejecutar las adiciones después
+    # Adición de Moderador
+    if is_moderator and not current_mod:
+        try:
+            await broadcaster.add_moderator(user=user_id)
+        except twitchio.HTTPException as e:
+            logger.error(
+                "Error al agregar moderador para %s en Twitch: %s", username, e
+            )
+            if e.status in (401, 403):
+                return (
+                    "Error de permisos en Twitch. Asegúrate de tener los tokens "
+                    "del Broadcaster autorizados con los permisos de moderación."
+                )
+            msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
+            if msg_twitch and "vip of this channel" in msg_twitch.lower():
+                return (
+                    "El usuario ya es VIP del canal y no puede ser moderador "
+                    "al mismo tiempo."
+                )
+            return f"Error de Twitch al agregar moderador: {msg_twitch}"
+
+    # Adición de VIP
+    if is_vip and not current_vip:
+        try:
+            await broadcaster.add_vip(user=user_id)
+        except twitchio.HTTPException as e:
+            logger.error("Error al agregar VIP para %s en Twitch: %s", username, e)
+            if e.status in (401, 403):
+                return (
+                    "Error de permisos en Twitch. Asegúrate de tener los tokens "
+                    "del Broadcaster autorizados con los permisos de VIP."
+                )
+            msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
+            if msg_twitch and "moderator of this channel" in msg_twitch.lower():
+                return (
+                    "El usuario ya es moderador del canal y no puede ser VIP "
+                    "al mismo tiempo."
+                )
+            return f"Error de Twitch al agregar VIP: {msg_twitch}"
+
+    # Actualizar en la base de datos local
+    await bot.user_repo.update_user_roles(
+        user_id=user_id,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+    )
+
+    return UserRolesResult(
+        username=username,
+        user_id=user_id,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+        is_subscriber=current_sub,
+    )
+
+
+async def action_sync_user_roles(
+    bot: Bot,
+    username: str,
+) -> UserRolesResult | str:
+    """Consulta Twitch para sincronizar los roles actuales de un usuario."""
+    import logging
+
+    import twitchio
+
+    logger = logging.getLogger(__name__)
+
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    if not user_id:
+        # Intentar resolver en Twitch
+        try:
+            twitch_user = await bot.fetch_user(login=username)
+            if not twitch_user:
+                return f"El usuario '{username}' no existe en Twitch."
+            user_id = twitch_user.id
+            await bot.user_repo.upsert_user(
+                user_id,
+                twitch_user.name or username,
+                twitch_user.display_name,
+            )
+        except Exception as e:
+            logger.exception("Error al buscar usuario en Twitch: %s", e)
+            return f"Error al buscar al usuario '{username}' en Twitch: {e}"
+
+    # Obtener el broadcaster actual
+    channels = await bot.get_channels()
+    if not channels:
+        return "No hay canales configurados."
+    broadcaster_id = channels[0]["user_id"]
+
+    # Obtener token de acceso del broadcaster de la base de datos de tokens
+    async with bot.token_database.acquire() as conn:
+        row = await conn.fetchone(
+            "SELECT token FROM tokens WHERE user_id = ?",
+            (broadcaster_id,),
+        )
+    if not row:
+        return "No se encontró el token de acceso del Broadcaster."
+    broadcaster_token = str(row["token"])
+
+    # Si es el broadcaster, tiene todos los roles excepto bot por defecto
+    if user_id == broadcaster_id:
+        # Asegurarse de que esté correcto en DB
+        await bot.user_repo.update_user_roles(
+            user_id=user_id,
+            is_bot=False,
+            is_moderator=True,
+            is_vip=False,
+        )
+        return UserRolesResult(
+            username=username,
+            user_id=user_id,
+            is_bot=False,
+            is_moderator=True,
+            is_vip=False,
+            is_subscriber=True,
+        )
+
+    # Obtener roles locales actuales por si falla la sincronización de algún rol
+    current_roles = await bot.user_repo.get_user_roles(user_id)
+    current_mod = current_roles.get("is_moderator", False) if current_roles else False
+    current_vip = current_roles.get("is_vip", False) if current_roles else False
+    current_sub = current_roles.get("is_subscriber", False) if current_roles else False
+
+    # Inicializar estado con los valores locales por defecto
+    is_moderator = current_mod
+    is_vip = current_vip
+    is_subscriber = current_sub
+
+    broadcaster = twitchio.PartialUser(id=broadcaster_id, http=bot._http)
+
+    # 1. Comprobar Moderador
+    try:
+        # fetch_moderators devuelve la lista completa
+        moderators = await broadcaster.fetch_moderators()
+        is_moderator = any(m.id == user_id for m in moderators)
+    except twitchio.HTTPException as e:
+        logger.warning(
+            "No se pudieron sincronizar moderadores de Twitch para %s (HTTP %s): %s",
+            username,
+            e.status,
+            e,
+        )
+
+    # 2. Comprobar VIP
+    try:
+        # fetch_vips acepta user_ids como filtro
+        vips = await broadcaster.fetch_vips(user_ids=[user_id])
+        is_vip = any(v.id == user_id for v in vips)
+    except twitchio.HTTPException as e:
+        logger.warning(
+            "No se pudieron sincronizar VIPs de Twitch para %s (HTTP %s): %s",
+            username,
+            e.status,
+            e,
+        )
+
+    # 3. Comprobar Suscriptor
+    try:
+        import aiohttp
+
+        from bot_tv.utils.env import CLIENT_ID
+
+        headers = {
+            "Client-Id": CLIENT_ID,
+            "Authorization": f"Bearer {broadcaster_token}",
+        }
+        params = {
+            "broadcaster_id": broadcaster_id,
+            "user_id": user_id,
+        }
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(
+                "https://api.twitch.tv/helix/subscriptions/user",
+                headers=headers,
+                params=params,
+            ) as resp,
+        ):
+            if resp.status == 200:
+                data = await resp.json()
+                is_subscriber = bool(data and data.get("data"))
+            elif resp.status == 404:
+                is_subscriber = False
+            elif resp.status in (401, 403):
+                logger.warning(
+                    "No se pudo comprobar la suscripción para %s (HTTP %s): "
+                    "la cuenta Broadcaster podría no ser afiliada/partner o "
+                    "falta el scope de suscripciones.",
+                    username,
+                    resp.status,
+                )
+            else:
+                body_text = await resp.text()
+                logger.warning(
+                    "Error al obtener suscripción de Twitch para %s (HTTP %s): %s",
+                    username,
+                    resp.status,
+                    body_text,
+                )
+    except Exception as e:
+        logger.warning(
+            "Error inesperado al comprobar suscripción para %s: %s",
+            username,
+            e,
+        )
+
+    # Mantener el rol de bot actual en base de datos
+    current_roles = await bot.user_repo.get_user_roles(user_id)
+    is_bot = current_roles.get("is_bot", False) if current_roles else False
+
+    # Actualizar en base de datos local (incluyendo is_subscriber)
+    query_update = """
+        UPDATE users
+        SET is_moderator = ?,
+            is_vip = ?,
+            is_subscriber = ?
+        WHERE user_id = ?
+    """
+    async with bot.user_repo._db.acquire() as conn:
+        await conn.execute(
+            query_update,
+            (
+                int(is_moderator),
+                int(is_vip),
+                int(is_subscriber),
+                user_id,
+            ),
+        )
+
+    return UserRolesResult(
+        username=username,
+        user_id=user_id,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+        is_subscriber=is_subscriber,
+    )
 
 
 # ── Acciones de seguidores ───────────────────────────────────────────────────

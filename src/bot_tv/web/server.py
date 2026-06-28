@@ -27,8 +27,10 @@ from bot_tv.web.api import (
     endpoint_set_nickname,
     endpoint_switch_model,
     endpoint_sync_followers,
+    endpoint_sync_user_roles,
     endpoint_talk,
     endpoint_toggle_bot,
+    endpoint_update_user_roles,
 )
 from bot_tv.web.ws_handler import WebSocketManager
 
@@ -68,6 +70,8 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/sync_followers", endpoint_sync_followers, methods=["POST"]),
         Route("/api/toggle_bot", endpoint_toggle_bot, methods=["POST"]),
         Route("/api/set_nickname", endpoint_set_nickname, methods=["POST"]),
+        Route("/api/update_user_roles", endpoint_update_user_roles, methods=["POST"]),
+        Route("/api/sync_user_roles", endpoint_sync_user_roles, methods=["POST"]),
         Route("/api/switch_model", endpoint_switch_model, methods=["POST"]),
         Route("/api/talk", endpoint_talk, methods=["POST"]),
         Route("/api/rpm", endpoint_get_rpm, methods=["GET"]),
