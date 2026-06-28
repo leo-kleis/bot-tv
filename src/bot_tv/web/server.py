@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -46,8 +47,29 @@ STATIC_DIR = Path(__file__).parent / "static"
 WEB_PORT = 8080
 
 
+def _compute_static_hash() -> str:
+    """Genera un hash corto basado en el contenido de todos los archivos estáticos.
+
+    Recorre recursivamente STATIC_DIR, ordena los archivos por ruta relativa
+    para determinismo, y calcula un MD5 combinado. Retorna los primeros 8
+    caracteres del hash hexadecimal.
+    """
+    hasher = hashlib.md5()  # noqa: S324 — no se usa para seguridad
+    for file_path in sorted(STATIC_DIR.rglob("*")):
+        if file_path.is_file():
+            rel = file_path.relative_to(STATIC_DIR).as_posix()
+            hasher.update(rel.encode())
+            hasher.update(file_path.read_bytes())
+    return hasher.hexdigest()[:8]
+
+
 def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     """Crea y configura la aplicación Starlette con todos los endpoints."""
+    static_hash = _compute_static_hash()
+    sw_template = (STATIC_DIR / "sw.js").read_text(encoding="utf-8")
+    sw_body = sw_template.replace("__CACHE_VERSION__", f"bot-tv-{static_hash}")
+    LOGGER.info("Hash de archivos estáticos: %s", static_hash)
+
     ws_manager = WebSocketManager(event_bus, bot)
     ws_manager.register()
 
@@ -59,7 +81,14 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
 
     routes = [
         Route("/", homepage),
-        Route("/sw.js", lambda r: FileResponse(STATIC_DIR / "sw.js")),
+        Route(
+            "/sw.js",
+            lambda r: Response(
+                sw_body,
+                media_type="application/javascript",
+                headers={"Cache-Control": "no-cache"},
+            ),
+        ),
         Route("/manifest.json", lambda r: FileResponse(STATIC_DIR / "manifest.json")),
         Route(
             "/favicon.ico",
