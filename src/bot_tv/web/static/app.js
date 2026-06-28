@@ -189,7 +189,7 @@ function reducer(state, action) {
 // ── Root Component ────────────────────────────────────────────────────────────
 function Root() {
   const [state, dispatch] = useReducer(reducer, null, makeInitialState);
-  const { triggerReconnect } = useWebSocket(dispatch, state.historyLoaded);
+  const { triggerReconnect } = useWebSocket(dispatch);
 
   return html`<${App} state=${state} dispatch=${dispatch} onReconnect=${triggerReconnect} />`;
 }

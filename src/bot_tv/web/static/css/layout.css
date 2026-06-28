@@ -1,0 +1,17 @@
+/* layout.css — Clases de layout reutilizables */
+
+/* Grilla de dos columnas flexible — usada en AccionesTab y SeguidoresTab */
+.two-col-grid {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  flex-direction: row;
+}
+
+.two-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}

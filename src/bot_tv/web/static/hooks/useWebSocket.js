@@ -1,15 +1,10 @@
 import { useEffect, useRef } from 'preact-setup';
 
-export function useWebSocket(dispatch, historyLoaded) {
+export function useWebSocket(dispatch) {
   const wsRef = useRef(null);
   const reconnectRef = useRef(1000);
   const timeoutIdRef = useRef(null);
   const connectFnRef = useRef(null);
-  const historyLoadedRef = useRef(false);
-
-  useEffect(() => {
-    historyLoadedRef.current = historyLoaded;
-  }, [historyLoaded]);
 
   useEffect(() => {
     let destroyed = false;

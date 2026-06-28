@@ -1,4 +1,4 @@
-import { html, useEffect, useRef, useState } from 'preact-setup';
+import { html, useEffect, useRef, useState, useMemo } from 'preact-setup';
 import { getEventDetails } from '../event-config.js';
 import { toRgb, fmtTime } from 'lib/utils';
 import { apiGet, apiPost } from '../api.js';
@@ -90,6 +90,7 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
   const feedRef = useRef(null);
   const inputRef = useRef(null);
   const autoScrollRef = useRef(true);
+  const timeoutsRef = useRef([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Estados para cuentas y mensajería
@@ -112,6 +113,13 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
       }
     }
     loadAccounts();
+  }, []);
+
+  // Limpiar timeouts al desmontar
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+    };
   }, []);
 
   // Auto-scroll solo si el usuario no subió manualmente
@@ -164,20 +172,26 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
             data: { message: `No se pudo enviar: ${res.error || 'error desconocido'}` },
           },
         });
-        setTimeout(() => {
+        const tid = setTimeout(() => {
           dispatch({ type: 'REMOVE_TOAST', id: toastId });
+          timeoutsRef.current = timeoutsRef.current.filter(t => t !== tid);
         }, 5000);
+        timeoutsRef.current.push(tid);
       }
     }
 
-    setTimeout(() => {
+    const focusTid = setTimeout(() => {
       inputRef.current?.focus();
+      timeoutsRef.current = timeoutsRef.current.filter(t => t !== focusTid);
     }, 50);
+    timeoutsRef.current.push(focusTid);
   }
 
-  const users = [...ircUsers.values()]
-    .filter(u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot')
-    .sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username));
+  const users = useMemo(() => {
+    return [...ircUsers.values()]
+      .filter(u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot')
+      .sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username));
+  }, [ircUsers]);
 
   return html`
     <div class="chat-tab ${showIrcMobile ? 'irc-open-mobile' : ''}">
@@ -192,7 +206,15 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
           class="chat-feed-container"
           style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column"
         >
-          <div class="chat-feed" ref=${feedRef} onScroll=${onScroll} id="chat-feed">
+          <div
+            class="chat-feed"
+            ref=${feedRef}
+            onScroll=${onScroll}
+            id="chat-feed"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
             ${chatMessages.length === 0
               ? html`
                   <div class="chat-empty">

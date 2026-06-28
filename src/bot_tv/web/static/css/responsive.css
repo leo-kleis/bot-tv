@@ -57,10 +57,10 @@
   .irc-panel {
     position: absolute;
     top: 0;
-    right: -280px; /* Escondido a la derecha */
+    right: -280px;
     width: 270px;
     height: 100%;
-    z-index: 1010;
+    z-index: var(--z-irc-drawer);
     border-left: 1px solid var(--border);
     border-top: none;
     border-bottom: none;
@@ -88,17 +88,8 @@
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
-    z-index: 1005;
+    z-index: var(--z-overlay);
     animation: fade-in 0.25s ease-out;
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 
   .chat-panel {
@@ -118,13 +109,11 @@
     flex-direction: column;
     gap: 10px;
   }
-  .actions-grid,
-  .followers-grid {
+  .two-col-grid {
     flex-direction: column;
     gap: 16px;
   }
-  .actions-col,
-  .followers-col {
+  .two-col {
     gap: 16px;
   }
 }
@@ -234,13 +223,11 @@
   #app-root .agent-input-area {
     padding: 8px 12px;
   }
-  #app-root .actions-grid,
-  #app-root .followers-grid {
+  #app-root .two-col-grid {
     flex-direction: column;
     gap: 16px;
   }
-  #app-root .actions-col,
-  #app-root .followers-col {
+  #app-root .two-col {
     gap: 16px;
   }
 

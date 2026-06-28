@@ -63,9 +63,6 @@
   transition:
     background 0.15s,
     color 0.15s;
-  background: transparent !important;
-  border-left: none !important;
-  border-radius: 0 !important;
   user-select: none;
 }
 .follower-item:last-child {
@@ -112,17 +109,3 @@
   text-align: center;
 }
 
-/* Grilla flexible de Seguidores */
-.followers-grid {
-  display: flex !important;
-  gap: 24px !important;
-  width: 100% !important;
-  flex-direction: row;
-}
-.followers-col {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 24px !important;
-  min-width: 0 !important;
-}

@@ -30,12 +30,19 @@ export function DangerSection({ dispatch }) {
         ${confirm &&
         html`
           <div class="modal-backdrop" onClick=${() => !loading && setConfirm(false)}>
-            <div class="modal-card" onClick=${e => e.stopPropagation()}>
+            <div
+              class="modal-card"
+              onClick=${e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-title"
+              aria-describedby="modal-desc"
+            >
               <span class="modal-icon">
                 <i class="fa-solid fa-triangle-exclamation"></i>
               </span>
-              <h3>¿Apagar bot?</h3>
-              <p>Esto cerrará el proceso del bot de forma inmediata.</p>
+              <h3 id="modal-title">¿Apagar bot?</h3>
+              <p id="modal-desc">Esto cerrará el proceso del bot de forma inmediata.</p>
               <div class="modal-actions">
                 <button
                   id="btn-exit-cancel"

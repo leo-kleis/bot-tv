@@ -6,12 +6,12 @@ import { DangerSection } from '/static/components/actions/DangerSection.js';
 
 export function ActionsTab({ clips, dispatch, streamOnline }) {
   return html`
-    <div class="panel actions-grid" id="actions-panel">
-      <div class="actions-col">
+    <div class="panel two-col-grid" id="actions-panel">
+      <div class="two-col">
         <${ClipSection} clips=${clips} streamOnline=${streamOnline} />
         <${ModelSection} />
       </div>
-      <div class="actions-col">
+      <div class="two-col">
         <${UserSection} />
         <${DangerSection} dispatch=${dispatch} />
       </div>

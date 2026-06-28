@@ -51,16 +51,6 @@
   align-items: flex-start;
   animation: msg-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
-@keyframes msg-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 .chat-msg:hover {
   background: rgba(255, 255, 255, 0.02);
 }
@@ -129,6 +119,7 @@
   flex-direction: column;
   background: var(--surface);
   height: 100%;
+  z-index: var(--z-irc-drawer);
   transition:
     transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.35s ease;
@@ -187,7 +178,7 @@
 .irc-time {
   font-size: 0.75em;
   color: var(--text-muted);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--mono, monospace);
   flex-shrink: 0;
 }
 .irc-name {
@@ -326,68 +317,68 @@
 
 /* 1. Raid */
 .chat-msg.is-system.sys-raid {
-  border-left-color: #d53f8c;
+  border-left-color: var(--alert-raid);
   background: rgba(213, 63, 140, 0.05);
 }
 .chat-msg.is-system.sys-raid .sys-icon {
-  color: #f687b3;
+  color: var(--alert-raid-icon);
 }
 
 /* 2. Subs */
 .chat-msg.is-system.sys-sub,
 .chat-msg.is-system.sys-sub-gift,
 .chat-msg.is-system.sys-sub-resub {
-  border-left-color: #38a169;
+  border-left-color: var(--alert-sub);
   background: rgba(56, 161, 105, 0.05);
 }
 .chat-msg.is-system.sys-sub .sys-icon,
 .chat-msg.is-system.sys-sub-gift .sys-icon,
 .chat-msg.is-system.sys-sub-resub .sys-icon {
-  color: #48bb78;
+  color: var(--alert-sub-icon);
 }
 
 /* 3. Cheers */
 .chat-msg.is-system.sys-cheer {
-  border-left-color: #ecc94b;
+  border-left-color: var(--alert-cheer);
   background: rgba(236, 201, 75, 0.05);
 }
 .chat-msg.is-system.sys-cheer .sys-icon {
-  color: #f6e05e;
+  color: var(--alert-cheer-icon);
 }
 
 /* 4. Puntos */
 .chat-msg.is-system.sys-points {
-  border-left-color: #00b5d8;
+  border-left-color: var(--alert-points);
   background: rgba(0, 181, 216, 0.05);
 }
 .chat-msg.is-system.sys-points .sys-icon {
-  color: #9decf9;
+  color: var(--alert-points-icon);
 }
 
 /* 5. Predicciones */
 .chat-msg.is-system.sys-prediction {
-  border-left-color: #805ad5;
+  border-left-color: var(--alert-prediction);
   background: rgba(128, 90, 213, 0.05);
 }
 .chat-msg.is-system.sys-prediction .sys-icon {
-  color: #b794f4;
+  color: var(--alert-prediction-icon);
 }
 
 /* 6. Moderación */
 .chat-msg.is-system.sys-mod {
-  border-left-color: #e53e3e;
+  border-left-color: var(--alert-mod);
   background: rgba(229, 62, 62, 0.05);
 }
 .chat-msg.is-system.sys-mod .sys-icon {
-  color: #feb2b2;
+  color: var(--alert-mod-icon);
 }
 
 .chat-msg.is-system.sys-mod-green {
-  border-left-color: #38a169;
+  border-left-color: var(--alert-sub);
   background: rgba(56, 161, 105, 0.05);
 }
 .chat-msg.is-system.sys-mod-green .sys-icon {
-  color: #48bb78;
+  color: var(--alert-sub-icon);
 }
 
 /* Barra de Input de Chat con selector de cuenta */

@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
@@ -23,6 +24,7 @@ from bot_tv.actions import (
     action_talk,
     action_toggle_bot,
 )
+from bot_tv.events import AgentResponseEvent
 
 if TYPE_CHECKING:
     from bot_tv.agent import TalkAgent
@@ -41,7 +43,7 @@ def _err(message: str, status: int = 400) -> JSONResponse:
 
 async def _parse_body(request: Request) -> dict:
     """Parsea el body JSON de la request. Retorna dict vacío si no hay body."""
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(json.JSONDecodeError, UnicodeDecodeError):
         body = await request.body()
         if body:
             return json.loads(body)  # type: ignore[return-value]
@@ -109,11 +111,6 @@ async def endpoint_talk(request: Request) -> Response:
         return _err("Campo 'message' requerido.")
 
     result = await action_talk(agent, message)
-
-    # Emitir el evento al EventBus para que el WebSocket lo propague
-    from datetime import datetime
-
-    from bot_tv.events import AgentResponseEvent
 
     await event_bus.emit(
         AgentResponseEvent(

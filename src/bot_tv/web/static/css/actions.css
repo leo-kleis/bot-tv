@@ -21,10 +21,10 @@
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  z-index: 200;
+  z-index: var(--z-dropdown);
   max-height: 200px;
   overflow-y: auto;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-md);
 }
 
 .autocomplete-item {
@@ -44,10 +44,22 @@
   color: var(--text);
   font-weight: 600;
 }
+.autocomplete-item .ac-nickname-inline {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+  margin-left: 6px;
+}
 .autocomplete-item .ac-sub {
   color: var(--text-muted);
   font-size: 11px;
   margin-top: 2px;
+}
+.ac-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .model-select-wrap {
@@ -112,17 +124,3 @@
   color: var(--text-muted);
 }
 
-/* Grilla flexible de Acciones */
-.actions-grid {
-  display: flex !important;
-  gap: 24px !important;
-  width: 100% !important;
-  flex-direction: row;
-}
-.actions-col {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 24px !important;
-  min-width: 0 !important;
-}

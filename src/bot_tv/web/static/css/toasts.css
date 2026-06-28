@@ -2,7 +2,7 @@
   position: fixed;
   top: 16px;
   right: 16px;
-  z-index: 9999;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -22,13 +22,15 @@
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
-  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
-@keyframes toastSlideIn {
+@keyframes toast-slide-in {
   from {
     opacity: 0;
     transform: translateX(100px) scale(0.9);
@@ -91,7 +93,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease;
 }
 
 .toast-close:hover {
@@ -103,66 +107,66 @@
 
 /* 1. Raid (Magenta) */
 .toast-card.toast-raid::before {
-  background: #d53f8c;
+  background: var(--alert-raid);
 }
 .toast-card.toast-raid .toast-icon {
   background: rgba(213, 63, 140, 0.15);
-  color: #f687b3;
+  color: var(--alert-raid-icon);
 }
 
 /* 2. Subs (Verde) */
 .toast-card.toast-sub::before,
 .toast-card.toast-sub-gift::before,
 .toast-card.toast-sub-resub::before {
-  background: #38a169;
+  background: var(--alert-sub);
 }
 .toast-card.toast-sub .toast-icon,
 .toast-card.toast-sub-gift .toast-icon,
 .toast-card.toast-sub-resub .toast-icon {
   background: rgba(56, 161, 105, 0.15);
-  color: #48bb78;
+  color: var(--alert-sub-icon);
 }
 
 /* 3. Cheers (Amarillo/Oro) */
 .toast-card.toast-cheer::before {
-  background: #ecc94b;
+  background: var(--alert-cheer);
 }
 .toast-card.toast-cheer .toast-icon {
   background: rgba(236, 201, 75, 0.15);
-  color: #f6e05e;
+  color: var(--alert-cheer-icon);
 }
 
 /* 4. Puntos (Cyan) */
 .toast-card.toast-points::before {
-  background: #00b5d8;
+  background: var(--alert-points);
 }
 .toast-card.toast-points .toast-icon {
   background: rgba(0, 181, 216, 0.15);
-  color: #9decf9;
+  color: var(--alert-points-icon);
 }
 
 /* 5. Predicciones (Violeta/Azul) */
 .toast-card.toast-prediction::before {
-  background: #805ad5;
+  background: var(--alert-prediction);
 }
 .toast-card.toast-prediction .toast-icon {
   background: rgba(128, 90, 213, 0.15);
-  color: #b794f4;
+  color: var(--alert-prediction-icon);
 }
 
 /* 6. Moderación (Rojo / Verde si es Unban) */
 .toast-card.toast-mod::before {
-  background: #e53e3e;
+  background: var(--alert-mod);
 }
 .toast-card.toast-mod .toast-icon {
   background: rgba(229, 62, 62, 0.15);
-  color: #feb2b2;
+  color: var(--alert-mod-icon);
 }
 
 .toast-card.toast-mod-green::before {
-  background: #38a169;
+  background: var(--alert-sub);
 }
 .toast-card.toast-mod-green .toast-icon {
   background: rgba(56, 161, 105, 0.15);
-  color: #48bb78;
+  color: var(--alert-sub-icon);
 }

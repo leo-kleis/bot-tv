@@ -12,6 +12,22 @@ function useDebounce(fn, delay) {
   );
 }
 
+function UserBadges({ user }) {
+  const badges = [
+    user.is_broadcaster && html`<span class="user-badge broadcaster">Broadcaster</span>`,
+    user.is_moderator && html`<span class="user-badge moderator">Moderador</span>`,
+    user.is_vip && html`<span class="user-badge vip">VIP</span>`,
+    user.is_subscriber && html`<span class="user-badge subscriber">Subscriptor</span>`,
+    user.is_follower && html`<span class="user-badge follower">Seguidor</span>`,
+    user.is_bot && html`<span class="user-badge bot">Bot</span>`,
+  ].filter(Boolean);
+
+  if (badges.length === 0) {
+    return html`<span class="user-badge visitor">Visita</span>`;
+  }
+  return badges;
+}
+
 export function UserAutocomplete({ value, onChange, placeholder, id }) {
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
@@ -65,7 +81,6 @@ export function UserAutocomplete({ value, onChange, placeholder, id }) {
     }
   }
 
-  // Cerrar al hacer click afuera
   useEffect(() => {
     function handler(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
@@ -102,82 +117,11 @@ export function UserAutocomplete({ value, onChange, placeholder, id }) {
                     <span class="ac-main">
                       ${s.display_name}
                       ${s.nickname
-                        ? html`<span
-                            class="ac-nickname-inline"
-                            style="color:var(--text-muted);font-size:11.5px;font-weight:400;margin-left:6px"
-                            >"${s.nickname}"</span
-                          >`
+                        ? html`<span class="ac-nickname-inline">"${s.nickname}"</span>`
                         : ''}
                     </span>
-                    <div class="ac-sub" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-                      ${[
-                        s.is_broadcaster &&
-                          html`<span
-                            style="background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);color:#c084fc;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Broadcaster</span
-                          >`,
-                        s.is_moderator &&
-                          html`<span
-                            style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#34d399;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Moderador</span
-                          >`,
-                        s.is_vip &&
-                          html`<span
-                            style="background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.25);color:#f472b6;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >VIP</span
-                          >`,
-                        s.is_subscriber &&
-                          html`<span
-                            style="background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.25);color:#22d3ee;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Subscriptor</span
-                          >`,
-                        s.is_follower &&
-                          html`<span
-                            style="background:rgba(155,92,255,0.12);border:1px solid rgba(155,92,255,0.25);color:#cbb0ff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Seguidor</span
-                          >`,
-                        s.is_bot &&
-                          html`<span
-                            style="background:rgba(107,114,128,0.12);border:1px solid rgba(107,114,128,0.25);color:#9ca3af;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Bot</span
-                          >`,
-                      ].filter(Boolean).length === 0
-                        ? html`<span
-                            style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:var(--text-muted);padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                            >Visita</span
-                          >`
-                        : [
-                            s.is_broadcaster &&
-                              html`<span
-                                style="background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.25);color:#c084fc;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >Broadcaster</span
-                              >`,
-                            s.is_moderator &&
-                              html`<span
-                                style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#34d399;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >Moderador</span
-                              >`,
-                            s.is_vip &&
-                              html`<span
-                                style="background:rgba(236,72,153,0.12);border:1px solid rgba(236,72,153,0.25);color:#f472b6;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >VIP</span
-                              >`,
-                            s.is_subscriber &&
-                              html`<span
-                                style="background:rgba(6,182,212,0.12);border:1px solid rgba(6,182,212,0.25);color:#22d3ee;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >Subscriptor</span
-                              >`,
-                            s.is_follower &&
-                              html`<span
-                                style="background:rgba(155,92,255,0.12);border:1px solid rgba(155,92,255,0.25);color:#cbb0ff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >Seguidor</span
-                              >`,
-                            s.is_bot &&
-                              html`<span
-                                style="background:rgba(107,114,128,0.12);border:1px solid rgba(107,114,128,0.25);color:#9ca3af;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em"
-                                >Bot</span
-                              >`,
-                          ].filter(Boolean)}
+                    <div class="ac-sub ac-badges">
+                      <${UserBadges} user=${s} />
                     </div>
                   </div>
                 `

@@ -23,9 +23,9 @@ export function FollowersTab({ followers }) {
   const progPct = prog ? Math.round((prog.count / prog.total) * 100) : 0;
 
   return html`
-    <div class="panel followers-grid" id="followers-panel">
+    <div class="panel two-col-grid" id="followers-panel">
       <!-- Columna Izquierda: Resumen -->
-      <div class="followers-col">
+      <div class="two-col">
         <div class="section">
           <div class="section-header">
             <span class="section-icon"><i class="fa-solid fa-chart-simple"></i></span> Resumen
@@ -88,7 +88,7 @@ export function FollowersTab({ followers }) {
       </div>
 
       <!-- Columna Derecha: Nuevos y Perdidos -->
-      <div class="followers-col">
+      <div class="two-col">
         <!-- Nuevos seguidores -->
         ${sync?.new_labels?.length > 0
           ? html`

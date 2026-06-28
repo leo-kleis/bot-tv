@@ -5,11 +5,18 @@ export function ToastOverlay({ toasts, dispatch }) {
   if (!toasts || toasts.length === 0) return null;
 
   return html`
-    <div class="toast-overlay">
+    <div class="toast-overlay" role="region" aria-label="Notificaciones">
       ${toasts.map(toast => {
         const details = getEventDetails(toast.type);
+        const isError = toast.type === 'api_error';
         return html`
-          <div key=${toast.id} class="toast-card ${details.toastClassName}">
+          <div
+            key=${toast.id}
+            class="toast-card ${details.toastClassName}"
+            role=${isError ? 'alert' : 'status'}
+            aria-live=${isError ? 'assertive' : 'polite'}
+            aria-atomic="true"
+          >
             <div class="toast-icon">
               <i class="fa-solid ${details.icon}"></i>
             </div>
@@ -19,6 +26,7 @@ export function ToastOverlay({ toasts, dispatch }) {
             </div>
             <button
               class="toast-close"
+              aria-label="Cerrar notificación"
               onClick=${() => dispatch({ type: 'REMOVE_TOAST', id: toast.id })}
             >
               <i class="fa-solid fa-xmark"></i>

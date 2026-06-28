@@ -40,6 +40,27 @@
   --mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
   --tab-h: 64px;
   --header-h: 60px;
+
+  /* Colores de Alertas (usados en chat.css y toasts.css) */
+  --alert-raid: #d53f8c;
+  --alert-raid-icon: #f687b3;
+  --alert-sub: #38a169;
+  --alert-sub-icon: #48bb78;
+  --alert-cheer: #ecc94b;
+  --alert-cheer-icon: #f6e05e;
+  --alert-points: #00b5d8;
+  --alert-points-icon: #9decf9;
+  --alert-prediction: #805ad5;
+  --alert-prediction-icon: #b794f4;
+  --alert-mod: #e53e3e;
+  --alert-mod-icon: #feb2b2;
+
+  /* Z-index scale */
+  --z-dropdown: 200;
+  --z-overlay: 1005;
+  --z-modal: 1000;
+  --z-irc-drawer: 1010;
+  --z-toast: 9999;
 }
 
 *,
@@ -88,4 +109,25 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-dim);
+}
+
+/* Keyframes compartidos — fuente única de verdad */
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

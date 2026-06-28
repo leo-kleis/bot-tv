@@ -7,11 +7,14 @@ Toda la visualización y control se hace desde la interfaz web.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
+from pathlib import Path
 
 import uvicorn
 
+from bot_tv.agent import TalkAgent
 from bot_tv.bot import Bot
 from bot_tv.database import (
     TokenRepository,
@@ -21,7 +24,7 @@ from bot_tv.database import (
     run_token_migrations,
 )
 from bot_tv.event_bus import EventBus
-from bot_tv.utils.env import DB_DIR
+from bot_tv.utils.env import DB_DIR, GEMINI_MODEL
 from bot_tv.utils.logger import setup_logging
 from bot_tv.web.server import WEB_PORT, create_app
 
@@ -65,20 +68,13 @@ def main() -> None:
                 for pair in tokens:
                     await bot.add_token(*pair)
 
-                # Inicializar TalkAgent
-                from bot_tv.agent import TalkAgent
-                from bot_tv.utils.env import GEMINI_MODEL
-
                 agent = TalkAgent(bot, model=GEMINI_MODEL)
                 await agent.initialize()
 
                 app = create_app(bot, agent, event_bus)
 
-                # Configuración opcional de SSL para HTTPS local
                 ssl_keyfile = None
                 ssl_certfile = None
-                from pathlib import Path
-
                 certs_dir = Path("certs")
                 if certs_dir.exists():
                     key_files = list(certs_dir.glob("*-key.pem"))
@@ -116,8 +112,6 @@ def main() -> None:
                     protocol,
                     WEB_PORT,
                 )
-
-                import contextlib
 
                 bot_task = asyncio.create_task(bot.start(load_tokens=False))
                 server_task = asyncio.create_task(server.serve())
