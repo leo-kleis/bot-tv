@@ -216,14 +216,28 @@ export function FollowersTab({ followers }) {
   }
 
   // Acciones rápidas sobre los usuarios de la tabla
-  function openRolesModal(u) {
-    setSelectedUserForRoles(u);
-    setTempRoles({
-      is_bot: !!u.is_bot,
-      is_moderator: !!u.is_moderator,
-      is_vip: !!u.is_vip,
-      is_subscriber: !!u.is_subscriber,
+  async function openRolesModal(u) {
+    setActionInProgress(u.username);
+    const res = await apiPost('/api/sync_user_roles', {
+      username: u.username,
     });
+    setActionInProgress(null);
+    if (res && res.ok && res.data) {
+      setSelectedUserForRoles(u);
+      setTempRoles({
+        is_bot: !!res.data.is_bot,
+        is_moderator: !!res.data.is_moderator,
+        is_vip: !!res.data.is_vip,
+        is_subscriber: !!res.data.is_subscriber,
+      });
+      fetchUsers();
+    } else {
+      window.alert(
+        res
+          ? res.error || 'Error al sincronizar roles con Twitch.'
+          : 'Error al sincronizar roles con Twitch.'
+      );
+    }
   }
 
   async function handleSaveRoles() {
@@ -257,19 +271,6 @@ export function FollowersTab({ followers }) {
     setActionInProgress(null);
     if (res && res.ok) {
       fetchUsers();
-    }
-  }
-
-  async function handleSyncRoles(u) {
-    setActionInProgress(u.username);
-    const res = await apiPost('/api/sync_user_roles', {
-      username: u.username,
-    });
-    setActionInProgress(null);
-    if (res && res.ok) {
-      fetchUsers();
-    } else {
-      window.alert(res.error || 'Error al sincronizar roles con Twitch.');
     }
   }
 
@@ -672,14 +673,6 @@ export function FollowersTab({ followers }) {
                                     disabled=${isActioning || u.is_broadcaster}
                                   >
                                     <i class="fa-solid fa-user-shield"></i>
-                                  </button>
-                                  <button
-                                    class="btn btn-secondary btn-sm"
-                                    onClick=${() => handleSyncRoles(u)}
-                                    title="Sincronizar roles con Twitch"
-                                    disabled=${isActioning}
-                                  >
-                                    <i class="fa-solid fa-arrows-rotate"></i>
                                   </button>
                                   <button
                                     class="btn btn-secondary btn-sm"
