@@ -54,6 +54,11 @@ function getPageNumbers(current, total) {
   return pages;
 }
 
+function getTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const SELECT_OPTIONS = [
   { value: 'all', label: 'Todos los usuarios' },
   { value: 'follower', label: 'Seguidor' },
@@ -136,6 +141,22 @@ export function FollowersTab({ followers }) {
     unfollowedAfter,
     unfollowedBefore,
   ]);
+
+  // Efecto para limpiar campos de fecha del filtro opuesto si cambia el combo de estado
+  useEffect(() => {
+    if (isFollower === 'follower') {
+      setUnfollowedAfter('');
+      setUnfollowedBefore('');
+    } else if (isFollower === 'unfollower') {
+      setFollowedAfter('');
+      setFollowedBefore('');
+    } else if (isFollower === 'not_follower') {
+      setFollowedAfter('');
+      setFollowedBefore('');
+      setUnfollowedAfter('');
+      setUnfollowedBefore('');
+    }
+  }, [isFollower]);
 
   async function fetchUsers() {
     setLoadingUsers(true);
@@ -380,17 +401,37 @@ export function FollowersTab({ followers }) {
                 <input
                   type="date"
                   value=${followedAfter}
-                  onChange=${e => setFollowedAfter(e.target.value)}
+                  onChange=${e => {
+                    const val = e.target.value;
+                    setFollowedAfter(val);
+                    if (val) {
+                      setIsFollower('follower');
+                      if (!followedBefore) {
+                        setFollowedBefore(getTodayStr());
+                      }
+                    }
+                  }}
                   placeholder="Desde"
-                  disabled=${isFollower === 'not_follower'}
+                  disabled=${isFollower === 'not_follower' || isFollower === 'unfollower'}
+                  max=${followedBefore || ''}
                 />
                 <span class="filter-separator">a</span>
                 <input
                   type="date"
                   value=${followedBefore}
-                  onChange=${e => setFollowedBefore(e.target.value)}
+                  onChange=${e => {
+                    const val = e.target.value;
+                    setFollowedBefore(val);
+                    if (val) {
+                      setIsFollower('follower');
+                      if (!followedAfter) {
+                        setFollowedAfter(val);
+                      }
+                    }
+                  }}
                   placeholder="Hasta"
-                  disabled=${isFollower === 'not_follower'}
+                  disabled=${isFollower === 'not_follower' || isFollower === 'unfollower'}
+                  min=${followedAfter || ''}
                 />
               </div>
             </div>
@@ -402,17 +443,37 @@ export function FollowersTab({ followers }) {
                 <input
                   type="date"
                   value=${unfollowedAfter}
-                  onChange=${e => setUnfollowedAfter(e.target.value)}
+                  onChange=${e => {
+                    const val = e.target.value;
+                    setUnfollowedAfter(val);
+                    if (val) {
+                      setIsFollower('unfollower');
+                      if (!unfollowedBefore) {
+                        setUnfollowedBefore(getTodayStr());
+                      }
+                    }
+                  }}
                   placeholder="Desde"
                   disabled=${isFollower === 'follower' || isFollower === 'not_follower'}
+                  max=${unfollowedBefore || ''}
                 />
                 <span class="filter-separator">a</span>
                 <input
                   type="date"
                   value=${unfollowedBefore}
-                  onChange=${e => setUnfollowedBefore(e.target.value)}
+                  onChange=${e => {
+                    const val = e.target.value;
+                    setUnfollowedBefore(val);
+                    if (val) {
+                      setIsFollower('unfollower');
+                      if (!unfollowedAfter) {
+                        setUnfollowedAfter(val);
+                      }
+                    }
+                  }}
                   placeholder="Hasta"
                   disabled=${isFollower === 'follower' || isFollower === 'not_follower'}
+                  min=${unfollowedAfter || ''}
                 />
               </div>
             </div>
