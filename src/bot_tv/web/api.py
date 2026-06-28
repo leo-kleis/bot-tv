@@ -224,11 +224,9 @@ async def endpoint_get_chat_accounts(request: Request) -> Response:
             user_id = row["user_id"]
             username = row["username"]
             role_type = "bot" if user_id == bot.bot_id else "broadcaster"
-            accounts.append({
-                "user_id": user_id,
-                "username": username,
-                "type": role_type
-            })
+            accounts.append(
+                {"user_id": user_id, "username": username, "type": role_type}
+            )
         return _ok(accounts)
     except Exception as e:
         LOGGER.exception("Error al obtener las cuentas de chat: %s", e)
@@ -284,3 +282,100 @@ async def endpoint_send_chat_message(request: Request) -> Response:
         LOGGER.exception("Error inesperado al enviar mensaje de chat: %s", e)
         return _err(f"Error inesperado: {e}")
 
+
+async def endpoint_list_users(request: Request) -> Response:
+    """Retorna un listado de todos los usuarios registrados con filtros avanzados."""
+    bot: Bot = request.app.state.bot
+    channels = await bot.get_channels()
+    if not channels:
+        return _err("No hay canales configurados.")
+
+    channel_id = request.query_params.get("channel_id", channels[0]["user_id"])
+
+    name = request.query_params.get("name", "").strip() or None
+    role = request.query_params.get("role", "").strip() or None
+
+    is_follower_param = request.query_params.get("is_follower", "").lower()
+    is_follower: str | None = None
+    if is_follower_param in ("follower", "not_follower", "unfollower"):
+        is_follower = is_follower_param
+
+    followed_after = request.query_params.get("followed_after", "").strip() or None
+    followed_before = request.query_params.get("followed_before", "").strip() or None
+    unfollowed_after = request.query_params.get("unfollowed_after", "").strip() or None
+    unfollowed_before = (
+        request.query_params.get("unfollowed_before", "").strip() or None
+    )
+
+    # Formatear fechas YYYY-MM-DD a ISO 8601 completo
+    if followed_after and len(followed_after) == 10:
+        followed_after = f"{followed_after}T00:00:00Z"
+    if followed_before and len(followed_before) == 10:
+        followed_before = f"{followed_before}T23:59:59Z"
+    if unfollowed_after and len(unfollowed_after) == 10:
+        unfollowed_after = f"{unfollowed_after}T00:00:00Z"
+    if unfollowed_before and len(unfollowed_before) == 10:
+        unfollowed_before = f"{unfollowed_before}T23:59:59Z"
+
+    limit_param = request.query_params.get("limit", "50")
+    try:
+        limit = int(limit_param)
+    except ValueError:
+        limit = 50
+
+    page_param = request.query_params.get("page", "1")
+    try:
+        page = int(page_param)
+    except ValueError:
+        page = 1
+
+    offset = (page - 1) * limit
+
+    try:
+        rows, total_count = await bot.user_repo.list_users_with_filters(
+            channel_id=channel_id,
+            broadcaster_id=bot.owner_id,
+            role=role,
+            username_search=name,
+            followed_after=followed_after,
+            followed_before=followed_before,
+            unfollowed_after=unfollowed_after,
+            unfollowed_before=unfollowed_before,
+            is_follower=is_follower,
+            limit=limit,
+            offset=offset,
+        )
+
+        users_list = [
+            {
+                "user_id": r.get("user_id"),
+                "username": r["username"],
+                "display_name": r["display_name"],
+                "nickname": r["nickname"] or None,
+                "is_bot": bool(r["is_bot"]),
+                "is_moderator": bool(r["is_moderator"]),
+                "is_vip": bool(r["is_vip"]),
+                "is_subscriber": bool(r["is_subscriber"]),
+                "followed_at": r.get("followed_at"),
+                "unfollowed_at": r.get("unfollowed_at"),
+                "is_follower": r.get("followed_at") is not None
+                and r.get("unfollowed_at") is None,
+                "is_broadcaster": str(r.get("user_id")) == str(channel_id),
+            }
+            for r in rows
+        ]
+
+        if is_follower is not None:
+            users_list = [u for u in users_list if not u["is_broadcaster"]]
+
+        return _ok(
+            {
+                "users": users_list,
+                "total": total_count,
+                "page": page,
+                "limit": limit,
+            }
+        )
+    except Exception as e:
+        LOGGER.exception("Error inesperado al listar usuarios: %s", e)
+        return _err(f"Error al listar usuarios: {e}")

@@ -55,6 +55,7 @@ class ClipComponent(commands.Component):
 
             # Verificar si el stream está online
             from bot_tv.components.stream_component import StreamComponent
+
             stream_comp = self.bot._components.get("StreamComponent")
             if (
                 isinstance(stream_comp, StreamComponent)

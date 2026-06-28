@@ -64,6 +64,9 @@
     background 0.15s,
     color 0.15s;
   user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .follower-item:last-child {
   border-bottom: none;
@@ -109,3 +112,456 @@
   text-align: center;
 }
 
+/* Barra de filtros */
+.filters-bar {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 2fr 2fr 0.8fr;
+  align-items: end;
+  gap: 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.filter-dates-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-dates-row input[type='date'] {
+  flex: 1;
+  background: rgba(7, 6, 10, 0.55);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 11px 16px;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filter-dates-row input[type='date']:focus {
+  border-color: var(--accent);
+  background: rgba(26, 22, 36, 0.7);
+}
+
+.filter-dates-row input[type='date']:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.filter-separator {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Tabla moderna de usuarios */
+.users-table-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin-top: 8px;
+  min-height: 520px;
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+
+.users-table-wrapper.loading .users-table,
+.users-table-wrapper.loading .empty-table {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.table-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(14, 13, 18, 0.55);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  gap: 12px;
+  color: var(--text);
+  font-size: 14px;
+  min-width: 100%;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.users-table th,
+.users-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+.users-table th {
+  background: rgba(14, 13, 18, 0.85);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+.users-table tr:last-child td {
+  border-bottom: none;
+}
+
+.users-table tr:hover td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.loading-table,
+.empty-table {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+/* Celdas especiales */
+.user-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-display-name {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.user-sub-names {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.user-nickname-tag {
+  color: var(--accent-text);
+  background: rgba(130, 87, 229, 0.1);
+  border: 1px solid rgba(130, 87, 229, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.follow-status-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.follow-date-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.user-table-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Badges adicionales */
+.irc-badge.badge-bot {
+  background: rgba(155, 89, 182, 0.15);
+  color: #c39bd3;
+  border: 1px solid rgba(155, 89, 182, 0.3);
+}
+
+.irc-badge.badge-follower {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.irc-badge.badge-unfollower {
+  background: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.irc-badge.badge-never-follower {
+  background: rgba(165, 161, 184, 0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(165, 161, 184, 0.15);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.active-bot-btn {
+  background: rgba(155, 89, 182, 0.2) !important;
+  color: #c39bd3 !important;
+  border-color: rgba(155, 89, 182, 0.4) !important;
+}
+
+/* Paginación */
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.pagination-ellipsis {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.filter-group-actions button {
+  width: 100%;
+}
+
+.irc-user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-start;
+}
+
+@media (max-width: 1200px) {
+  .filters-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .filters-bar .filter-group-actions {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+  .filters-bar .filter-group-actions {
+    align-self: stretch !important;
+    width: 100% !important;
+  }
+  .filter-dates-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .filter-dates-row input[type='date'] {
+    padding: 10px 12px;
+    font-size: 13.5px;
+  }
+  .filter-separator {
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 0 2px;
+  }
+}
+
+@media (max-width: 576px) {
+  .pagination-bar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .users-table-wrapper {
+    min-height: auto;
+  }
+
+  .users-table,
+  .users-table thead,
+  .users-table tbody,
+  .users-table th,
+  .users-table td,
+  .users-table tr {
+    display: block;
+  }
+
+  .users-table thead {
+    display: none;
+  }
+
+  .users-table tr {
+    display: grid;
+    grid-template-areas:
+      'user actions'
+      'roles actions'
+      'status actions';
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    gap: 4px 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .users-table td {
+    border: none !important;
+    padding: 0 !important;
+    display: block !important;
+    min-width: 0;
+  }
+
+  .users-table td::before {
+    display: none !important;
+  }
+
+  .users-table td[data-label='Usuario'] {
+    grid-area: user;
+  }
+
+  .users-table td[data-label='Roles'] {
+    grid-area: roles;
+  }
+
+  .users-table td[data-label='Seguimiento'] {
+    grid-area: status;
+  }
+
+  .users-table td[data-label='Acciones'] {
+    grid-area: actions;
+    align-self: center;
+  }
+
+  /* Ajustes de alineación interna en móviles */
+  .user-info-cell,
+  .follow-status-wrap {
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .user-display-name {
+    max-width: 100% !important;
+    font-size: 14.5px;
+  }
+
+  .irc-user-badges {
+    justify-content: flex-start !important;
+    margin-top: 2px;
+  }
+
+  .follow-status-wrap {
+    margin-top: 2px;
+  }
+
+  .user-table-actions {
+    justify-content: flex-end;
+  }
+
+  .filter-dates-row input[type='date'] {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .followers-stat {
+    display: flex;
+    flex-direction: row !important;
+    gap: 8px !important;
+  }
+  .stat-card {
+    padding: 8px 4px !important;
+  }
+  .stat-value {
+    font-size: 18px !important;
+  }
+  .stat-label {
+    font-size: 9px !important;
+  }
+}
+
+.irc-badge.badge-broadcaster {
+  background: rgba(130, 87, 229, 0.15);
+  color: var(--accent-text);
+  border: 1px solid rgba(130, 87, 229, 0.35);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}

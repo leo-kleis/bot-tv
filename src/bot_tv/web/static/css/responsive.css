@@ -105,14 +105,6 @@
   .model-select-wrap {
     min-width: 100%;
   }
-  .followers-stat {
-    flex-direction: column;
-    gap: 10px;
-  }
-  .two-col-grid {
-    flex-direction: column;
-    gap: 16px;
-  }
   .two-col {
     gap: 16px;
   }
@@ -222,10 +214,6 @@
   }
   #app-root .agent-input-area {
     padding: 8px 12px;
-  }
-  #app-root .two-col-grid {
-    flex-direction: column;
-    gap: 16px;
   }
   #app-root .two-col {
     gap: 16px;

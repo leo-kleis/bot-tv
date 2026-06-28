@@ -179,12 +179,21 @@ class UserRepository(BaseRepository):
     async def list_users_with_filters(
         self,
         channel_id: str,
+        broadcaster_id: str | None = None,
         role: str | None = None,
         has_nickname: bool | None = None,
+        username_search: str | None = None,
+        followed_after: str | None = None,
+        followed_before: str | None = None,
+        unfollowed_after: str | None = None,
+        unfollowed_before: str | None = None,
+        is_follower: str | None = None,
         limit: int = 20,
-    ) -> list[dict[str, Any]]:
-        """Devuelve una lista filtrada de usuarios registrados."""
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Devuelve usuarios registrados filtrados y el total coincidente."""
         limit = max(1, limit)
+        offset = max(0, offset)
         where_clauses = []
         params: list[Any] = [channel_id]
 
@@ -211,8 +220,53 @@ class UserRepository(BaseRepository):
             else:
                 where_clauses.append("(u.nickname IS NULL OR u.nickname = '')")
 
+        if username_search:
+            where_clauses.append(
+                "(u.username LIKE ? OR u.display_name LIKE ? OR u.nickname LIKE ?)"
+            )
+            like_pattern = f"%{username_search}%"
+            params.extend([like_pattern, like_pattern, like_pattern])
+
+        if followed_after:
+            where_clauses.append("f.followed_at >= ?")
+            params.append(followed_after)
+
+        if followed_before:
+            where_clauses.append("f.followed_at <= ?")
+            params.append(followed_before)
+
+        if unfollowed_after:
+            where_clauses.append("f.unfollowed_at >= ?")
+            params.append(unfollowed_after)
+
+        if unfollowed_before:
+            where_clauses.append("f.unfollowed_at <= ?")
+            params.append(unfollowed_before)
+
+        if is_follower and is_follower in ("follower", "not_follower", "unfollower"):
+            if broadcaster_id:
+                where_clauses.append("u.user_id != ?")
+                params.append(str(broadcaster_id))
+
+            if is_follower == "follower":
+                where_clauses.append(
+                    "f.followed_at IS NOT NULL AND f.unfollowed_at IS NULL"
+                )
+            elif is_follower == "not_follower":
+                where_clauses.append("f.user_id IS NULL")
+            elif is_follower == "unfollower":
+                where_clauses.append("f.unfollowed_at IS NOT NULL")
+
+        count_query = """
+            SELECT COUNT(*) AS total
+            FROM users u
+            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
+        """
+        if where_clauses:
+            count_query += " WHERE " + " AND ".join(where_clauses)
+
         query = """
-            SELECT u.username, u.display_name, u.nickname, u.is_bot,
+            SELECT u.user_id, u.username, u.display_name, u.nickname, u.is_bot,
                    u.is_moderator, u.is_vip, u.is_subscriber,
                    f.followed_at, f.unfollowed_at
             FROM users u
@@ -220,12 +274,19 @@ class UserRepository(BaseRepository):
         """
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)
-        query += " ORDER BY u.username ASC LIMIT ?"
-        params.append(limit)
+        query += " ORDER BY u.username ASC LIMIT ? OFFSET ?"
+
+        count_params = params.copy()
+        data_params = params.copy()
+        data_params.extend([limit, offset])
 
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(params))
-        return [dict(row) for row in rows]
+            count_row = await conn.fetchone(count_query, tuple(count_params))
+            total_count = count_row["total"] if count_row else 0
+
+            rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(data_params))
+
+        return [dict(row) for row in rows], total_count
 
     async def search_users(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""

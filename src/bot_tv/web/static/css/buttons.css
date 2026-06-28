@@ -108,6 +108,13 @@
     0 4px 12px rgba(16, 185, 129, 0.15);
 }
 
+.btn-sm {
+  padding: 6px 10px;
+  min-height: 28px;
+  font-size: 12px;
+  gap: 4px;
+}
+
 .btn-lg {
   padding: 14px 24px;
   font-size: 14.5px;

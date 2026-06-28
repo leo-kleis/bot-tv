@@ -97,7 +97,7 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
                         "bot, moderator, vip, subscriber."
                     )
 
-            rows = await bot.user_repo.list_users_with_filters(
+            rows, _ = await bot.user_repo.list_users_with_filters(
                 channel_id=OWNER_ID,
                 role=role,
                 has_nickname=has_nickname,

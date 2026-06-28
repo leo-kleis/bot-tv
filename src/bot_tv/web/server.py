@@ -21,6 +21,7 @@ from bot_tv.web.api import (
     endpoint_get_chat_accounts,
     endpoint_get_models,
     endpoint_get_rpm,
+    endpoint_list_users,
     endpoint_search_users,
     endpoint_send_chat_message,
     endpoint_set_nickname,
@@ -74,6 +75,7 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/exit", endpoint_exit, methods=["POST"]),
         Route("/api/create_clip", endpoint_create_clip, methods=["POST"]),
         Route("/api/users/search", endpoint_search_users, methods=["GET"]),
+        Route("/api/users", endpoint_list_users, methods=["GET"]),
         Route("/api/chat_accounts", endpoint_get_chat_accounts, methods=["GET"]),
         Route("/api/send_chat_message", endpoint_send_chat_message, methods=["POST"]),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
