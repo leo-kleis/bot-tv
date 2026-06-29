@@ -37,101 +37,107 @@ def main() -> None:
     DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
-        async with (
-            create_token_db_pool() as tdb,
-            create_app_db_pool() as adb,
-        ):
-            await run_token_migrations(tdb)
-            await run_app_migrations(adb)
+        try:
+            async with (
+                create_token_db_pool() as tdb,
+                create_app_db_pool() as adb,
+            ):
+                await run_token_migrations(tdb)
+                await run_app_migrations(adb)
 
-            token_repo = TokenRepository(tdb)
-            tokens, subs = await token_repo.load_tokens_and_subscriptions()
+                token_repo = TokenRepository(tdb)
+                tokens, subs = await token_repo.load_tokens_and_subscriptions()
 
-            if not tokens:
-                LOGGER.error(
-                    "No se encontraron tokens en la base de datos. "
-                    "Ejecutá primero: uv run bot-setup"
-                )
-                sys.exit(1)
+                if not tokens:
+                    LOGGER.error(
+                        "No se encontraron tokens en la base de datos. "
+                        "Ejecutá primero: uv run bot-setup"
+                    )
+                    sys.exit(1)
 
-            LOGGER.info("Tokens cargados: %d", len(tokens))
+                LOGGER.info("Tokens cargados: %d", len(tokens))
 
-            event_bus = EventBus()
-            # bot-web no crea TerminalConsumer — el output Rich no se usa
+                event_bus = EventBus()
+                # bot-web no crea TerminalConsumer — el output Rich no se usa
 
-            async with Bot(
-                token_database=tdb,
-                app_database=adb,
-                subs=subs,
-                event_bus=event_bus,
-            ) as bot:
-                for pair in tokens:
-                    await bot.add_token(*pair)
+                async with Bot(
+                    token_database=tdb,
+                    app_database=adb,
+                    subs=subs,
+                    event_bus=event_bus,
+                ) as bot:
+                    for pair in tokens:
+                        await bot.add_token(*pair)
 
-                agent = TalkAgent(bot, model=GEMINI_MODEL)
-                await agent.initialize()
+                    agent = TalkAgent(bot, model=GEMINI_MODEL)
+                    await agent.initialize()
 
-                app = create_app(bot, agent, event_bus)
+                    app = create_app(bot, agent, event_bus)
 
-                ssl_keyfile = None
-                ssl_certfile = None
-                certs_dir = Path("certs")
-                if certs_dir.exists():
-                    key_files = list(certs_dir.glob("*-key.pem"))
-                    cert_files = [
-                        f
-                        for f in certs_dir.glob("*.pem")
-                        if not f.name.endswith("-key.pem")
-                    ]
-                    if key_files and cert_files:
-                        ssl_keyfile = str(key_files[0])
-                        ssl_certfile = str(cert_files[0])
-                        LOGGER.info(
-                            "Configurando HTTPS local con certificados: %s y %s",
-                            ssl_certfile,
-                            ssl_keyfile,
-                        )
+                    ssl_keyfile = None
+                    ssl_certfile = None
+                    certs_dir = Path("certs")
+                    if certs_dir.exists():
+                        key_files = list(certs_dir.glob("*-key.pem"))
+                        cert_files = [
+                            f
+                            for f in certs_dir.glob("*.pem")
+                            if not f.name.endswith("-key.pem")
+                        ]
+                        if key_files and cert_files:
+                            ssl_keyfile = str(key_files[0])
+                            ssl_certfile = str(cert_files[0])
+                            LOGGER.info(
+                                "Configurando HTTPS local con certificados: %s y %s",
+                                ssl_certfile,
+                                ssl_keyfile,
+                            )
 
-                # Correr uvicorn en el mismo loop (sin iniciar un nuevo loop)
-                config = uvicorn.Config(
-                    app,
-                    host="0.0.0.0",  # noqa: S104 — intencional para LAN
-                    port=WEB_PORT,
-                    log_level="info",
-                    log_config=None,
-                    loop="none",  # usamos el loop de asyncio existente
-                    ssl_keyfile=ssl_keyfile,
-                    ssl_certfile=ssl_certfile,
-                )
-                server = uvicorn.Server(config)
-                app.state.server = server
+                    # Correr uvicorn en el mismo loop (sin iniciar un nuevo loop)
+                    config = uvicorn.Config(
+                        app,
+                        host="0.0.0.0",  # noqa: S104 — intencional para LAN
+                        port=WEB_PORT,
+                        log_level="info",
+                        log_config=None,
+                        loop="none",  # usamos el loop de asyncio existente
+                        ssl_keyfile=ssl_keyfile,
+                        ssl_certfile=ssl_certfile,
+                    )
+                    server = uvicorn.Server(config)
+                    app.state.server = server
 
-                protocol = "https" if ssl_certfile else "http"
-                LOGGER.info(
-                    "Dashboard en %s://0.0.0.0:%d (LAN: busca tu IP local)",
-                    protocol,
-                    WEB_PORT,
-                )
-
-                bot_task = asyncio.create_task(bot.start(load_tokens=False))
-                server_task = asyncio.create_task(server.serve())
-
-                _done, pending = await asyncio.wait(
-                    [bot_task, server_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-
-                # Espera 2s para que la tarea restante termine limpiamente
-                if pending:
-                    _done_after, pending = await asyncio.wait(
-                        pending,
-                        timeout=2.0,
+                    protocol = "https" if ssl_certfile else "http"
+                    LOGGER.info(
+                        "Dashboard en %s://0.0.0.0:%d (LAN: busca tu IP local)",
+                        protocol,
+                        WEB_PORT,
                     )
 
-                for task in pending:
-                    task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await task
+                    bot_task = asyncio.create_task(bot.start(load_tokens=False))
+                    server_task = asyncio.create_task(server.serve())
+
+                    _done, pending = await asyncio.wait(
+                        [bot_task, server_task],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+
+                    # Espera 2s para que la tarea restante termine limpiamente
+                    if pending:
+                        _done_after, pending = await asyncio.wait(
+                            pending,
+                            timeout=2.0,
+                        )
+
+                    for task in pending:
+                        task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError):
+                            await task
+        finally:
+            import gc
+
+            gc.collect()
+            await asyncio.sleep(0.25)
 
     try:
         asyncio.run(runner())

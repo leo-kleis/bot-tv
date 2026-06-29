@@ -173,10 +173,16 @@ def setup() -> None:
     DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
-        async with create_token_db_pool() as tdb:
-            await run_token_migrations(tdb)
-            async with SetupBot(token_database=tdb) as bot:
-                await bot.start(load_tokens=False)
+        try:
+            async with create_token_db_pool() as tdb:
+                await run_token_migrations(tdb)
+                async with SetupBot(token_database=tdb) as bot:
+                    await bot.start(load_tokens=False)
+        finally:
+            import gc
+
+            gc.collect()
+            await asyncio.sleep(0.25)
 
     try:
         asyncio.run(runner())
