@@ -28,9 +28,7 @@ const STATIC_ASSETS = [
   '/static/components/agent/AgentTab.js',
   '/static/components/settings/SettingsTab.js',
   '/static/components/actions/ActionsTab.js',
-  '/static/components/actions/UserAutocomplete.js',
   '/static/components/actions/ClipSection.js',
-  '/static/components/actions/UserSection.js',
   '/static/components/actions/ModelSection.js',
   '/static/components/actions/DangerSection.js',
   '/static/hooks/useWebSocket.js',
@@ -44,7 +42,20 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      return Promise.all(
+        STATIC_ASSETS.map(url => {
+          return fetch(new Request(url, { cache: 'reload' })).then(response => {
+            if (!response.ok) {
+              throw new Error(`Request for ${url} failed with status ${response.status}`);
+            }
+            return cache.put(url, response);
+          });
+        })
+      );
+    })
+  );
   self.skipWaiting();
 });
 

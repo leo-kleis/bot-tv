@@ -9,7 +9,7 @@ import { ToastOverlay } from '/static/components/ToastOverlay.js';
 
 const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
-  { id: 'followers', icon: html`<i class="fa-solid fa-heart"></i>`, label: 'Seguidores' },
+  { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
   { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
   { id: 'actions', icon: html`<i class="fa-solid fa-bolt"></i>`, label: 'Acciones' },
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
@@ -116,7 +116,7 @@ export function App({ state, dispatch, onReconnect }) {
             dispatch=${dispatch}
           />
         `}
-        ${active === 'followers' && html`<${FollowersTab} followers=${state.followers} />`}
+        ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
         ${active === 'agent' &&
         html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}
         ${active === 'actions' &&

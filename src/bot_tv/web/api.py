@@ -23,7 +23,6 @@ from bot_tv.actions import (
     action_sync_followers,
     action_sync_user_roles,
     action_talk,
-    action_toggle_bot,
     action_update_user_roles,
 )
 from bot_tv.events import AgentResponseEvent
@@ -59,20 +58,6 @@ async def endpoint_sync_followers(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     results = await action_sync_followers(bot)
     return _ok([{"channel": r.channel, "ok": r.ok, "error": r.error} for r in results])
-
-
-async def endpoint_toggle_bot(request: Request) -> Response:
-    bot: Bot = request.app.state.bot
-    body = await _parse_body(request)
-    username = body.get("username", "").strip()
-    if not username:
-        return _err("Campo 'username' requerido.")
-
-    result = await action_toggle_bot(bot, username)
-    if isinstance(result, str):
-        return _err(result)
-
-    return _ok({"username": result.username, "is_bot": result.is_bot})
 
 
 async def endpoint_set_nickname(request: Request) -> Response:
