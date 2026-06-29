@@ -129,6 +129,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .filter-label {
@@ -143,10 +144,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .filter-dates-row input[type='date'] {
   flex: 1;
+  min-width: 0;
   background: rgba(7, 6, 10, 0.55);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -403,15 +406,23 @@
   justify-content: flex-start;
 }
 
-@media (max-width: 1200px) {
+/* <=1400px: 3 columnas, 2 filas (los date inputs necesitan ~150px min cada uno,
+   con 6 columnas a <1400px los grupos de fecha solo obtienen ~145px por input) */
+@media (max-width: 1400px) {
   .filters-bar {
-    grid-template-columns: 1fr 1fr;
-  }
-  .filters-bar .filter-group-actions {
-    grid-column: span 2;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 }
 
+/* <=1050px: 2 columnas, 3 filas (a <1050px con 3 columnas los date inputs
+   caen a ~134px, por debajo del minimo confortable del navegador) */
+@media (max-width: 1050px) {
+  .filters-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* <=768px: columna unica con flexbox */
 @media (max-width: 768px) {
   .filters-bar {
     display: flex;
@@ -424,19 +435,12 @@
     align-self: stretch !important;
     width: 100% !important;
   }
-  .filter-dates-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
   .filter-dates-row input[type='date'] {
     padding: 10px 12px;
     font-size: 13.5px;
   }
   .filter-separator {
-    color: var(--text-muted);
     font-size: 11px;
-    padding: 0 2px;
   }
 }
 

@@ -112,3 +112,33 @@
 .rpm-dot.block {
   background: var(--danger);
 }
+
+/* Landscape: compactar agente para maximizar espacio de conversacion */
+@media (max-height: 480px) {
+  .agent-convo {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .agent-empty {
+    gap: 8px;
+  }
+  .agent-empty .empty-icon {
+    font-size: 32px;
+  }
+  .convo-q,
+  .convo-a {
+    padding: 6px 10px;
+    font-size: 12.5px;
+  }
+  .convo-meta {
+    font-size: 9px;
+  }
+  .agent-model-info {
+    padding: 4px 12px 2px;
+    font-size: 10px;
+  }
+  .agent-input-area {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+}

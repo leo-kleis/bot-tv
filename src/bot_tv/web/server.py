@@ -65,30 +65,28 @@ def _compute_static_hash() -> str:
 
 def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     """Crea y configura la aplicación Starlette con todos los endpoints."""
-    static_hash = _compute_static_hash()
-    sw_template = (STATIC_DIR / "sw.js").read_text(encoding="utf-8")
-    sw_body = sw_template.replace("__CACHE_VERSION__", f"bot-tv-{static_hash}")
-    LOGGER.info("Hash de archivos estáticos: %s", static_hash)
-
     ws_manager = WebSocketManager(event_bus, bot)
     ws_manager.register()
 
     async def homepage(request: Request) -> Response:
         return FileResponse(STATIC_DIR / "index.html")
 
+    async def sw_endpoint(request: Request) -> Response:
+        static_hash = _compute_static_hash()
+        sw_template = (STATIC_DIR / "sw.js").read_text(encoding="utf-8")
+        sw_body = sw_template.replace("__CACHE_VERSION__", f"bot-tv-{static_hash}")
+        return Response(
+            sw_body,
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     async def websocket_endpoint(ws: WebSocket) -> None:
         await ws_manager.handle(ws)
 
     routes = [
         Route("/", homepage),
-        Route(
-            "/sw.js",
-            lambda r: Response(
-                sw_body,
-                media_type="application/javascript",
-                headers={"Cache-Control": "no-cache"},
-            ),
-        ),
+        Route("/sw.js", sw_endpoint),
         Route("/manifest.json", lambda r: FileResponse(STATIC_DIR / "manifest.json")),
         Route(
             "/favicon.ico",

@@ -213,7 +213,7 @@
     gap: 10px;
   }
   #app-root .agent-input-area {
-    padding: 8px 12px;
+    padding: 6px 12px;
   }
   #app-root .two-col {
     gap: 16px;
@@ -238,8 +238,8 @@
   }
 }
 
-/* TABLETS Y PANTALLAS DE ESCRITORIO (Ancho mayor a 600px) */
-@media (min-width: 601px) {
+/* TABLETS Y ESCRITORIO — Layout de 3 filas (solo fuera de landscape) */
+@media (min-width: 601px) and (min-height: 481px) {
   #app-root {
     display: grid;
     grid-template-rows: var(--header-h) var(--tab-h) 1fr;
@@ -254,7 +254,10 @@
     height: 100%;
     overflow: hidden;
   }
+}
 
+/* PANTALLAS ANCHAS (>600px) — IRC visible inline, sin drawer movil */
+@media (min-width: 601px) {
   .chat-tab.irc-open-mobile .irc-panel {
     transform: none;
   }
@@ -263,7 +266,6 @@
     display: none;
   }
 
-  /* DESACTIVAR INTERACCIÓN DE VIEWERS EN PANTALLAS GRANDES DONDE EL IRC YA ESTÁ VISIBLE */
   .viewers-badge.clickable {
     cursor: default;
     pointer-events: none;
