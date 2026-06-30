@@ -1,5 +1,6 @@
 import { html, useState, useEffect } from 'preact-setup';
 import { StreamWidget } from '/static/components/StreamWidget.js';
+import { StreamTab } from '/static/components/stream/StreamTab.js';
 import { ChatTab } from '/static/components/chat/ChatTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab } from '/static/components/agent/AgentTab.js';
@@ -9,6 +10,7 @@ import { ToastOverlay } from '/static/components/ToastOverlay.js';
 
 const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
+  { id: 'stream', icon: html`<i class="fa-solid fa-tv"></i>`, label: 'Stream' },
   { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
   { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
   { id: 'actions', icon: html`<i class="fa-solid fa-bolt"></i>`, label: 'Acciones' },
@@ -30,6 +32,13 @@ export function App({ state, dispatch, onReconnect }) {
       return () => clearTimeout(timer);
     }
   }, [state.connected, state.initialLoad]);
+
+  // Si el stream se apaga estando en la pestaña de stream, redirigir a chat
+  useEffect(() => {
+    if (!state.stream.online && active === 'stream') {
+      setActive('chat');
+    }
+  }, [state.stream.online, active]);
 
   if (state.initialLoad || (!state.connected && !showOffline && !state.exited)) {
     return html`
@@ -81,6 +90,7 @@ export function App({ state, dispatch, onReconnect }) {
         <${StreamWidget}
           stream=${state.stream}
           connected=${state.connected}
+          ircConnected=${state.ircConnected}
           ircCount=${filteredIrcCount}
           showIrcMobile=${showIrcMobile}
           onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}
@@ -88,21 +98,28 @@ export function App({ state, dispatch, onReconnect }) {
       </header>
 
       <nav class="tab-bar" role="tablist">
-        ${TABS.map(
-          t => html`
+        ${TABS.map(t => {
+          const isDisabled = t.id === 'stream' && !state.stream.online;
+          return html`
             <button
               key=${t.id}
               id="tab-btn-${t.id}"
-              class="tab-btn ${active === t.id ? 'active' : ''}"
+              class="tab-btn ${active === t.id ? 'active' : ''} ${isDisabled ? 'disabled' : ''}"
               role="tab"
               aria-selected=${active === t.id}
-              onClick=${() => setActive(t.id)}
+              disabled=${isDisabled}
+              onClick=${() => {
+                if (!isDisabled) {
+                  setActive(t.id);
+                }
+              }}
+              title=${isDisabled ? 'El stream está offline' : ''}
             >
               <span class="tab-icon">${t.icon}</span>
               <span class="tab-label">${t.label}</span>
             </button>
-          `
-        )}
+          `;
+        })}
       </nav>
 
       <main class="tab-content" role="main">
@@ -111,9 +128,16 @@ export function App({ state, dispatch, onReconnect }) {
           <${ChatTab}
             chatMessages=${state.chatMessages}
             ircUsers=${state.ircUsers}
+            ircConnected=${state.ircConnected}
             showIrcMobile=${showIrcMobile}
             onToggleIrc=${setShowIrcMobile}
             dispatch=${dispatch}
+          />
+        `}
+        ${active === 'stream' &&
+        html`
+          <${StreamTab}
+            channel=${state.stream.broadcasterName}
           />
         `}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}

@@ -6,7 +6,7 @@ function fmtViewers(n) {
   return String(n);
 }
 
-export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, onToggleIrc }) {
+export function StreamWidget({ stream, connected, ircConnected, ircCount = 0, showIrcMobile, onToggleIrc }) {
   const { online, broadcasterName, title, category, viewerCount, startedAt } = stream;
   const [uptime, setUptime] = useState('');
 
@@ -79,23 +79,27 @@ export function StreamWidget({ stream, connected, ircCount = 0, showIrcMobile, o
               <span>${fmtViewers(viewerCount)}</span>
             </div>
             <button
-              class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}"
+              class="viewers-badge clickable ${showIrcMobile ? 'active' : ''} ${!ircConnected ? 'irc-disconnected' : ''}"
               onClick=${onToggleIrc}
-              title="Ver usuarios en el chat"
+              title=${ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'}
               aria-label="Ver usuarios en el chat"
             >
-              <span class="users-icon"><i class="fa-solid fa-users"></i></span>
+              <span class="users-icon">
+                <i class="fa-solid ${ircConnected ? 'fa-users' : 'fa-triangle-exclamation'}"></i>
+              </span>
               <span>${ircCount}</span>
             </button>
           `
         : html`
             <button
-              class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''}"
+              class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''} ${!ircConnected ? 'irc-disconnected' : ''}"
               onClick=${onToggleIrc}
-              title="Ver usuarios en el chat"
+              title=${ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'}
               aria-label="Ver usuarios en el chat"
             >
-              <span class="users-icon"><i class="fa-solid fa-users"></i></span>
+              <span class="users-icon">
+                <i class="fa-solid ${ircConnected ? 'fa-users' : 'fa-triangle-exclamation'}"></i>
+              </span>
               <span>${ircCount}</span>
             </button>
           `}

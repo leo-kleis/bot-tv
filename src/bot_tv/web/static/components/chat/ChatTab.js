@@ -86,7 +86,7 @@ function IrcUser({ user }) {
   `;
 }
 
-export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, dispatch }) {
+export function ChatTab({ chatMessages, ircUsers, ircConnected, showIrcMobile, onToggleIrc, dispatch }) {
   const feedRef = useRef(null);
   const inputRef = useRef(null);
   const autoScrollRef = useRef(true);
@@ -290,17 +290,33 @@ export function ChatTab({ chatMessages, ircUsers, showIrcMobile, onToggleIrc, di
       <div class="irc-panel">
         <div class="irc-panel-header">
           <span>En canal</span>
+          ${!ircConnected &&
+          html`
+            <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </span>
+          `}
           <span class="irc-count">${users.length}</span>
         </div>
         <div class="irc-feed" id="irc-feed">
+          ${!ircConnected &&
+          html`
+            <div class="irc-disconnect-alert">
+              <span class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+              <span class="alert-title">IRC Desconectado</span>
+              <span class="alert-desc">Intentando reconectar automáticamente...</span>
+            </div>
+          `}
           ${users.length === 0
-            ? html`
-                <div
-                  style="padding:16px 10px;color:var(--text-muted);font-size:11px;text-align:center"
-                >
-                  Vacío
-                </div>
-              `
+            ? !ircConnected
+              ? null
+              : html`
+                  <div
+                    style="padding:16px 10px;color:var(--text-muted);font-size:11px;text-align:center"
+                  >
+                    Vacío
+                  </div>
+                `
             : users.map(u => html`<${IrcUser} key=${u.username} user=${u} />`)}
         </div>
       </div>

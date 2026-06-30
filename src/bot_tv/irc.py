@@ -1,10 +1,11 @@
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 
 import twitchio
 
-from bot_tv.events import UserJoinEvent, UserPartEvent
+from bot_tv.events import TwitchIRCStatusEvent, UserJoinEvent, UserPartEvent
 from bot_tv.utils.colors import get_chatter_rgb
 
 LOGGER = logging.getLogger(__name__)
@@ -26,38 +27,78 @@ class TwitchIRCClient:
         self.broadcaster: twitchio.PartialUser | None = None
         self.connected_event = asyncio.Event()
         self.connected_users: dict[str, UserJoinEvent] = {}
+        self._running = True
+        self.is_connected = False
+
+    async def _emit_status(self, connected: bool) -> None:
+        """Emite el estado actual de la conexión de IRC al EventBus."""
+        await self.bot.event_bus.emit(TwitchIRCStatusEvent(connected=connected))
 
     async def connect(self) -> None:
-        """Conecta al servidor de IRC de Twitch y mantiene el loop."""
-        LOGGER.info("Conectando a irc.chat.twitch.tv:6697...")
-        self.connected_users.clear()
-        try:
+        """Conecta al servidor de IRC de Twitch y mantiene el loop con reconexiones."""
+        self._running = True
+        backoff = 2.0
+
+        while self._running:
+            self.connected_users.clear()
+            self.is_connected = False
+            self.connected_event.clear()
+            await self._emit_status(connected=False)
+
+            LOGGER.info("Conectando a irc.chat.twitch.tv:6697...")
             try:
-                broadcaster_id = self.bot.owner_id
-                self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+                try:
+                    if not self.broadcaster:
+                        broadcaster_id = self.bot.owner_id
+                        self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
+                except Exception as e:
+                    LOGGER.error("Error al precargar broadcaster: %s", e)
+
+                self.reader, self.writer = await asyncio.open_connection(
+                    "irc.chat.twitch.tv", 6697, ssl=True
+                )
+
+                self._send(f"PASS {self.token}")
+                self._send(f"NICK {self.bot_username}")
+                self._send("CAP REQ :twitch.tv/membership")
+
+                for canal in self.canales:
+                    self._send(f"JOIN #{canal}")
+
+                canales_str = ", ".join(self.canales)
+                LOGGER.info("Autenticado y escuchando JOIN/PART en: %s", canales_str)
+
+                self.is_connected = True
+                self.connected_event.set()
+                await self._emit_status(connected=True)
+
+                backoff = 2.0  # Resetear el backoff tras conexión exitosa
+
+                await self._listen()
+
             except Exception as e:
-                LOGGER.error("Error al precargar broadcaster: %s", e)
+                LOGGER.exception(
+                    "Error en la conexión IRC (reintentando en %.1fs): %s",
+                    backoff,
+                    e,
+                )
+                self.connected_event.set()  # Evitar bloquear el arranque del bot
 
-            self.reader, self.writer = await asyncio.open_connection(
-                "irc.chat.twitch.tv", 6697, ssl=True
-            )
+            self.is_connected = False
+            await self._emit_status(connected=False)
 
-            self._send(f"PASS {self.token}")
-            self._send(f"NICK {self.bot_username}")
-            self._send("CAP REQ :twitch.tv/membership")
+            if self.writer:
+                with contextlib.suppress(Exception):
+                    self.writer.close()
+                    await self.writer.wait_closed()
+                self.writer = None
+            self.reader = None
 
-            for canal in self.canales:
-                self._send(f"JOIN #{canal}")
+            if not self._running:
+                break
 
-            canales_str = ", ".join(self.canales)
-            LOGGER.info("Autenticado y escuchando JOIN/PART en: %s", canales_str)
-            self.connected_event.set()
-
-            await self._listen()
-
-        except Exception as e:
-            self.connected_event.set()
-            LOGGER.exception("Error en la conexión IRC: %s", e)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, 60.0)
 
     def _send(self, message: str) -> None:
         if self.writer:

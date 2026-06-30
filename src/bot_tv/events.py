@@ -321,3 +321,11 @@ class TwitchMessageDeleteEvent:
     display_name: str
     message_text: str
     timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class TwitchIRCStatusEvent:
+    """Evento que indica el cambio de estado de conexión del IRC."""
+
+    connected: bool
+    timestamp: str = field(default_factory=_now)

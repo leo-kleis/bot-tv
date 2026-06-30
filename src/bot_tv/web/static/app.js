@@ -16,6 +16,7 @@ function makeInitialState() {
     connected: false,
     historyLoaded: false,
     initialLoad: true,
+    ircConnected: false,
     stream: {
       online: false,
       broadcasterName: '',
@@ -50,6 +51,9 @@ function reducer(state, action) {
 
     case 'HISTORY_END':
       return { ...state, historyLoaded: true };
+
+    case 'irc_status':
+      return { ...state, ircConnected: action.data.connected };
 
     case 'chat_message': {
       const msgs = [...state.chatMessages, action.data];

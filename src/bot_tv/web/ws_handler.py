@@ -24,6 +24,7 @@ from bot_tv.events import (
     TwitchChatClearEvent,
     TwitchChatClearUserEvent,
     TwitchCheerEvent,
+    TwitchIRCStatusEvent,
     TwitchMessageDeleteEvent,
     TwitchPredictionBeginEvent,
     TwitchPredictionEndEvent,
@@ -73,6 +74,7 @@ EVENT_TYPE_MAP: dict[type, str] = {
     TwitchChatClearEvent: "twitch_chat_clear",
     TwitchChatClearUserEvent: "twitch_chat_clear_user",
     TwitchMessageDeleteEvent: "twitch_message_delete",
+    TwitchIRCStatusEvent: "irc_status",
 }
 
 # Tipos de eventos que se incluyen en el historial inicial al conectar
@@ -97,6 +99,7 @@ HISTORY_EVENT_TYPES: list[type] = [
     TwitchChatClearEvent,
     TwitchChatClearUserEvent,
     TwitchMessageDeleteEvent,
+    TwitchIRCStatusEvent,
 ]
 
 

@@ -550,3 +550,64 @@
     margin-bottom: 2px;
   }
 }
+
+/* ── Estilos de desconexión del IRC ── */
+.viewers-badge.irc-disconnected {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+}
+.viewers-badge.irc-disconnected:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+}
+
+.irc-status-warning {
+  color: #f87171;
+  font-size: 13px;
+  animation: pulse-red 2s infinite ease-in-out;
+  display: inline-flex;
+  align-items: center;
+}
+
+.irc-disconnect-alert {
+  margin: 12px;
+  padding: 12px 8px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+
+.irc-disconnect-alert .alert-icon {
+  color: #f87171;
+  font-size: 1.4rem;
+  margin-bottom: 2px;
+  animation: pulse-red 2s infinite ease-in-out;
+}
+
+.irc-disconnect-alert .alert-title {
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.irc-disconnect-alert .alert-desc {
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

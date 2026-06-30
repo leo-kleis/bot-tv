@@ -1,0 +1,80 @@
+/* stream.css — Estilos para el reproductor interactivo de Twitch */
+
+.stream-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--bg-1, #0e0d12);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.stream-player-wrapper {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border, #25232d);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.twitch-embed-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* ──────────────────────────────────────────
+   RESPONSIVE DESIGN (Reglas del proyecto)
+   ────────────────────────────────────────── */
+
+/* MÓVILES PORTRAIT (max-width: 600px) */
+@media (max-width: 600px) {
+  .stream-tab {
+    padding: 12px;
+    justify-content: center;
+  }
+
+  .stream-player-wrapper {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+  }
+}
+
+/* MÓVILES EN MODO HORIZONTAL (LANDSCAPE - max-height: 480px) */
+@media (max-height: 480px) {
+  .stream-tab {
+    padding: 8px;
+    justify-content: center;
+  }
+
+  .stream-player-wrapper {
+    max-width: none;
+    height: 100%;
+    aspect-ratio: auto; /* Permite estirarse verticalmente completando el espacio disponible */
+    border-radius: 8px;
+  }
+}
+
+/* TABLETS Y ESCRITORIO (min-width: 601px and min-height: 481px) */
+@media (min-width: 601px) and (min-height: 481px) {
+  .stream-tab {
+    padding: 24px;
+  }
+
+  .stream-player-wrapper {
+    max-width: 1000px;
+    aspect-ratio: 16 / 9;
+  }
+}

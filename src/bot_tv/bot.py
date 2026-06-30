@@ -154,6 +154,8 @@ class Bot(TokenPersistMixin, commands.AutoBot):
     async def close(self, **options: Any) -> None:
         """Cancela tareas pendientes antes de cerrar el bot."""
         if self._irc_task and not self._irc_task.done():
+            if self.irc:
+                self.irc._running = False
             self._irc_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._irc_task

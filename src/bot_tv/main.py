@@ -47,6 +47,19 @@ def main() -> None:
 
                 LOGGER.info("Tokens cargados: %d", len(tokens))
 
+                # Verificar conexión a Twitch
+                from bot_tv.utils.network import check_twitch_connection
+                LOGGER.info("Verificando conexión con la API de Twitch...")
+                if not check_twitch_connection(timeout=4.0):
+                    LOGGER.critical(
+                        "No se pudo establecer conexión con Twitch (id.twitch.tv). "
+                        "Por favor, verifica tu conexión a internet o la "
+                        "configuración de DNS/red. "
+                        "El inicio del bot ha sido cancelado para evitar "
+                        "congelamientos."
+                    )
+                    sys.exit(1)
+
                 event_bus = EventBus()
                 # Consumer de terminal: reproduce el output Rich de los componentes
                 TerminalConsumer(event_bus)
