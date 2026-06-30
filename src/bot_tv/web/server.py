@@ -19,6 +19,7 @@ from starlette.websockets import WebSocket
 from bot_tv.web.api import (
     endpoint_create_clip,
     endpoint_exit,
+    endpoint_get_avatar,
     endpoint_get_chat_accounts,
     endpoint_get_models,
     endpoint_get_rpm,
@@ -107,6 +108,7 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/users", endpoint_list_users, methods=["GET"]),
         Route("/api/chat_accounts", endpoint_get_chat_accounts, methods=["GET"]),
         Route("/api/send_chat_message", endpoint_send_chat_message, methods=["POST"]),
+        Route("/api/avatar/{user_id}", endpoint_get_avatar, methods=["GET"]),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
         Mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]

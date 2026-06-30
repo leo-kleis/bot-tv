@@ -32,7 +32,8 @@ async def run_app_migrations(db: asqlite.Pool) -> None:
                 is_bot        INTEGER DEFAULT 0,
                 is_moderator  INTEGER DEFAULT 0,
                 is_vip        INTEGER DEFAULT 0,
-                is_subscriber INTEGER DEFAULT 0
+                is_subscriber INTEGER DEFAULT 0,
+                profile_image_url TEXT
             )
         """)
         await conn.execute("""
@@ -85,6 +86,11 @@ async def run_app_migrations(db: asqlite.Pool) -> None:
         with contextlib.suppress(Exception):
             await conn.execute(
                 "ALTER TABLE users ADD COLUMN is_subscriber INTEGER DEFAULT 0"
+            )
+
+        with contextlib.suppress(Exception):
+            await conn.execute(
+                "ALTER TABLE users ADD COLUMN profile_image_url TEXT"
             )
 
         with contextlib.suppress(Exception):

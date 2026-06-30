@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import twitchio
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from bot_tv.actions import (
     action_create_clip,
@@ -420,3 +420,17 @@ async def endpoint_list_users(request: Request) -> Response:
     except Exception as e:
         LOGGER.exception("Error inesperado al listar usuarios: %s", e)
         return _err(f"Error al listar usuarios: {e}")
+
+
+async def endpoint_get_avatar(request: Request) -> Response:
+    """Redirige a la URL del avatar de Twitch cacheada en la DB."""
+    user_id = request.path_params.get("user_id", "")
+    if not user_id:
+        return _err("user_id requerido", 400)
+
+    bot: Bot = request.app.state.bot
+    url = await bot.user_repo.get_profile_image_url(user_id)
+    if not url:
+        return _err("Avatar no encontrado", 404)
+
+    return RedirectResponse(url=url, status_code=302)

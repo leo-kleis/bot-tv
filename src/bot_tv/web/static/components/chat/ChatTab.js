@@ -8,35 +8,64 @@ function roleDisplay(role) {
   if (!role || role === 'Visita') return 'Visita';
   return role;
 }
+// Genera la inicial para el fallback del avatar
+function getInitial(name) {
+  return name ? name.charAt(0).toUpperCase() : '?';
+}
 
-// Mensaje de chat
-function ChatMessage({ msg }) {
-  if (msg.isSystem) {
-    const details = getEventDetails(msg.type);
-    const textHtml = details.chatHtml(msg.data, html);
-    return html`
-      <div class="chat-msg is-system ${details.sysClassName}">
-        <span class="chat-time">${fmtTime(msg.timestamp)}</span>
-        <span class="sys-icon"><i class="fa-solid ${details.icon}"></i></span>
-        <span class="sys-text">${textHtml}</span>
-      </div>
-    `;
-  }
-
+// Encabezado de grupo: avatar + nombre + rol + hora + texto del primer mensaje
+function ChatMessageGroup({ msg }) {
   const color = toRgb(msg.color_rgb);
   const rLabel = roleDisplay(msg.role);
+  const avatarUrl = `/api/avatar/${msg.user_id}`;
 
   return html`
-    <div class="chat-msg ${msg.is_bot ? 'is-bot' : ''}">
+    <div class="chat-msg-group ${msg.is_bot ? 'is-bot' : ''}">
+      <div class="chat-msg-avatar" style="background:${color}">
+        <img
+          src=${avatarUrl}
+          alt=""
+          loading="lazy"
+          onError=${(e) => { e.target.style.display = 'none'; }}
+        />
+        <span class="chat-avatar-fallback">${getInitial(msg.display_name)}</span>
+      </div>
+      <div class="chat-msg-content">
+        <div class="chat-msg-header">
+          <span class="chat-author" style="color:${color}">
+            ${msg.nickname
+              ? html`<span class="chat-nickname">${msg.nickname}</span
+                  ><span class="chat-display"> ${msg.display_name}</span>`
+              : html`<span class="chat-nickname">${msg.display_name}</span>`}
+          </span>
+          ${rLabel ? html`<span class="chat-role">(${rLabel})</span>` : null}
+          <span class="chat-time">${fmtTime(msg.timestamp)}</span>
+        </div>
+        <div class="chat-msg-body">${msg.text}</div>
+      </div>
+    </div>
+  `;
+}
+
+// Mensaje continuación: solo texto, hora visible en hover
+function ChatMessageCont({ msg }) {
+  return html`
+    <div class="chat-msg-cont ${msg.is_bot ? 'is-bot' : ''}">
+      <span class="chat-time-hover">${fmtTime(msg.timestamp)}</span>
+      <div class="chat-msg-body">${msg.text}</div>
+    </div>
+  `;
+}
+
+// Mensaje de sistema (sin cambios en lógica, mismo render que antes)
+function ChatMessageSystem({ msg }) {
+  const details = getEventDetails(msg.type);
+  const textHtml = details.chatHtml(msg.data, html);
+  return html`
+    <div class="chat-msg is-system ${details.sysClassName}">
       <span class="chat-time">${fmtTime(msg.timestamp)}</span>
-      <span class="chat-author" style="color:${color}">
-        ${msg.nickname
-          ? html`<span class="chat-nickname">${msg.nickname}</span
-              ><span class="chat-display"> ${msg.display_name}</span>`
-          : html`<span class="chat-nickname">${msg.display_name}</span>`}
-      </span>
-      ${rLabel ? html`<span class="chat-role">(${rLabel})</span>` : null}
-      <span class="chat-text">${msg.text}</span>
+      <span class="sys-icon"><i class="fa-solid ${details.icon}"></i></span>
+      <span class="sys-text">${textHtml}</span>
     </div>
   `;
 }
@@ -227,9 +256,18 @@ export function ChatTab({ chatMessages, ircUsers, ircConnected, showIrcMobile, o
                     <span>Esperando mensajes...</span>
                   </div>
                 `
-              : chatMessages.map(
-                  (m, i) => html`<${ChatMessage} key=${m.timestamp + i} msg=${m} />`
-                )}
+              : chatMessages.map((m, i) => {
+                  if (m.isSystem) {
+                    return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
+                  }
+                  const prev = chatMessages[i - 1];
+                  const isGrouped = prev
+                    && !prev.isSystem
+                    && prev.user_id === m.user_id;
+                  return isGrouped
+                    ? html`<${ChatMessageCont} key=${m.timestamp + i} msg=${m} />`
+                    : html`<${ChatMessageGroup} key=${m.timestamp + i} msg=${m} />`;
+                })}
           </div>
 
           <!-- Botón de scroll al final -->

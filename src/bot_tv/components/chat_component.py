@@ -84,6 +84,21 @@ class ChatComponent(commands.Component):
 
         role = await self._get_chatter_role(chatter, payload.broadcaster.id)
 
+        # Obtener avatar cacheado o consultarlo a la API de Twitch
+        profile_image_url = await self.bot.user_repo.get_profile_image_url(user_id)
+        if profile_image_url is None:
+            try:
+                fetched_users = await self.bot.fetch_users(ids=[int(user_id)])
+                if fetched_users:
+                    profile_image = fetched_users[0].profile_image
+                    if profile_image:
+                        profile_image_url = profile_image.url
+                        await self.bot.user_repo.set_profile_image_url(
+                            user_id, profile_image_url
+                        )
+            except Exception:
+                LOGGER.debug("No se pudo obtener avatar para user_id=%s", user_id)
+
         await self.bot.event_bus.emit(
             ChatMessageEvent(
                 timestamp=datetime.now().isoformat(),
@@ -96,6 +111,7 @@ class ChatComponent(commands.Component):
                 text=payload.text,
                 channel_id=payload.broadcaster.id,
                 is_bot=es_bot,
+                profile_image_url=profile_image_url,
             )
         )
 

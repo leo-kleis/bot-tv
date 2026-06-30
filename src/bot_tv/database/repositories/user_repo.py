@@ -333,3 +333,22 @@ class UserRepository(BaseRepository):
                 query, (f"%{q}%", f"%{q}%", f"%{q}%", limit)
             )
         return [dict(row) for row in rows]
+
+    async def get_profile_image_url(self, user_id: str) -> str | None:
+        """Devuelve la URL del avatar cacheada, o None si no existe."""
+        async with self._db.acquire() as conn:
+            row: sqlite3.Row | None = await conn.fetchone(
+                "SELECT profile_image_url FROM users WHERE user_id = ?",
+                (user_id,),
+            )
+        if not row:
+            return None
+        return row["profile_image_url"]
+
+    async def set_profile_image_url(self, user_id: str, url: str) -> None:
+        """Guarda o actualiza la URL del avatar del usuario."""
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET profile_image_url = ? WHERE user_id = ?",
+                (url, user_id),
+            )

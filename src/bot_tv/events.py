@@ -30,6 +30,7 @@ class ChatMessageEvent:
     text: str
     channel_id: str
     is_bot: bool
+    profile_image_url: str | None = None
     timestamp: str = field(default_factory=_now)
 
 
