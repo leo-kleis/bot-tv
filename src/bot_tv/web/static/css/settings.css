@@ -118,7 +118,7 @@
 }
 
 .font-preview-text {
-  font-size: var(--font-size);
+  font-size: 1rem;
   color: var(--text-2);
   line-height: 1.5;
 }
@@ -128,7 +128,7 @@
   border: 1px solid var(--border-2);
   border-radius: var(--radius-xs);
   padding: 8px 12px;
-  font-size: var(--font-size);
+  font-size: 1rem;
 }
 
 .font-preview-chat .user {

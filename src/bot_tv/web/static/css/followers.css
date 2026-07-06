@@ -57,7 +57,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 4px;
-  font-size: 13px;
+  font-size: 0.9rem;
   color: var(--text-2);
   border-bottom: 1px solid var(--border-2);
   transition:

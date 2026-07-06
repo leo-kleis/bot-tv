@@ -43,7 +43,7 @@
   border-radius: 16px 16px 4px 16px;
   padding: 10px 14px;
   max-width: 85%;
-  font-size: 13.5px;
+  font-size: 0.93rem;
   word-break: break-word;
   box-shadow: var(--shadow-sm);
 }
@@ -55,7 +55,7 @@
   border-radius: 4px 16px 16px 16px;
   padding: 10px 14px;
   max-width: 90%;
-  font-size: 13.5px;
+  font-size: 0.93rem;
   color: var(--text-2);
   word-break: break-word;
   white-space: pre-wrap;
@@ -128,7 +128,7 @@
   .convo-q,
   .convo-a {
     padding: 6px 10px;
-    font-size: 12.5px;
+    font-size: 0.86rem;
   }
   .convo-meta {
     font-size: 9px;

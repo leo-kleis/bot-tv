@@ -22,6 +22,7 @@ class ChatComponent(commands.Component):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
+        self._verified_avatars: set[str] = set()
 
     async def _get_chatter_role(
         self, chatter: twitchio.Chatter, broadcaster_id: str | int
@@ -86,16 +87,19 @@ class ChatComponent(commands.Component):
 
         # Obtener avatar cacheado o consultarlo a la API de Twitch
         profile_image_url = await self.bot.user_repo.get_profile_image_url(user_id)
-        if profile_image_url is None:
+        if profile_image_url is None or user_id not in self._verified_avatars:
             try:
                 fetched_users = await self.bot.fetch_users(ids=[int(user_id)])
                 if fetched_users:
                     profile_image = fetched_users[0].profile_image
                     if profile_image:
-                        profile_image_url = profile_image.url
-                        await self.bot.user_repo.set_profile_image_url(
-                            user_id, profile_image_url
-                        )
+                        new_url = profile_image.url
+                        if new_url != profile_image_url:
+                            profile_image_url = new_url
+                            await self.bot.user_repo.set_profile_image_url(
+                                user_id, profile_image_url
+                            )
+                        self._verified_avatars.add(user_id)
             except Exception:
                 LOGGER.debug("No se pudo obtener avatar para user_id=%s", user_id)
 
