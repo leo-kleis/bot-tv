@@ -134,12 +134,7 @@ export function App({ state, dispatch, onReconnect }) {
             dispatch=${dispatch}
           />
         `}
-        ${active === 'stream' &&
-        html`
-          <${StreamTab}
-            channel=${state.stream.broadcasterName}
-          />
-        `}
+        ${active === 'stream' && html` <${StreamTab} channel=${state.stream.broadcasterName} /> `}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
         ${active === 'agent' &&
         html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}

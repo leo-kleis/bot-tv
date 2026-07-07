@@ -6,7 +6,14 @@ function fmtViewers(n) {
   return String(n);
 }
 
-export function StreamWidget({ stream, connected, ircConnected, ircCount = 0, showIrcMobile, onToggleIrc }) {
+export function StreamWidget({
+  stream,
+  connected,
+  ircConnected,
+  ircCount = 0,
+  showIrcMobile,
+  onToggleIrc,
+}) {
   const { online, broadcasterName, title, category, viewerCount, startedAt } = stream;
   const [uptime, setUptime] = useState('');
 
@@ -79,9 +86,13 @@ export function StreamWidget({ stream, connected, ircConnected, ircCount = 0, sh
               <span>${fmtViewers(viewerCount)}</span>
             </div>
             <button
-              class="viewers-badge clickable ${showIrcMobile ? 'active' : ''} ${!ircConnected ? 'irc-disconnected' : ''}"
+              class="viewers-badge clickable ${showIrcMobile ? 'active' : ''} ${!ircConnected
+                ? 'irc-disconnected'
+                : ''}"
               onClick=${onToggleIrc}
-              title=${ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'}
+              title=${ircConnected
+                ? 'Ver usuarios en el chat'
+                : 'IRC Desconectado (Reintentando...)'}
               aria-label="Ver usuarios en el chat"
             >
               <span class="users-icon">
@@ -92,9 +103,13 @@ export function StreamWidget({ stream, connected, ircConnected, ircCount = 0, sh
           `
         : html`
             <button
-              class="viewers-badge clickable offline-irc-btn ${showIrcMobile ? 'active' : ''} ${!ircConnected ? 'irc-disconnected' : ''}"
+              class="viewers-badge clickable offline-irc-btn ${showIrcMobile
+                ? 'active'
+                : ''} ${!ircConnected ? 'irc-disconnected' : ''}"
               onClick=${onToggleIrc}
-              title=${ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'}
+              title=${ircConnected
+                ? 'Ver usuarios en el chat'
+                : 'IRC Desconectado (Reintentando...)'}
               aria-label="Ver usuarios en el chat"
             >
               <span class="users-icon">

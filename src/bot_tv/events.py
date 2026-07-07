@@ -30,6 +30,7 @@ class ChatMessageEvent:
     text: str
     channel_id: str
     is_bot: bool
+    emotes: list[dict[str, str]] = field(default_factory=list)
     profile_image_url: str | None = None
     timestamp: str = field(default_factory=_now)
 

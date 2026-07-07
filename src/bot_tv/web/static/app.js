@@ -5,6 +5,14 @@ import { useWebSocket } from '/static/hooks/useWebSocket.js';
 // ── Registro del service worker ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
 }
 
 // ── Constantes ───────────────────────────────────────────────────────────────
@@ -30,8 +38,10 @@ function makeInitialState() {
     ircUsers: new Map(), // username → {display_name, nickname, color_rgb, role}
     ircEvents: [], // log de JOIN/PART para mostrar en historial si hace falta
     followers: {
-      lastSync: null, // FollowerSyncEvent más reciente
+      lastSync: null, // FollowerSyncEvent mas reciente
       progress: null, // FollowerProgressEvent en curso
+      allNewLabels: [], // Labels acumulados de toda la sesion
+      allLostLabels: [],
     },
     clips: [],
     agentConversations: [],
@@ -107,8 +117,53 @@ function reducer(state, action) {
         },
       };
 
-    case 'follower_sync':
-      return { ...state, followers: { ...state.followers, lastSync: action.data, progress: null } };
+    case 'follower_sync': {
+      const syncData = action.data;
+      const prev = state.followers;
+
+      // Extraer user_id del formato "[123456] NombreUsuario ..."
+      const extractId = label => {
+        const m = label.match(/^\[(\d+)\]/);
+        return m ? m[1] : label;
+      };
+
+      if (syncData.is_first_sync) {
+        // Primera carga: solo establecer total, no acumular labels
+        return {
+          ...state,
+          followers: {
+            ...prev,
+            lastSync: syncData,
+            progress: null,
+            allNewLabels: prev.allNewLabels || [],
+            allLostLabels: prev.allLostLabels || [],
+          },
+        };
+      }
+
+      // Acumular labels deduplicando por user_id
+      const existingNewIds = new Set((prev.allNewLabels || []).map(extractId));
+      const existingLostIds = new Set((prev.allLostLabels || []).map(extractId));
+
+      const freshNew = (syncData.new_labels || []).filter(l => !existingNewIds.has(extractId(l)));
+      const freshLost = (syncData.lost_labels || []).filter(
+        l => !existingLostIds.has(extractId(l))
+      );
+
+      const allNewLabels = [...(prev.allNewLabels || []), ...freshNew];
+      const allLostLabels = [...(prev.allLostLabels || []), ...freshLost];
+
+      return {
+        ...state,
+        followers: {
+          ...prev,
+          lastSync: syncData,
+          progress: null,
+          allNewLabels,
+          allLostLabels,
+        },
+      };
+    }
 
     case 'follower_progress':
       return { ...state, followers: { ...state.followers, progress: action.data } };

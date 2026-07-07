@@ -45,7 +45,7 @@
 /* === Grupo de mensajes (primer mensaje de un usuario) === */
 .chat-msg-group {
   display: flex;
-  gap: 16px;
+  gap: 10px;
   padding: 4px 20px;
   margin-top: 12px;
   align-items: flex-start;
@@ -58,10 +58,8 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Avatar */
-.chat-msg-avatar {
-  width: 40px;
-  height: 40px;
+/* Avatar reutilizable (UserAvatar) */
+.user-avatar {
   border-radius: 50%;
   flex-shrink: 0;
   display: flex;
@@ -69,11 +67,10 @@
   justify-content: center;
   overflow: hidden;
   position: relative;
-  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
 }
-.chat-msg-avatar img {
+.user-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -82,8 +79,18 @@
   top: 0;
   left: 0;
 }
-.chat-avatar-fallback {
+.user-avatar-fallback {
   user-select: none;
+}
+.user-avatar--md {
+  width: 32px;
+  height: 32px;
+  font-size: 0.85rem;
+}
+.user-avatar--sm {
+  width: 18px;
+  height: 18px;
+  font-size: 0.55rem;
 }
 
 /* Contenido al lado del avatar */
@@ -147,7 +154,7 @@
 
 /* === Mensaje continuación (mismo usuario) === */
 .chat-msg-cont {
-  padding: 2px 20px 2px 76px; /* 20px padding + 40px avatar + 16px gap = 76px */
+  padding: 2px 20px 2px 62px; /* 20px padding + 32px avatar + 10px gap = 62px */
   position: relative;
   animation: msg-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -302,7 +309,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-left: 48px;
+  padding-left: 66px;
   font-size: 0.75em;
   color: var(--text-muted);
   width: 100%;
@@ -594,17 +601,17 @@
     padding: 0 12px;
   }
   .chat-msg-group {
-    gap: 12px;
+    gap: 8px;
     padding: 3px 14px;
     margin-top: 8px;
   }
-  .chat-msg-avatar {
-    width: 36px;
-    height: 36px;
-    font-size: 0.95rem;
+  .user-avatar--md {
+    width: 28px;
+    height: 28px;
+    font-size: 0.75rem;
   }
   .chat-msg-cont {
-    padding: 1px 14px 1px 62px; /* 14px + 36px + 12px */
+    padding: 1px 14px 1px 50px; /* 14px + 28px + 8px */
   }
   .chat-time-hover {
     left: 14px;
@@ -623,17 +630,17 @@
     padding: 6px 0;
   }
   .chat-msg-group {
-    gap: 10px;
+    gap: 8px;
     padding: 2px 16px;
     margin-top: 6px;
   }
-  .chat-msg-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 0.85rem;
+  .user-avatar--md {
+    width: 26px;
+    height: 26px;
+    font-size: 0.7rem;
   }
   .chat-msg-cont {
-    padding: 1px 16px 1px 58px; /* 16px + 32px + 10px */
+    padding: 1px 16px 1px 50px; /* 16px + 26px + 8px */
   }
   .chat-time-hover {
     left: 16px;
@@ -733,10 +740,19 @@
 }
 
 @keyframes pulse-red {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.6;
   }
   50% {
     opacity: 1;
   }
+}
+
+.chat-emote {
+  height: 24px;
+  vertical-align: middle;
+  margin: -2px 2px 0 2px;
+  object-fit: contain;
+  display: inline-block;
 }

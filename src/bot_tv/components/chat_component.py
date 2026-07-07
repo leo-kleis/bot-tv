@@ -103,6 +103,13 @@ class ChatComponent(commands.Component):
             except Exception:
                 LOGGER.debug("No se pudo obtener avatar para user_id=%s", user_id)
 
+        # Extraer emotes nativos de Twitch desde los fragments del mensaje
+        twitch_emotes: list[dict[str, str]] = []
+        if hasattr(payload, "fragments"):
+            for frag in payload.fragments:
+                if frag.type == "emote" and frag.emote:
+                    twitch_emotes.append({"id": frag.emote.id, "text": frag.text})
+
         await self.bot.event_bus.emit(
             ChatMessageEvent(
                 timestamp=datetime.now().isoformat(),
@@ -115,6 +122,7 @@ class ChatComponent(commands.Component):
                 text=payload.text,
                 channel_id=payload.broadcaster.id,
                 is_bot=es_bot,
+                emotes=twitch_emotes,
                 profile_image_url=profile_image_url,
             )
         )

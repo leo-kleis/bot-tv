@@ -75,6 +75,8 @@ const ROLE_OPTIONS = [
 ];
 
 export function FollowersTab({ followers }) {
+  const allNewLabels = followers.allNewLabels || [];
+  const allLostLabels = followers.allLostLabels || [];
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -309,11 +311,11 @@ export function FollowersTab({ followers }) {
                   <div class="stat-label">Total</div>
                 </div>
                 <div class="stat-card new">
-                  <div class="stat-value">${sync?.new_count ?? '—'}</div>
+                  <div class="stat-value">${allNewLabels.length || '—'}</div>
                   <div class="stat-label">Nuevos</div>
                 </div>
                 <div class="stat-card lost">
-                  <div class="stat-value">${sync?.lost_count ?? '—'}</div>
+                  <div class="stat-value">${allLostLabels.length || '—'}</div>
                   <div class="stat-label">Perdidos</div>
                 </div>
               </div>
@@ -359,21 +361,21 @@ export function FollowersTab({ followers }) {
             : null}
         </div>
 
-        <!-- Columna Derecha: Nuevos y Perdidos del último sync -->
-        ${sync?.new_labels?.length > 0 || sync?.lost_labels?.length > 0
+        <!-- Columna Derecha: Nuevos y Perdidos acumulados en la sesion -->
+        ${allNewLabels.length > 0 || allLostLabels.length > 0
           ? html`
               <div class="two-col">
                 <!-- Nuevos seguidores -->
-                ${sync.new_labels.length > 0
+                ${allNewLabels.length > 0
                   ? html`
                       <div class="section">
                         <div class="section-header" style="color:var(--success)">
                           <span class="section-icon"><i class="fa-solid fa-user-plus"></i></span>
-                          Nuevos (${sync.new_count})
+                          Nuevos (${allNewLabels.length})
                         </div>
                         <div class="section-body">
                           <div class="follower-list">
-                            ${sync.new_labels.map(
+                            ${allNewLabels.map(
                               (l, i) => html`<div key=${i} class="follower-item new">${l}</div>`
                             )}
                           </div>
@@ -383,16 +385,16 @@ export function FollowersTab({ followers }) {
                   : null}
 
                 <!-- Perdidos -->
-                ${sync.lost_labels.length > 0
+                ${allLostLabels.length > 0
                   ? html`
                       <div class="section">
                         <div class="section-header" style="color:var(--danger)">
                           <span class="section-icon"><i class="fa-solid fa-user-minus"></i></span>
-                          Dejaron de seguir (${sync.lost_count})
+                          Dejaron de seguir (${allLostLabels.length})
                         </div>
                         <div class="section-body">
                           <div class="follower-list">
-                            ${sync.lost_labels.map(
+                            ${allLostLabels.map(
                               (l, i) => html`<div key=${i} class="follower-item lost">${l}</div>`
                             )}
                           </div>

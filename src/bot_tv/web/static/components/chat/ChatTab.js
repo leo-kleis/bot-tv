@@ -3,35 +3,27 @@ import { getEventDetails } from '../event-config.js';
 import { toRgb, fmtTime } from 'lib/utils';
 import { apiGet, apiPost } from '../api.js';
 import { CustomSelect } from '../CustomSelect.js';
+import { UserAvatar } from '../UserAvatar.js';
+import { fetchEmotes, parseEmotes } from '/static/lib/emotes.js';
 
 function roleDisplay(role) {
   if (!role || role === 'Visita') return 'Visita';
   return role;
 }
-// Genera la inicial para el fallback del avatar
-function getInitial(name) {
-  return name ? name.charAt(0).toUpperCase() : '?';
-}
 
 // Encabezado de grupo: avatar + nombre + rol + hora + texto del primer mensaje
-function ChatMessageGroup({ msg }) {
+function ChatMessageGroup({ msg, emotesMap }) {
   const color = toRgb(msg.color_rgb);
   const rLabel = roleDisplay(msg.role);
-  const avatarUrl = `/api/avatar/${msg.user_id}`;
 
   return html`
     <div class="chat-msg-group ${msg.is_bot ? 'is-bot' : ''}">
-      <div class="chat-msg-avatar" style="background:${color}">
-        <img
-          src=${avatarUrl}
-          alt=""
-          loading="lazy"
-          onError=${e => {
-            e.target.style.display = 'none';
-          }}
-        />
-        <span class="chat-avatar-fallback">${getInitial(msg.display_name)}</span>
-      </div>
+      <${UserAvatar}
+        userId=${msg.user_id}
+        displayName=${msg.display_name}
+        color=${color}
+        size="md"
+      />
       <div class="chat-msg-content">
         <div class="chat-msg-header">
           <span class="chat-author" style="color:${color}">
@@ -43,18 +35,18 @@ function ChatMessageGroup({ msg }) {
           ${rLabel ? html`<span class="chat-role">(${rLabel})</span>` : null}
           <span class="chat-time">${fmtTime(msg.timestamp)}</span>
         </div>
-        <div class="chat-msg-body">${msg.text}</div>
+        <div class="chat-msg-body">${parseEmotes(msg.text, emotesMap, msg.emotes)}</div>
       </div>
     </div>
   `;
 }
 
 // Mensaje continuación: solo texto, hora visible en hover
-function ChatMessageCont({ msg }) {
+function ChatMessageCont({ msg, emotesMap }) {
   return html`
     <div class="chat-msg-cont ${msg.is_bot ? 'is-bot' : ''}">
       <span class="chat-time-hover">${fmtTime(msg.timestamp)}</span>
-      <div class="chat-msg-body">${msg.text}</div>
+      <div class="chat-msg-body">${parseEmotes(msg.text, emotesMap, msg.emotes)}</div>
     </div>
   `;
 }
@@ -103,6 +95,7 @@ function IrcUser({ user }) {
   return html`
     <div class="irc-user">
       <div class="irc-user-main">
+        <${UserAvatar} userId=${user.user_id} displayName=${nameStr} color=${color} size="sm" />
         <span class="irc-time">${timeStr}</span>
         <span class="irc-name" style="color:${color}">${nameStr}</span>
         <div class="irc-user-badges">${badges}</div>
@@ -136,6 +129,7 @@ export function ChatTab({
   const [selectedSenderId, setSelectedSenderId] = useState('');
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [emotesMap, setEmotesMap] = useState({});
 
   // Cargar las cuentas autenticadas
   useEffect(() => {
@@ -146,7 +140,16 @@ export function ChatTab({
         if (res.data.length > 0) {
           // Seleccionar broadcaster por defecto si existe, sino la primera
           const broadcasterAcc = res.data.find(acc => acc.type === 'broadcaster');
-          setSelectedSenderId(broadcasterAcc ? broadcasterAcc.user_id : res.data[0].user_id);
+          const finalSenderId = broadcasterAcc ? broadcasterAcc.user_id : res.data[0].user_id;
+          setSelectedSenderId(finalSenderId);
+
+          // Cargar emotes para el broadcaster (o primera cuenta)
+          try {
+            const loaded = await fetchEmotes(finalSenderId);
+            setEmotesMap(loaded);
+          } catch (e) {
+            console.error('Error al cargar emotes:', e);
+          }
         }
       }
     }
@@ -272,8 +275,16 @@ export function ChatTab({
                   const prev = chatMessages[i - 1];
                   const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
                   return isGrouped
-                    ? html`<${ChatMessageCont} key=${m.timestamp + i} msg=${m} />`
-                    : html`<${ChatMessageGroup} key=${m.timestamp + i} msg=${m} />`;
+                    ? html`<${ChatMessageCont}
+                        key=${m.timestamp + i}
+                        msg=${m}
+                        emotesMap=${emotesMap}
+                      />`
+                    : html`<${ChatMessageGroup}
+                        key=${m.timestamp + i}
+                        msg=${m}
+                        emotesMap=${emotesMap}
+                      />`;
                 })}
           </div>
 

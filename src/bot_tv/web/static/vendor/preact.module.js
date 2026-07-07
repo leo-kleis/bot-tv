@@ -703,4 +703,3 @@ export {
   R as render,
   F as toChildArray,
 };
-//# sourceMappingURL=preact.module.js.map

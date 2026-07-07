@@ -24,6 +24,7 @@ const STATIC_ASSETS = [
   '/static/components/api.js',
   '/static/components/CustomSelect.js',
   '/static/components/chat/ChatTab.js',
+  '/static/components/UserAvatar.js',
   '/static/components/followers/FollowersTab.js',
   '/static/components/agent/AgentTab.js',
   '/static/components/settings/SettingsTab.js',
@@ -34,6 +35,7 @@ const STATIC_ASSETS = [
   '/static/hooks/useWebSocket.js',
   '/static/lib/preact-setup.js',
   '/static/lib/utils.js',
+  '/static/lib/emotes.js',
   '/static/vendor/preact.module.js',
   '/static/vendor/preact-hooks.module.js',
   '/static/vendor/htm.module.js',
@@ -73,8 +75,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
+  // Solo interceptar requests del mismo origen
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   if (url.pathname.startsWith('/api/') || url.pathname === '/ws') {
-    return; // Sin intercepción
+    return;
   }
 
   event.respondWith(
