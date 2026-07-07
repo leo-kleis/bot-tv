@@ -26,7 +26,9 @@ function ChatMessageGroup({ msg }) {
           src=${avatarUrl}
           alt=""
           loading="lazy"
-          onError=${(e) => { e.target.style.display = 'none'; }}
+          onError=${e => {
+            e.target.style.display = 'none';
+          }}
         />
         <span class="chat-avatar-fallback">${getInitial(msg.display_name)}</span>
       </div>
@@ -101,7 +103,7 @@ function IrcUser({ user }) {
   return html`
     <div class="irc-user">
       <div class="irc-user-main">
-        <span class="irc-time">{${timeStr}}</span>
+        <span class="irc-time">${timeStr}</span>
         <span class="irc-name" style="color:${color}">${nameStr}</span>
         <div class="irc-user-badges">${badges}</div>
       </div>
@@ -115,7 +117,14 @@ function IrcUser({ user }) {
   `;
 }
 
-export function ChatTab({ chatMessages, ircUsers, ircConnected, showIrcMobile, onToggleIrc, dispatch }) {
+export function ChatTab({
+  chatMessages,
+  ircUsers,
+  ircConnected,
+  showIrcMobile,
+  onToggleIrc,
+  dispatch,
+}) {
   const feedRef = useRef(null);
   const inputRef = useRef(null);
   const autoScrollRef = useRef(true);
@@ -261,9 +270,7 @@ export function ChatTab({ chatMessages, ircUsers, ircConnected, showIrcMobile, o
                     return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
                   }
                   const prev = chatMessages[i - 1];
-                  const isGrouped = prev
-                    && !prev.isSystem
-                    && prev.user_id === m.user_id;
+                  const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
                   return isGrouped
                     ? html`<${ChatMessageCont} key=${m.timestamp + i} msg=${m} />`
                     : html`<${ChatMessageGroup} key=${m.timestamp + i} msg=${m} />`;
