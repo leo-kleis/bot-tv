@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
+import asyncpg
 import twitchio
 from twitchio import eventsub
 
 from bot_tv.database.migrations import get_fernet
 from bot_tv.database.repositories.base import BaseRepository
 from bot_tv.utils.env import BOT_ID
-
-if TYPE_CHECKING:
-    import sqlite3
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,15 +26,15 @@ class TokenRepository(BaseRepository):
 
         query = """
             INSERT INTO tokens (user_id, username, token, refresh)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id)
-            DO UPDATE SET username = excluded.username,
-                          token    = excluded.token,
-                          refresh  = excluded.refresh;
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (user_id)
+            DO UPDATE SET username = EXCLUDED.username,
+                          token    = EXCLUDED.token,
+                          refresh  = EXCLUDED.refresh
         """
-        async with self._db.acquire() as connection:
-            await connection.execute(
-                query, (user_id, username, encrypted_token, encrypted_refresh)
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                query, user_id, username, encrypted_token, encrypted_refresh
             )
 
     @staticmethod
@@ -76,8 +73,8 @@ class TokenRepository(BaseRepository):
         self,
     ) -> tuple[list[tuple[str, str]], list[eventsub.SubscriptionPayload]]:
         """Carga los tokens de la DB, los desencripta y genera suscripciones."""
-        async with self._db.acquire() as connection:
-            rows: list[sqlite3.Row] = await connection.fetchall("SELECT * FROM tokens")
+        async with self._db.acquire() as conn:
+            rows: list[asyncpg.Record] = await conn.fetch("SELECT * FROM tokens")
 
         fernet = get_fernet()
         tokens: list[tuple[str, str]] = []
@@ -94,8 +91,6 @@ class TokenRepository(BaseRepository):
                     row["user_id"],
                     e,
                 )
-                # Si falla la desencriptación, podría estar corrupto o no migrado.
-                # Como fallback seguro en tiempo de ejecución, omitimos esta fila.
                 continue
 
             tokens.append((dec_token, dec_refresh))
@@ -109,8 +104,8 @@ class TokenRepository(BaseRepository):
 
     async def get_all_tokens_metadata(self) -> list[dict[str, str]]:
         """Obtiene todos los registros de tokens desencriptados con sus metadatos."""
-        async with self._db.acquire() as connection:
-            rows: list[sqlite3.Row] = await connection.fetchall("SELECT * FROM tokens")
+        async with self._db.acquire() as conn:
+            rows: list[asyncpg.Record] = await conn.fetch("SELECT * FROM tokens")
 
         fernet = get_fernet()
         results: list[dict[str, str]] = []

@@ -5,7 +5,7 @@ import contextlib
 import logging
 from typing import Any
 
-import asqlite
+import asyncpg
 import twitchio
 from twitchio import eventsub
 from twitchio.ext import commands
@@ -42,23 +42,21 @@ class Bot(TokenPersistMixin, commands.AutoBot):
     def __init__(
         self,
         *,
-        token_database: asqlite.Pool,
-        app_database: asqlite.Pool,
+        database: asyncpg.Pool,
         subs: list[eventsub.SubscriptionPayload],
         event_bus: EventBus,
     ) -> None:
-        self.token_database = token_database
-        self.app_database = app_database
+        self.database = database
         self.event_bus = event_bus
         self._irc_task: asyncio.Task[None] | None = None
         self.irc: TwitchIRCClient | None = None
 
-        # Instanciar repositorios
-        self.token_repo = TokenRepository(token_database)
-        self.user_repo = UserRepository(app_database)
-        self.chat_repo = ChatRepository(app_database)
-        self.follower_repo = FollowerRepository(app_database)
-        self.settings_repo = SettingsRepository(app_database)
+        # Instanciar repositorios (todos comparten el mismo pool)
+        self.token_repo = TokenRepository(database)
+        self.user_repo = UserRepository(database)
+        self.chat_repo = ChatRepository(database)
+        self.follower_repo = FollowerRepository(database)
+        self.settings_repo = SettingsRepository(database)
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -136,7 +134,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         elif canales:
             self.irc = TwitchIRCClient(
                 bot=self,
-                app_database=self.app_database,
+                database=self.database,
                 bot_username=bot_name,
                 token=IRC_TOKEN,
                 canales=canales,
@@ -147,8 +145,6 @@ class Bot(TokenPersistMixin, commands.AutoBot):
             except Exception:
                 LOGGER.warning("Continuando arranque sin esperar más al IRC.")
 
-        # Disparar un evento personalizado indicando que el bot ya imprimió su conexión,
-        # para que componentes pesados (como followers) puedan iniciar tranquilos.
         self.dispatch("bot_fully_connected")
 
     async def close(self, **options: Any) -> None:
@@ -165,16 +161,12 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         """Maneja los errores globalmente (evitando el log doble de TwitchIO)."""
         error = payload.exception
 
-        # Ignorar cuando el comando no existe (ej: ?comoestas)
         if isinstance(error, commands.CommandNotFound):
             return
 
-        # Ignorar errores de argumentos
-        # (ya estamos manejándolos en nuestros componentes)
         if isinstance(error, (commands.MissingRequiredArgument, commands.BadArgument)):
             return
 
-        # Cualquier otro error no deseado lo logeamos limpiamente nosotros mismos
         ctx = payload.context
         nombre_comando = ctx.command.name if ctx.command else "?"
         LOGGER.exception(

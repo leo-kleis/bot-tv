@@ -289,10 +289,10 @@ async def endpoint_send_chat_message(request: Request) -> Response:
     try:
         # 1. Obtener la información del canal destino (broadcaster)
         # El canal es aquel cuyo user_id != bot_id en tokens
-        async with bot.token_database.acquire() as connection:
-            row = await connection.fetchone(
-                "SELECT user_id, username FROM tokens WHERE user_id != ?",
-                (bot.bot_id,),
+        async with bot.database.acquire() as connection:
+            row = await connection.fetchrow(
+                "SELECT user_id, username FROM tokens WHERE user_id != $1",
+                bot.bot_id,
             )
 
         if not row:

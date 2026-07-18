@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-from bot_tv.database.connection import (
-    APP_DB_PATH,
-    TOKEN_DB_PATH,
-    create_app_db_pool,
-    create_token_db_pool,
-)
-from bot_tv.database.migrations import run_app_migrations, run_token_migrations
+from bot_tv.database.connection import create_pg_pool
+from bot_tv.database.migrations import run_pg_migrations
 from bot_tv.database.repositories import (
     BaseRepository,
     ChatRepository,
@@ -18,8 +13,6 @@ from bot_tv.database.repositories import (
 )
 
 __all__ = [
-    "APP_DB_PATH",
-    "TOKEN_DB_PATH",
     "BaseRepository",
     "ChatRepository",
     "FollowerRepository",
@@ -27,8 +20,6 @@ __all__ = [
     "TokenPersistMixin",
     "TokenRepository",
     "UserRepository",
-    "create_app_db_pool",
-    "create_token_db_pool",
-    "run_app_migrations",
-    "run_token_migrations",
+    "create_pg_pool",
+    "run_pg_migrations",
 ]

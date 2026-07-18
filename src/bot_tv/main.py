@@ -9,13 +9,10 @@ from bot_tv.console import AdminConsole
 from bot_tv.consumers.terminal import TerminalConsumer
 from bot_tv.database import (
     TokenRepository,
-    create_app_db_pool,
-    create_token_db_pool,
-    run_app_migrations,
-    run_token_migrations,
+    create_pg_pool,
+    run_pg_migrations,
 )
 from bot_tv.event_bus import EventBus
-from bot_tv.utils.env import DB_DIR
 from bot_tv.utils.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -24,18 +21,14 @@ LOGGER = logging.getLogger(__name__)
 def main() -> None:
     """Punto de entrada de la aplicación (terminal con Rich + REPL)."""
     setup_logging(level=logging.INFO)
-    DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
         try:
-            async with (
-                create_token_db_pool() as tdb,
-                create_app_db_pool() as adb,
-            ):
-                await run_token_migrations(tdb)
-                await run_app_migrations(adb)
+            pool = await create_pg_pool()
+            try:
+                await run_pg_migrations(pool)
 
-                token_repo = TokenRepository(tdb)
+                token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
 
                 if not tokens:
@@ -49,6 +42,7 @@ def main() -> None:
 
                 # Verificar conexión a Twitch
                 from bot_tv.utils.network import check_twitch_connection
+
                 LOGGER.info("Verificando conexión con la API de Twitch...")
                 if not check_twitch_connection(timeout=4.0):
                     LOGGER.critical(
@@ -61,13 +55,11 @@ def main() -> None:
                     sys.exit(1)
 
                 event_bus = EventBus()
-                # Consumer de terminal: reproduce el output Rich de los componentes
                 TerminalConsumer(event_bus)
 
                 with patch_stdout(raw=True):
                     async with Bot(
-                        token_database=tdb,
-                        app_database=adb,
+                        database=pool,
                         subs=subs,
                         event_bus=event_bus,
                     ) as bot:
@@ -79,6 +71,8 @@ def main() -> None:
 
                         await bot.start(load_tokens=False)
                         await console_task
+            finally:
+                await pool.close()
         finally:
             import gc
 

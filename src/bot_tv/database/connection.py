@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-import asqlite
+import asyncpg
 
-from bot_tv.utils.env import DB_DIR
-
-# Rutas absolutas a los archivos de base de datos
-APP_DB_PATH = DB_DIR / "app.db"
-TOKEN_DB_PATH = DB_DIR / "tokens.db"
+from bot_tv.utils.env import DATABASE_URL, DIRECT_URL
 
 
-def create_app_db_pool() -> asqlite.PoolContextManager:
-    """Crea y retorna el pool de conexiones para la base de datos de la app."""
-    return asqlite.create_pool(str(APP_DB_PATH))
+async def create_pg_pool(*, direct: bool = False) -> asyncpg.Pool:
+    """Crea y retorna el pool de conexiones para PostgreSQL.
 
-
-def create_token_db_pool() -> asqlite.PoolContextManager:
-    """Crea y retorna el pool de conexiones para la base de datos de tokens."""
-    return asqlite.create_pool(str(TOKEN_DB_PATH))
+    Usa el connection string directo cuando direct=True (migraciones).
+    """
+    url = DIRECT_URL if direct else DATABASE_URL
+    return await asyncpg.create_pool(url, min_size=2, max_size=10)

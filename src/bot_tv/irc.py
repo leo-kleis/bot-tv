@@ -13,10 +13,10 @@ LOGGER = logging.getLogger(__name__)
 
 class TwitchIRCClient:
     def __init__(
-        self, bot, app_database, bot_username: str, token: str, canales: list[str]
+        self, bot, database, bot_username: str, token: str, canales: list[str]
     ) -> None:
         self.bot = bot
-        self.app_database = app_database
+        self.database = database
         self.bot_username = bot_username.lower()
         if not token:
             raise ValueError("TwitchIRCClient requiere un token IRC válido.")

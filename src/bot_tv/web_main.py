@@ -18,13 +18,11 @@ from bot_tv.agent import TalkAgent
 from bot_tv.bot import Bot
 from bot_tv.database import (
     TokenRepository,
-    create_app_db_pool,
-    create_token_db_pool,
-    run_app_migrations,
-    run_token_migrations,
+    create_pg_pool,
+    run_pg_migrations,
 )
 from bot_tv.event_bus import EventBus
-from bot_tv.utils.env import DB_DIR, GEMINI_MODEL
+from bot_tv.utils.env import GEMINI_MODEL
 from bot_tv.utils.logger import setup_logging
 from bot_tv.web.server import WEB_PORT, create_app
 
@@ -34,18 +32,14 @@ LOGGER = logging.getLogger(__name__)
 def main() -> None:
     """Punto de entrada de la aplicación web (sin REPL de terminal)."""
     setup_logging(level=logging.INFO)
-    DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
         try:
-            async with (
-                create_token_db_pool() as tdb,
-                create_app_db_pool() as adb,
-            ):
-                await run_token_migrations(tdb)
-                await run_app_migrations(adb)
+            pool = await create_pg_pool()
+            try:
+                await run_pg_migrations(pool)
 
-                token_repo = TokenRepository(tdb)
+                token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
 
                 if not tokens:
@@ -57,8 +51,8 @@ def main() -> None:
 
                 LOGGER.info("Tokens cargados: %d", len(tokens))
 
-                # Verificar conexión a Twitch
                 from bot_tv.utils.network import check_twitch_connection
+
                 LOGGER.info("Verificando conexión con la API de Twitch...")
                 if not check_twitch_connection(timeout=4.0):
                     LOGGER.critical(
@@ -71,11 +65,9 @@ def main() -> None:
                     sys.exit(1)
 
                 event_bus = EventBus()
-                # bot-web no crea TerminalConsumer — el output Rich no se usa
 
                 async with Bot(
-                    token_database=tdb,
-                    app_database=adb,
+                    database=pool,
                     subs=subs,
                     event_bus=event_bus,
                 ) as bot:
@@ -106,14 +98,13 @@ def main() -> None:
                                 ssl_keyfile,
                             )
 
-                    # Correr uvicorn en el mismo loop (sin iniciar un nuevo loop)
                     config = uvicorn.Config(
                         app,
-                        host="0.0.0.0",  # noqa: S104 — intencional para LAN
+                        host="0.0.0.0",  # noqa: S104
                         port=WEB_PORT,
                         log_level="info",
                         log_config=None,
-                        loop="none",  # usamos el loop de asyncio existente
+                        loop="none",
                         ssl_keyfile=ssl_keyfile,
                         ssl_certfile=ssl_certfile,
                     )
@@ -135,7 +126,6 @@ def main() -> None:
                         return_when=asyncio.FIRST_COMPLETED,
                     )
 
-                    # Espera 2s para que la tarea restante termine limpiamente
                     if pending:
                         _done_after, pending = await asyncio.wait(
                             pending,
@@ -146,6 +136,8 @@ def main() -> None:
                         task.cancel()
                         with contextlib.suppress(asyncio.CancelledError):
                             await task
+            finally:
+                await pool.close()
         finally:
             import gc
 

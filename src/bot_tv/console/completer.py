@@ -56,8 +56,8 @@ class BotCompleter(Completer):
             cmd = words_before[0].lower()
             if cmd in ("is_bot", "apodo"):
                 with contextlib.suppress(Exception):
-                    async with self.bot.app_database.acquire() as conn:
-                        rows = await conn.fetchall("SELECT username FROM users")
+                    async with self.bot.database.acquire() as conn:
+                        rows = await conn.fetch("SELECT username FROM users")
                     usernames = [row["username"] for row in rows]
                     for username in usernames:
                         if username.lower().startswith(word_before.lower()):

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
-
-if TYPE_CHECKING:
-    import sqlite3
 
 
 class ChatRepository(BaseRepository):
@@ -22,10 +21,10 @@ class ChatRepository(BaseRepository):
         now = datetime.now(UTC).isoformat()
         query = """
             INSERT INTO chat_history (channel_id, user_id, message, timestamp)
-            VALUES (?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4)
         """
         async with self._db.acquire() as conn:
-            await conn.execute(query, (channel_id, user_id, message, now))
+            await conn.execute(query, channel_id, user_id, message, now)
 
     async def get_message_count_in_range(
         self, channel_id: str, start_time: str, end_time: str
@@ -34,11 +33,11 @@ class ChatRepository(BaseRepository):
         query = """
             SELECT COUNT(*) as msg_count
             FROM chat_history
-            WHERE channel_id = ? AND timestamp >= ? AND timestamp <= ?
+            WHERE channel_id = $1 AND timestamp >= $2 AND timestamp <= $3
         """
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                query, (channel_id, start_time, end_time)
+            row: asyncpg.Record | None = await conn.fetchrow(
+                query, channel_id, start_time, end_time
             )
         return row["msg_count"] if row else 0
 
@@ -48,10 +47,10 @@ class ChatRepository(BaseRepository):
             SELECT COUNT(*) as total_messages,
                    COUNT(DISTINCT user_id) as unique_users
             FROM chat_history
-            WHERE channel_id = ?
+            WHERE channel_id = $1
         """
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(query, (channel_id,))
+            row: asyncpg.Record | None = await conn.fetchrow(query, channel_id)
         if not row:
             return None
         return {
@@ -67,12 +66,12 @@ class ChatRepository(BaseRepository):
             SELECT u.username, u.display_name, u.nickname, COUNT(c.id) as msg_count
             FROM chat_history c
             JOIN users u ON c.user_id = u.user_id
-            WHERE c.channel_id = ?
-            GROUP BY c.user_id
-            ORDER BY msg_count DESC LIMIT ?
+            WHERE c.channel_id = $1
+            GROUP BY c.user_id, u.username, u.display_name, u.nickname
+            ORDER BY msg_count DESC LIMIT $2
         """
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(query, (channel_id, limit))
+            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
         return [dict(row) for row in rows]
 
     async def get_messages_with_filters(
@@ -86,33 +85,36 @@ class ChatRepository(BaseRepository):
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         """Devuelve los mensajes de chat aplicando diversos filtros dinámicos."""
-        where_clauses = ["c.channel_id = ?"]
+        where_clauses = ["c.channel_id = $1"]
         params: list[Any] = [channel_id]
 
+        def _p() -> str:
+            return f"${len(params) + 1}"
+
         if since:
-            where_clauses.append("c.timestamp >= ?")
+            where_clauses.append(f"c.timestamp >= {_p()}")
             params.append(since)
 
         if until:
-            where_clauses.append("c.timestamp <= ?")
+            where_clauses.append(f"c.timestamp <= {_p()}")
             params.append(until)
 
         if username:
-            where_clauses.append("u.username = ? COLLATE NOCASE")
+            where_clauses.append(f"u.username ILIKE {_p()}")
             params.append(username)
 
         if search_term:
-            where_clauses.append("c.message LIKE ?")
+            where_clauses.append(f"c.message ILIKE {_p()}")
             params.append(f"%{search_term}%")
 
         if role:
             role_clean = role.lower()
             if role_clean in ("bot", "bots"):
-                where_clauses.append("u.is_bot = 1")
+                where_clauses.append("u.is_bot = TRUE")
             elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                where_clauses.append("u.is_moderator = 1")
+                where_clauses.append("u.is_moderator = TRUE")
             elif role_clean in ("vip", "vips"):
-                where_clauses.append("u.is_vip = 1")
+                where_clauses.append("u.is_vip = TRUE")
             elif role_clean in (
                 "subscriber",
                 "suscriptor",
@@ -120,17 +122,17 @@ class ChatRepository(BaseRepository):
                 "sub",
                 "subs",
             ):
-                where_clauses.append("u.is_subscriber = 1")
+                where_clauses.append("u.is_subscriber = TRUE")
 
-        query = f"""  # noqa: S608
+        query = f"""
             SELECT u.username, u.display_name, u.nickname, c.message, c.timestamp
             FROM chat_history c
             JOIN users u ON c.user_id = u.user_id
             WHERE {" AND ".join(where_clauses)}
-            ORDER BY c.timestamp DESC LIMIT ?
+            ORDER BY c.timestamp DESC LIMIT ${len(params) + 1}
         """
         params.append(limit)
 
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(params))
+            rows: list[asyncpg.Record] = await conn.fetch(query, *params)
         return [dict(row) for row in rows]

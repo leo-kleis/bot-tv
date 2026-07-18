@@ -50,60 +50,73 @@ class FollowersComponent(commands.Component):
             await self.check_and_sync(channel["user_id"])
 
     async def check_and_sync(self, channel_id: str) -> None:
-        """Obtiene seguidores de la API, compara con la DB y emite FollowerSyncEvent."""
+        """Compara seguidores de la API con la DB y sincroniza diferencias."""
+        # 1. Recolectar seguidores actuales de la API (sin tocar la DB)
         current = await self._fetch_followers(channel_id)
-        current_ids = {t[0] for t in current}
-        current_names: dict[str, str] = {t[0]: t[1] for t in current}
+        current_map: dict[str, tuple[str, str | None]] = {
+            uid: (uname, fat) for uid, uname, fat in current
+        }
+        current_ids = set(current_map.keys())
 
-        previous_ids = await self.bot.follower_repo.get_follower_ids(channel_id)
+        # 2. Obtener IDs previos de la DB (ya están en cache)
+        previous_ids = await self.bot.follower_repo.get_follower_ids(
+            channel_id
+        )
 
-        perdidos: set[str] = set()
-        new_labels: list[str] = []
-        lost_labels: list[str] = []
+        # 3. Comparar localmente
+        nuevos_ids = current_ids - previous_ids
+        perdidos_ids = previous_ids - current_ids
         is_first_sync = not previous_ids
 
-        if previous_ids:
-            nuevos = current_ids - previous_ids
-            perdidos = previous_ids - current_ids
+        # 4. Preparar labels para el evento (UI)
+        new_labels: list[str] = []
+        lost_labels: list[str] = []
 
-            if nuevos:
-                nuevos_info = await self.bot.user_repo.get_users_info(list(nuevos))
+        if previous_ids:
+            if nuevos_ids:
+                nuevos_info = await self.bot.user_repo.get_users_info(
+                    list(nuevos_ids)
+                )
                 now_iso = datetime.now(UTC).isoformat()
-                # Ordenar alfabéticamente por display_name
                 nuevos_ordenados = sorted(
-                    nuevos, key=lambda uid: current_names.get(uid, uid).lower()
+                    nuevos_ids,
+                    key=lambda uid: current_map[uid][0].lower(),
                 )
                 new_labels = [
                     _format_label(
                         uid,
-                        current_names.get(uid, uid),
+                        current_map[uid][0],
                         now_iso,
                         nuevos_info.get(uid, {}).get("nickname"),
                     )
                     for uid in nuevos_ordenados
                 ]
 
-            if perdidos:
-                perdidos_data = await self.bot.user_repo.get_unfollowers_data(
-                    channel_id, list(perdidos)
+            if perdidos_ids:
+                perdidos_data = (
+                    await self.bot.user_repo.get_unfollowers_data(
+                        channel_id, list(perdidos_ids)
+                    )
                 )
-                # Ordenar alfabéticamente por display_name
                 perdidos_ordenados = sorted(
-                    perdidos,
+                    perdidos_ids,
                     key=lambda uid: (
-                        perdidos_data.get(uid, {}).get("display_name") or uid
+                        perdidos_data.get(uid, {}).get("display_name")
+                        or uid
                     ).lower(),
                 )
                 lost_labels = [
                     _format_label(
                         uid,
-                        perdidos_data.get(uid, {}).get("display_name") or uid,
+                        perdidos_data.get(uid, {}).get("display_name")
+                        or uid,
                         perdidos_data.get(uid, {}).get("followed_at"),
                         perdidos_data.get(uid, {}).get("nickname"),
                     )
                     for uid in perdidos_ordenados
                 ]
 
+        # 5. Emitir evento de sync (UI)
         await self.bot.event_bus.emit(
             FollowerSyncEvent(
                 timestamp=datetime.now().isoformat(),
@@ -116,17 +129,29 @@ class FollowersComponent(commands.Component):
             )
         )
 
+        # 6. Escribir solo las diferencias a la DB (batch)
+        new_followers = [
+            (uid, current_map[uid][0], current_map[uid][1])
+            for uid in (current_ids if is_first_sync else nuevos_ids)
+        ]
         await self.bot.follower_repo.sync_followers(
-            channel_id, current, unfollowed_ids=list(perdidos)
+            channel_id,
+            new_followers,
+            unfollowed_ids=list(perdidos_ids),
         )
 
     async def _fetch_followers(
         self, channel_id: str
     ) -> list[tuple[str, str, str | None]]:
-        """Consulta la API de Twitch y devuelve la lista de seguidores."""
+        """Consulta la API de Twitch y devuelve la lista de seguidores.
+
+        Solo recolecta datos, NO toca la base de datos.
+        """
         user = await self.bot.fetch_user(id=int(channel_id))
         if not user:
-            LOGGER.warning("No se encontró el usuario con ID %s", channel_id)
+            LOGGER.warning(
+                "No se encontró el usuario con ID %s", channel_id
+            )
             return []
 
         channel_followers = await user.fetch_followers()
@@ -137,7 +162,9 @@ class FollowersComponent(commands.Component):
         async for follower_event in channel_followers.followers:
             count += 1
             fid = follower_event.user.id
-            fname = follower_event.user.name or follower_event.user.id
+            fname = (
+                follower_event.user.name or follower_event.user.id
+            )
             followed_at = (
                 follower_event.followed_at.isoformat()
                 if follower_event.followed_at
@@ -145,9 +172,7 @@ class FollowersComponent(commands.Component):
             )
             follower_tuples.append((fid, fname, followed_at))
 
-            await self.bot.user_repo.upsert_user(fid, fname, fname)
-
-            # Emitir progreso en tiempo real
+            # Emitir progreso en tiempo real (sin tocar DB)
             await self.bot.event_bus.emit(
                 FollowerProgressEvent(
                     timestamp=datetime.now().isoformat(),

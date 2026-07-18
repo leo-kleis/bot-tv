@@ -72,10 +72,10 @@ class ClipComponent(commands.Component):
 
             # 1. Buscar a nuestro propio broadcaster (dueño del canal a clipear)
             # Acorde a bot.py, el canal es aquel cuyo user_id != bot_id
-            async with self.bot.token_database.acquire() as connection:
-                row = await connection.fetchone(
-                    "SELECT user_id, username, token FROM tokens WHERE user_id != ?",
-                    (self.bot.bot_id,),
+            async with self.bot.database.acquire() as connection:
+                row = await connection.fetchrow(
+                    "SELECT user_id, username, token FROM tokens WHERE user_id != $1",
+                    self.bot.bot_id,
                 )
 
             if not row:

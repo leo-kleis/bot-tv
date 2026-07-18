@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+
+import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
-
-if TYPE_CHECKING:
-    import sqlite3
 
 
 class SettingsRepository(BaseRepository):
@@ -15,8 +13,8 @@ class SettingsRepository(BaseRepository):
     async def get_setting(self, key: str, default: str) -> str:
         """Obtiene un valor de configuración de la base de datos."""
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                "SELECT value FROM app_settings WHERE key = ?", (key,)
+            row: asyncpg.Record | None = await conn.fetchrow(
+                "SELECT value FROM app_settings WHERE key = $1", key
             )
         return row["value"] if row else default
 
@@ -24,9 +22,10 @@ class SettingsRepository(BaseRepository):
         """Guarda o actualiza un valor de configuración."""
         async with self._db.acquire() as conn:
             await conn.execute(
-                "INSERT INTO app_settings (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value),
+                "INSERT INTO app_settings (key, value) VALUES ($1, $2) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                key,
+                value,
             )
 
     async def log_api_consumption(
@@ -36,8 +35,10 @@ class SettingsRepository(BaseRepository):
         async with self._db.acquire() as conn:
             await conn.execute(
                 "INSERT INTO api_consumption_log (model, timestamp, type) "
-                "VALUES (?, ?, ?)",
-                (model, timestamp, type_str),
+                "VALUES ($1, $2, $3)",
+                model,
+                timestamp,
+                type_str,
             )
 
     async def get_api_consumption_history(self) -> list[tuple[str, float, str]]:
@@ -45,8 +46,8 @@ class SettingsRepository(BaseRepository):
         cutoff = time.time() - 86400
         query = (
             "SELECT model, timestamp, type FROM api_consumption_log "
-            "WHERE timestamp > ? ORDER BY timestamp ASC"
+            "WHERE timestamp > $1 ORDER BY timestamp ASC"
         )
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(query, (cutoff,))
+            rows: list[asyncpg.Record] = await conn.fetch(query, cutoff)
         return [(row["model"], row["timestamp"], row["type"]) for row in rows]

@@ -1,17 +1,17 @@
 import asyncio
 import logging
 
-import asqlite
+import asyncpg
 import twitchio
 from twitchio.ext import commands
 
 from bot_tv.database import (
     TokenPersistMixin,
     TokenRepository,
-    create_token_db_pool,
-    run_token_migrations,
+    create_pg_pool,
+    run_pg_migrations,
 )
-from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, DB_DIR, OWNER_ID
+from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.utils.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -106,9 +106,8 @@ CHANNEL_SCOPES: list[str] = [
 class SetupBot(TokenPersistMixin, commands.AutoBot):
     """Cliente mínimo para autorizar cuentas y guardar tokens."""
 
-    def __init__(self, *, token_database: asqlite.Pool) -> None:
-        self.token_repo = TokenRepository(token_database)
-        # Rastrear qué cuentas fueron autorizadas durante esta sesión
+    def __init__(self, *, database: asyncpg.Pool) -> None:
+        self.token_repo = TokenRepository(database)
         self._authorized: set[str] = set()
 
         super().__init__(
@@ -135,7 +134,6 @@ class SetupBot(TokenPersistMixin, commands.AutoBot):
             LOGGER.info("[OK] Cuenta CANAL autorizada (ID: %s)", payload.user_id)
             self._authorized.add("canal")
 
-        # Si ambas cuentas están autorizadas, cerrar automáticamente
         if {"bot", "canal"} <= self._authorized:
             LOGGER.info("")
             LOGGER.info("Ambas cuentas autorizadas. Cerrando setup...")
@@ -170,14 +168,16 @@ class SetupBot(TokenPersistMixin, commands.AutoBot):
 def setup() -> None:
     """Punto de entrada del script de configuración."""
     setup_logging(level=logging.INFO)
-    DB_DIR.mkdir(exist_ok=True)
 
     async def runner() -> None:
         try:
-            async with create_token_db_pool() as tdb:
-                await run_token_migrations(tdb)
-                async with SetupBot(token_database=tdb) as bot:
+            pool = await create_pg_pool()
+            try:
+                await run_pg_migrations(pool)
+                async with SetupBot(database=pool) as bot:
                     await bot.start(load_tokens=False)
+            finally:
+                await pool.close()
         finally:
             import gc
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import asqlite
+import asyncpg
 
 
 class BaseRepository:
     """Clase base para todos los repositorios de acceso a datos."""
 
-    def __init__(self, db: asqlite.Pool) -> None:
+    def __init__(self, db: asyncpg.Pool) -> None:
         self._db = db

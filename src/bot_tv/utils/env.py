@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -19,8 +18,10 @@ IRC_TOKEN: str = os.getenv("IRC_TOKEN", "")
 
 # ---------
 
-# Directorio de bases de datos (relativo al CWD o absoluto)
-DB_DIR: Path = Path(os.getenv("BOT_TV_DB_DIR", "db")).resolve()
+# Connection string de PostgreSQL (Prisma Postgres o cualquier PG managed)
+DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+# Connection string directo (para migraciones, sin pooler)
+DIRECT_URL: str = os.getenv("DIRECT_URL", DATABASE_URL)
 # API Key para Antigravity SDK
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 # Modelo por defecto del Antigravity SDK

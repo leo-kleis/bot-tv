@@ -339,14 +339,15 @@ async def action_sync_user_roles(
     broadcaster_id = channels[0]["user_id"]
 
     # Obtener token de acceso del broadcaster de la base de datos de tokens
-    async with bot.token_database.acquire() as conn:
-        row = await conn.fetchone(
-            "SELECT token FROM tokens WHERE user_id = ?",
-            (broadcaster_id,),
+    async with bot.database.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT token FROM tokens WHERE user_id = $1",
+            broadcaster_id,
         )
     if not row:
         return "No se encontró el token de acceso del Broadcaster."
-    broadcaster_token = str(row["token"])
+    from bot_tv.database.migrations import get_fernet
+    broadcaster_token = get_fernet().decrypt(row["token"].encode()).decode()
 
     # Si es el broadcaster, tiene todos los roles excepto bot por defecto
     if user_id == broadcaster_id:
@@ -459,23 +460,18 @@ async def action_sync_user_roles(
     current_roles = await bot.user_repo.get_user_roles(user_id)
     is_bot = current_roles.get("is_bot", False) if current_roles else False
 
-    # Actualizar en base de datos local (incluyendo is_subscriber)
-    query_update = """
-        UPDATE users
-        SET is_moderator = ?,
-            is_vip = ?,
-            is_subscriber = ?
-        WHERE user_id = ?
-    """
+    # Actualizar en base de datos local
+    await bot.user_repo.update_user_roles(
+        user_id=user_id,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+    )
     async with bot.user_repo._db.acquire() as conn:
         await conn.execute(
-            query_update,
-            (
-                int(is_moderator),
-                int(is_vip),
-                int(is_subscriber),
-                user_id,
-            ),
+            "UPDATE users SET is_subscriber = $1 WHERE user_id = $2",
+            is_subscriber,
+            user_id,
         )
 
     return UserRolesResult(

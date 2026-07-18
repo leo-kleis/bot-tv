@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
-
-if TYPE_CHECKING:
-    import sqlite3
 
 
 class UserRepository(BaseRepository):
@@ -26,48 +25,43 @@ class UserRepository(BaseRepository):
                 user_id, username, display_name,
                 is_moderator, is_vip, is_subscriber
             )
-            VALUES (?, ?, ?, COALESCE(?, 0), COALESCE(?, 0), COALESCE(?, 0))
-            ON CONFLICT(user_id)
-            DO UPDATE SET username      = excluded.username,
-                          display_name  = excluded.display_name,
-                          is_moderator  = COALESCE(?, users.is_moderator),
-                          is_vip        = COALESCE(?, users.is_vip),
-                          is_subscriber = COALESCE(?, users.is_subscriber);
+            VALUES ($1, $2, $3,
+                    COALESCE($4, FALSE), COALESCE($5, FALSE), COALESCE($6, FALSE))
+            ON CONFLICT (user_id)
+            DO UPDATE SET username      = EXCLUDED.username,
+                          display_name  = EXCLUDED.display_name,
+                          is_moderator  = COALESCE($7, users.is_moderator),
+                          is_vip        = COALESCE($8, users.is_vip),
+                          is_subscriber = COALESCE($9, users.is_subscriber)
         """
-        mod_val = int(is_moderator) if is_moderator is not None else None
-        vip_val = int(is_vip) if is_vip is not None else None
-        sub_val = int(is_subscriber) if is_subscriber is not None else None
-
         async with self._db.acquire() as conn:
             await conn.execute(
                 query,
-                (
-                    user_id,
-                    username,
-                    display_name,
-                    mod_val,
-                    vip_val,
-                    sub_val,
-                    mod_val,
-                    vip_val,
-                    sub_val,
-                ),
+                user_id,
+                username,
+                display_name,
+                is_moderator,
+                is_vip,
+                is_subscriber,
+                is_moderator,
+                is_vip,
+                is_subscriber,
             )
 
     async def get_user_nickname(self, user_id: str) -> str | None:
         """Devuelve el nickname del usuario, o None si no tiene."""
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                "SELECT nickname FROM users WHERE user_id = ?", (user_id,)
+            row: asyncpg.Record | None = await conn.fetchrow(
+                "SELECT nickname FROM users WHERE user_id = $1", user_id
             )
         return row["nickname"] if row else None
 
     async def get_user_id_by_name(self, username: str) -> str | None:
         """Devuelve el user_id de un usuario a partir de su username."""
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                "SELECT user_id FROM users WHERE username = ? COLLATE NOCASE",
-                (username,),
+            row: asyncpg.Record | None = await conn.fetchrow(
+                "SELECT user_id FROM users WHERE username ILIKE $1",
+                username,
             )
         return row["user_id"] if row else None
 
@@ -75,15 +69,16 @@ class UserRepository(BaseRepository):
         """Establece o elimina el apodo personalizado de un usuario."""
         async with self._db.acquire() as conn:
             await conn.execute(
-                "UPDATE users SET nickname = ? WHERE user_id = ?",
-                (nickname, user_id),
+                "UPDATE users SET nickname = $1 WHERE user_id = $2",
+                nickname,
+                user_id,
             )
 
     async def is_user_bot(self, user_id: str) -> bool:
         """Devuelve True si el usuario está marcado como bot en la DB."""
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                "SELECT is_bot FROM users WHERE user_id = ?", (user_id,)
+            row: asyncpg.Record | None = await conn.fetchrow(
+                "SELECT is_bot FROM users WHERE user_id = $1", user_id
             )
         return bool(row["is_bot"]) if row else False
 
@@ -91,8 +86,9 @@ class UserRepository(BaseRepository):
         """Marca o desmarca un usuario como bot."""
         async with self._db.acquire() as conn:
             await conn.execute(
-                "UPDATE users SET is_bot = ? WHERE user_id = ?",
-                (1 if is_bot else 0, user_id),
+                "UPDATE users SET is_bot = $1 WHERE user_id = $2",
+                is_bot,
+                user_id,
             )
 
     async def get_users_info(
@@ -101,13 +97,12 @@ class UserRepository(BaseRepository):
         """Devuelve info de visualización para los IDs de usuario dados."""
         if not user_ids:
             return {}
-        placeholders = ", ".join("?" * len(user_ids))
         query = (
             "SELECT user_id, display_name, nickname FROM users"
-            f" WHERE user_id IN ({placeholders})"
+            " WHERE user_id = ANY($1)"
         )
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(user_ids))
+            rows: list[asyncpg.Record] = await conn.fetch(query, user_ids)
         return {
             row["user_id"]: {
                 "display_name": row["display_name"],
@@ -122,16 +117,13 @@ class UserRepository(BaseRepository):
         """Devuelve info completa para usuarios que dejaron de seguir."""
         if not user_ids:
             return {}
-        placeholders = ", ".join("?" * len(user_ids))
         query = (
             "SELECT u.user_id, u.display_name, u.nickname, f.followed_at"
             " FROM users u JOIN followers f ON u.user_id = f.user_id"
-            f" WHERE f.channel_id = ? AND f.user_id IN ({placeholders})"
+            " WHERE f.channel_id = $1 AND f.user_id = ANY($2)"
         )
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(
-                query, (channel_id, *user_ids)
-            )
+            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, user_ids)
         return {
             row["user_id"]: {
                 "display_name": row["display_name"],
@@ -146,10 +138,10 @@ class UserRepository(BaseRepository):
         query = """
             SELECT is_moderator, is_vip, is_subscriber
             FROM users
-            WHERE user_id = ?
+            WHERE user_id = $1
         """
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(query, (user_id,))
+            row: asyncpg.Record | None = await conn.fetchrow(query, user_id)
         if not row:
             return None
         return {
@@ -167,11 +159,13 @@ class UserRepository(BaseRepository):
                    u.is_moderator, u.is_vip, u.is_subscriber,
                    f.followed_at, f.unfollowed_at
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
-            WHERE u.username = ? COLLATE NOCASE
+            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            WHERE u.username ILIKE $2
         """
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(query, (channel_id, username))
+            row: asyncpg.Record | None = await conn.fetchrow(
+                query, channel_id, username
+            )
         if not row:
             return None
         return dict(row)
@@ -194,17 +188,21 @@ class UserRepository(BaseRepository):
         """Devuelve usuarios registrados filtrados y el total coincidente."""
         limit = max(1, limit)
         offset = max(0, offset)
-        where_clauses = []
+        where_clauses: list[str] = []
         params: list[Any] = [channel_id]
+
+        def _p() -> str:
+            """Retorna el próximo placeholder numerado."""
+            return f"${len(params) + 1}"
 
         if role:
             role_clean = role.lower()
             if role_clean in ("bot", "bots"):
-                where_clauses.append("u.is_bot = 1")
+                where_clauses.append("u.is_bot = TRUE")
             elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                where_clauses.append("u.is_moderator = 1")
+                where_clauses.append("u.is_moderator = TRUE")
             elif role_clean in ("vip", "vips"):
-                where_clauses.append("u.is_vip = 1")
+                where_clauses.append("u.is_vip = TRUE")
             elif role_clean in (
                 "subscriber",
                 "suscriptor",
@@ -212,7 +210,7 @@ class UserRepository(BaseRepository):
                 "sub",
                 "subs",
             ):
-                where_clauses.append("u.is_subscriber = 1")
+                where_clauses.append("u.is_subscriber = TRUE")
 
         if has_nickname is not None:
             if has_nickname:
@@ -221,31 +219,34 @@ class UserRepository(BaseRepository):
                 where_clauses.append("(u.nickname IS NULL OR u.nickname = '')")
 
         if username_search:
-            where_clauses.append(
-                "(u.username LIKE ? OR u.display_name LIKE ? OR u.nickname LIKE ?)"
-            )
             like_pattern = f"%{username_search}%"
-            params.extend([like_pattern, like_pattern, like_pattern])
+            p = _p()
+            where_clauses.append(
+                f"(u.username ILIKE {p}"
+                f" OR u.display_name ILIKE {p}"
+                f" OR u.nickname ILIKE {p})"
+            )
+            params.append(like_pattern)
 
         if followed_after:
-            where_clauses.append("f.followed_at >= ?")
+            where_clauses.append(f"f.followed_at >= {_p()}")
             params.append(followed_after)
 
         if followed_before:
-            where_clauses.append("f.followed_at <= ?")
+            where_clauses.append(f"f.followed_at <= {_p()}")
             params.append(followed_before)
 
         if unfollowed_after:
-            where_clauses.append("f.unfollowed_at >= ?")
+            where_clauses.append(f"f.unfollowed_at >= {_p()}")
             params.append(unfollowed_after)
 
         if unfollowed_before:
-            where_clauses.append("f.unfollowed_at <= ?")
+            where_clauses.append(f"f.unfollowed_at <= {_p()}")
             params.append(unfollowed_before)
 
         if is_follower and is_follower in ("follower", "not_follower", "unfollower"):
             if broadcaster_id:
-                where_clauses.append("u.user_id != ?")
+                where_clauses.append(f"u.user_id != {_p()}")
                 params.append(broadcaster_id)
 
             if is_follower == "follower":
@@ -257,34 +258,31 @@ class UserRepository(BaseRepository):
             elif is_follower == "unfollower":
                 where_clauses.append("f.unfollowed_at IS NOT NULL")
 
-        count_query = """
+        where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        count_query = f"""
             SELECT COUNT(*) AS total
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
+            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            {where_sql}
         """
-        if where_clauses:
-            count_query += " WHERE " + " AND ".join(where_clauses)
-
-        query = """
+        data_query = f"""
             SELECT u.user_id, u.username, u.display_name, u.nickname, u.is_bot,
                    u.is_moderator, u.is_vip, u.is_subscriber,
                    f.followed_at, f.unfollowed_at
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = ?
+            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            {where_sql}
+            ORDER BY u.username ASC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """
-        if where_clauses:
-            query += " WHERE " + " AND ".join(where_clauses)
-        query += " ORDER BY u.username ASC LIMIT ? OFFSET ?"
-
-        count_params = params.copy()
-        data_params = params.copy()
-        data_params.extend([limit, offset])
 
         async with self._db.acquire() as conn:
-            count_row = await conn.fetchone(count_query, tuple(count_params))
-            total_count = count_row["total"] if count_row else 0
+            count_row = await conn.fetchrow(count_query, *params)
+            total_count: int = count_row["total"] if count_row else 0
 
-            rows: list[sqlite3.Row] = await conn.fetchall(query, tuple(data_params))
+            rows: list[asyncpg.Record] = await conn.fetch(
+                data_query, *params, limit, offset
+            )
 
         return [dict(row) for row in rows], total_count
 
@@ -298,24 +296,17 @@ class UserRepository(BaseRepository):
         """Actualiza los roles de un usuario en la base de datos."""
         query = """
             UPDATE users
-            SET is_bot = ?,
-                is_moderator = ?,
-                is_vip = ?
-            WHERE user_id = ?
+            SET is_bot = $1,
+                is_moderator = $2,
+                is_vip = $3
+            WHERE user_id = $4
         """
         async with self._db.acquire() as conn:
-            await conn.execute(
-                query,
-                (
-                    int(is_bot),
-                    int(is_moderator),
-                    int(is_vip),
-                    user_id,
-                ),
-            )
+            await conn.execute(query, is_bot, is_moderator, is_vip, user_id)
 
     async def search_users(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""
+        like_pattern = f"%{q}%"
         query = """
             SELECT u.user_id, u.username, u.display_name,
                    COALESCE(u.nickname, '') AS nickname,
@@ -323,23 +314,21 @@ class UserRepository(BaseRepository):
                    (f.user_id IS NOT NULL AND f.unfollowed_at IS NULL) AS is_follower
             FROM users u
             LEFT JOIN followers f ON u.user_id = f.user_id
-            WHERE u.username LIKE ? OR u.display_name LIKE ? OR u.nickname LIKE ?
-            GROUP BY u.user_id
+            WHERE u.username ILIKE $1 OR u.display_name ILIKE $1 OR u.nickname ILIKE $1
+            GROUP BY u.user_id, f.user_id, f.unfollowed_at
             ORDER BY u.display_name
-            LIMIT ?
+            LIMIT $2
         """
         async with self._db.acquire() as conn:
-            rows: list[sqlite3.Row] = await conn.fetchall(
-                query, (f"%{q}%", f"%{q}%", f"%{q}%", limit)
-            )
+            rows: list[asyncpg.Record] = await conn.fetch(query, like_pattern, limit)
         return [dict(row) for row in rows]
 
     async def get_profile_image_url(self, user_id: str) -> str | None:
         """Devuelve la URL del avatar cacheada, o None si no existe."""
         async with self._db.acquire() as conn:
-            row: sqlite3.Row | None = await conn.fetchone(
-                "SELECT profile_image_url FROM users WHERE user_id = ?",
-                (user_id,),
+            row: asyncpg.Record | None = await conn.fetchrow(
+                "SELECT profile_image_url FROM users WHERE user_id = $1",
+                user_id,
             )
         if not row:
             return None
@@ -349,6 +338,7 @@ class UserRepository(BaseRepository):
         """Guarda o actualiza la URL del avatar del usuario."""
         async with self._db.acquire() as conn:
             await conn.execute(
-                "UPDATE users SET profile_image_url = ? WHERE user_id = ?",
-                (url, user_id),
+                "UPDATE users SET profile_image_url = $1 WHERE user_id = $2",
+                url,
+                user_id,
             )
