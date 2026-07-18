@@ -119,11 +119,11 @@ export function FollowersTab({ followers }) {
     unfollowedBefore,
   });
 
-  // Debounce del buscador de nombre (350ms)
+  // Debounce del buscador de nombre (1s)
   useEffect(() => {
     const timer = setTimeout(() => {
       setNameSearch(nameInput);
-    }, 350);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [nameInput]);
 
@@ -621,7 +621,11 @@ export function FollowersTab({ followers }) {
                                     ? html`<span class="irc-badge badge-vip">VIP</span>`
                                     : null}
                                   ${u.is_subscriber
-                                    ? html`<span class="irc-badge badge-subscriber">Sub</span>`
+                                    ? html`<span class="irc-badge badge-subscriber">${
+                                        u.sub_tier === '3000' ? 'Sub T3'
+                                        : u.sub_tier === '2000' ? 'Sub T2'
+                                        : 'Sub T1'
+                                      }</span>`
                                     : null}
                                   ${u.is_bot
                                     ? html`<span class="irc-badge badge-bot">Bot</span>`

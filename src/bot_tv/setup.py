@@ -9,7 +9,6 @@ from bot_tv.database import (
     TokenPersistMixin,
     TokenRepository,
     create_pg_pool,
-    run_pg_migrations,
 )
 from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.utils.logger import setup_logging
@@ -173,7 +172,6 @@ def setup() -> None:
         try:
             pool = await create_pg_pool()
             try:
-                await run_pg_migrations(pool)
                 async with SetupBot(database=pool) as bot:
                     await bot.start(load_tokens=False)
             finally:

@@ -15,24 +15,14 @@ class UserRepository(BaseRepository):
         user_id: str,
         username: str,
         display_name: str | None = None,
-        is_moderator: bool | None = None,
-        is_vip: bool | None = None,
-        is_subscriber: bool | None = None,
     ) -> None:
         """Inserta o actualiza un usuario (sin tocar el nickname si ya existe)."""
         query = """
-            INSERT INTO users (
-                user_id, username, display_name,
-                is_moderator, is_vip, is_subscriber
-            )
-            VALUES ($1, $2, $3,
-                    COALESCE($4, FALSE), COALESCE($5, FALSE), COALESCE($6, FALSE))
+            INSERT INTO users (user_id, username, display_name)
+            VALUES ($1, $2, $3)
             ON CONFLICT (user_id)
             DO UPDATE SET username      = EXCLUDED.username,
-                          display_name  = EXCLUDED.display_name,
-                          is_moderator  = COALESCE($7, users.is_moderator),
-                          is_vip        = COALESCE($8, users.is_vip),
-                          is_subscriber = COALESCE($9, users.is_subscriber)
+                          display_name  = EXCLUDED.display_name
         """
         async with self._db.acquire() as conn:
             await conn.execute(
@@ -40,12 +30,6 @@ class UserRepository(BaseRepository):
                 user_id,
                 username,
                 display_name,
-                is_moderator,
-                is_vip,
-                is_subscriber,
-                is_moderator,
-                is_vip,
-                is_subscriber,
             )
 
     async def get_user_nickname(self, user_id: str) -> str | None:
@@ -98,8 +82,7 @@ class UserRepository(BaseRepository):
         if not user_ids:
             return {}
         query = (
-            "SELECT user_id, display_name, nickname FROM users"
-            " WHERE user_id = ANY($1)"
+            "SELECT user_id, display_name, nickname FROM users WHERE user_id = ANY($1)"
         )
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, user_ids)
@@ -118,9 +101,9 @@ class UserRepository(BaseRepository):
         if not user_ids:
             return {}
         query = (
-            "SELECT u.user_id, u.display_name, u.nickname, f.followed_at"
-            " FROM users u JOIN followers f ON u.user_id = f.user_id"
-            " WHERE f.channel_id = $1 AND f.user_id = ANY($2)"
+            "SELECT u.user_id, u.display_name, u.nickname, cu.followed_at"
+            " FROM users u JOIN channel_users cu ON u.user_id = cu.user_id"
+            " WHERE cu.channel_id = $1 AND cu.user_id = ANY($2)"
         )
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, user_ids)
@@ -133,21 +116,39 @@ class UserRepository(BaseRepository):
             for row in rows
         }
 
-    async def get_user_roles(self, user_id: str) -> dict[str, bool] | None:
-        """Devuelve los roles (moderador, VIP, suscriptor) del usuario."""
-        query = """
-            SELECT is_moderator, is_vip, is_subscriber
-            FROM users
-            WHERE user_id = $1
-        """
+    async def get_user_roles(
+        self, user_id: str, channel_id: str
+    ) -> dict[str, Any] | None:
+        """Devuelve los roles (moderador, VIP, suscriptor) del usuario para un canal."""
         async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, user_id)
+            exists = await conn.fetchval(
+                "SELECT 1 FROM users WHERE user_id = $1", user_id
+            )
+            if not exists:
+                return None
+
+            query = (
+                "SELECT is_moderator, is_vip, is_subscriber, sub_tier "
+                "FROM channel_users WHERE user_id = $1 AND channel_id = $2"
+            )
+            row: asyncpg.Record | None = await conn.fetchrow(
+                query,
+                user_id,
+                channel_id,
+            )
+
         if not row:
-            return None
+            return {
+                "is_moderator": False,
+                "is_vip": False,
+                "is_subscriber": False,
+                "sub_tier": None,
+            }
         return {
             "is_moderator": bool(row["is_moderator"]),
             "is_vip": bool(row["is_vip"]),
             "is_subscriber": bool(row["is_subscriber"]),
+            "sub_tier": row["sub_tier"],
         }
 
     async def get_user_detail_by_name(
@@ -156,10 +157,12 @@ class UserRepository(BaseRepository):
         """Obtiene información de roles y seguimiento de un usuario."""
         query = """
             SELECT u.username, u.display_name, u.nickname, u.is_bot,
-                   u.is_moderator, u.is_vip, u.is_subscriber,
-                   f.followed_at, f.unfollowed_at
+                   COALESCE(cu.is_moderator, FALSE) as is_moderator,
+                   COALESCE(cu.is_vip, FALSE) as is_vip,
+                   COALESCE(cu.is_subscriber, FALSE) as is_subscriber,
+                   cu.followed_at, cu.unfollowed_at
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             WHERE u.username ILIKE $2
         """
         async with self._db.acquire() as conn:
@@ -200,9 +203,9 @@ class UserRepository(BaseRepository):
             if role_clean in ("bot", "bots"):
                 where_clauses.append("u.is_bot = TRUE")
             elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                where_clauses.append("u.is_moderator = TRUE")
+                where_clauses.append("cu.is_moderator = TRUE")
             elif role_clean in ("vip", "vips"):
-                where_clauses.append("u.is_vip = TRUE")
+                where_clauses.append("cu.is_vip = TRUE")
             elif role_clean in (
                 "subscriber",
                 "suscriptor",
@@ -210,7 +213,7 @@ class UserRepository(BaseRepository):
                 "sub",
                 "subs",
             ):
-                where_clauses.append("u.is_subscriber = TRUE")
+                where_clauses.append("cu.is_subscriber = TRUE")
 
         if has_nickname is not None:
             if has_nickname:
@@ -229,19 +232,19 @@ class UserRepository(BaseRepository):
             params.append(like_pattern)
 
         if followed_after:
-            where_clauses.append(f"f.followed_at >= {_p()}")
+            where_clauses.append(f"cu.followed_at >= {_p()}")
             params.append(followed_after)
 
         if followed_before:
-            where_clauses.append(f"f.followed_at <= {_p()}")
+            where_clauses.append(f"cu.followed_at <= {_p()}")
             params.append(followed_before)
 
         if unfollowed_after:
-            where_clauses.append(f"f.unfollowed_at >= {_p()}")
+            where_clauses.append(f"cu.unfollowed_at >= {_p()}")
             params.append(unfollowed_after)
 
         if unfollowed_before:
-            where_clauses.append(f"f.unfollowed_at <= {_p()}")
+            where_clauses.append(f"cu.unfollowed_at <= {_p()}")
             params.append(unfollowed_before)
 
         if is_follower and is_follower in ("follower", "not_follower", "unfollower"):
@@ -251,27 +254,29 @@ class UserRepository(BaseRepository):
 
             if is_follower == "follower":
                 where_clauses.append(
-                    "f.followed_at IS NOT NULL AND f.unfollowed_at IS NULL"
+                    "cu.followed_at IS NOT NULL AND cu.unfollowed_at IS NULL"
                 )
             elif is_follower == "not_follower":
-                where_clauses.append("f.user_id IS NULL")
+                where_clauses.append("cu.user_id IS NULL")
             elif is_follower == "unfollower":
-                where_clauses.append("f.unfollowed_at IS NOT NULL")
+                where_clauses.append("cu.unfollowed_at IS NOT NULL")
 
         where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
         count_query = f"""
             SELECT COUNT(*) AS total
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
         """
         data_query = f"""
             SELECT u.user_id, u.username, u.display_name, u.nickname, u.is_bot,
-                   u.is_moderator, u.is_vip, u.is_subscriber,
-                   f.followed_at, f.unfollowed_at
+                   COALESCE(cu.is_moderator, FALSE) as is_moderator,
+                   COALESCE(cu.is_vip, FALSE) as is_vip,
+                   COALESCE(cu.is_subscriber, FALSE) as is_subscriber,
+                   cu.sub_tier, cu.followed_at, cu.unfollowed_at
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id AND f.channel_id = $1
+            LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
             ORDER BY u.username ASC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """
@@ -289,20 +294,54 @@ class UserRepository(BaseRepository):
     async def update_user_roles(
         self,
         user_id: str,
+        channel_id: str,
         is_bot: bool,
         is_moderator: bool,
         is_vip: bool,
+        is_subscriber: bool | None = None,
+        sub_tier: str | None = None,
+        gifter_id: str | None = None,
     ) -> None:
-        """Actualiza los roles de un usuario en la base de datos."""
-        query = """
-            UPDATE users
-            SET is_bot = $1,
-                is_moderator = $2,
-                is_vip = $3
-            WHERE user_id = $4
+        """Actualiza los roles de un usuario en la base de datos
+        a nivel global y de canal.
         """
         async with self._db.acquire() as conn:
-            await conn.execute(query, is_bot, is_moderator, is_vip, user_id)
+            # 1. Actualizar is_bot global en users
+            await conn.execute(
+                "UPDATE users SET is_bot = $1 WHERE user_id = $2", is_bot, user_id
+            )
+
+            # 2. Upsert de roles a nivel de canal en channel_users
+            if is_subscriber is not None:
+                query = """
+                    INSERT INTO channel_users (
+                        channel_id, user_id, is_moderator, is_vip,
+                        is_subscriber, sub_tier, gifter_id
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    ON CONFLICT (channel_id, user_id)
+                    DO UPDATE SET is_moderator  = EXCLUDED.is_moderator,
+                                  is_vip        = EXCLUDED.is_vip,
+                                  is_subscriber = EXCLUDED.is_subscriber,
+                                  sub_tier      = EXCLUDED.sub_tier,
+                                  gifter_id     = EXCLUDED.gifter_id
+                """
+                await conn.execute(
+                    query,
+                    channel_id, user_id, is_moderator, is_vip,
+                    is_subscriber, sub_tier, gifter_id,
+                )
+            else:
+                query = """
+                    INSERT INTO channel_users (
+                        channel_id, user_id, is_moderator, is_vip
+                    )
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (channel_id, user_id)
+                    DO UPDATE SET is_moderator = EXCLUDED.is_moderator,
+                                  is_vip       = EXCLUDED.is_vip
+                """
+                await conn.execute(query, channel_id, user_id, is_moderator, is_vip)
 
     async def search_users(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""
@@ -310,12 +349,16 @@ class UserRepository(BaseRepository):
         query = """
             SELECT u.user_id, u.username, u.display_name,
                    COALESCE(u.nickname, '') AS nickname,
-                   u.is_bot, u.is_moderator, u.is_vip, u.is_subscriber,
-                   (f.user_id IS NOT NULL AND f.unfollowed_at IS NULL) AS is_follower
+                   u.is_bot,
+                   COALESCE(cu.is_moderator, FALSE) AS is_moderator,
+                   COALESCE(cu.is_vip, FALSE) AS is_vip,
+                   COALESCE(cu.is_subscriber, FALSE) AS is_subscriber,
+                   (cu.user_id IS NOT NULL AND cu.unfollowed_at IS NULL) AS is_follower
             FROM users u
-            LEFT JOIN followers f ON u.user_id = f.user_id
+            LEFT JOIN channel_users cu ON u.user_id = cu.user_id
             WHERE u.username ILIKE $1 OR u.display_name ILIKE $1 OR u.nickname ILIKE $1
-            GROUP BY u.user_id, f.user_id, f.unfollowed_at
+            GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
+                     cu.is_moderator, cu.is_vip, cu.is_subscriber
             ORDER BY u.display_name
             LIMIT $2
         """

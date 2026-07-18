@@ -6,9 +6,9 @@ import asyncpg
 import twitchio
 from twitchio import eventsub
 
-from bot_tv.database.migrations import get_fernet
 from bot_tv.database.repositories.base import BaseRepository
 from bot_tv.utils.env import BOT_ID
+from bot_tv.utils.security import get_fernet
 
 LOGGER = logging.getLogger(__name__)
 

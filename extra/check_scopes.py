@@ -1,11 +1,12 @@
 import asyncio
-import sqlite3
-from pathlib import Path
+import sys
 
 import aiohttp
 
-# Apuntamos a la base de datos de los tokens
-DB_PATH = Path(__file__).resolve().parent.parent / "src" / "db" / "tokens.db"
+sys.path.insert(0, "src")
+
+from bot_tv.database.connection import create_pg_pool
+from bot_tv.utils.security import get_fernet
 
 
 async def check_token(token: str) -> dict:
@@ -21,35 +22,41 @@ async def check_token(token: str) -> dict:
 
 
 async def main():
-    if not DB_PATH.exists():
-        print(f"[X] No se encontró la base de datos en: {DB_PATH}")
+    print("Conectando a la base de datos PostgreSQL...")
+    try:
+        pool = await create_pg_pool()
+    except Exception as e:
+        print(f"[X] Error al conectar a PostgreSQL: {e}")
         return
 
-    print(f"Abriendo base de datos: {DB_PATH}")
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    fernet = get_fernet()
 
     try:
-        cursor.execute("SELECT user_id, username, token FROM tokens")
-        tokens = cursor.fetchall()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("SELECT user_id, username, token FROM tokens")
 
-        if not tokens:
+        if not rows:
             print("[X] No hay tokens almacenados en la base de datos.")
             return
 
-        print(f"\nSe encontraron {len(tokens)} tokens. Analizando Scopes...\n")
+        print(f"\nSe encontraron {len(rows)} tokens. Analizando Scopes...\n")
         print("-" * 50)
 
-        for row in tokens:
+        for row in rows:
             username = row["username"]
             user_id = row["user_id"]
-            token = row["token"]
+            encrypted_token = row["token"]
 
             print(f"[Usuario] Verificando cuenta: {username} (ID: {user_id})")
 
-            validation_data = await check_token(token)
+            try:
+                decrypted_token = fernet.decrypt(encrypted_token.encode()).decode()
+            except Exception as e:
+                print(f"   [X] Error al desencriptar el token: {e}")
+                print("-" * 50)
+                continue
+
+            validation_data = await check_token(decrypted_token)
 
             if "status" in validation_data and validation_data["status"] == 401:
                 msg = validation_data.get("message", "Desconocido")
@@ -59,11 +66,15 @@ async def main():
                 client_id = validation_data.get("client_id")
                 print(f"   [OK] Token válido. Client_ID: {client_id}")
 
-                #! un if para cada scope
                 if "clips:edit" in scopes:
                     print("   [Clip] [clips:edit] [SI] lo tiene.")
                 else:
                     print("   [X] [clips:edit] NO LO TIENE.")
+
+                if "channel:read:subscriptions" in scopes:
+                    print("   [Sub] [channel:read:subscriptions] [SI] lo tiene.")
+                else:
+                    print("   [X] [channel:read:subscriptions] NO LO TIENE.")
 
                 print(f"   [Info] Listado de Scopes ({len(scopes)}):")
                 for s in scopes:
@@ -72,9 +83,9 @@ async def main():
             print("-" * 50)
 
     except Exception as e:
-        print(f"Error accediendo a la DB: {e}")
+        print(f"Error accediendo a la DB o validando: {e}")
     finally:
-        conn.close()
+        await pool.close()
 
 
 if __name__ == "__main__":

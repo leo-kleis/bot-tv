@@ -21,8 +21,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from bot_tv.database.connection import create_pg_pool  # noqa: E402
 from bot_tv.database.migrations import run_pg_migrations  # noqa: E402
+
+from bot_tv.database.connection import create_pg_pool  # noqa: E402
 from bot_tv.utils.env import DIRECT_URL  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -104,9 +105,7 @@ async def migrate_followers(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> 
     return count
 
 
-async def migrate_app_settings(
-    pg: asyncpg.Connection, rows: list[sqlite3.Row]
-) -> int:
+async def migrate_app_settings(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
     count = 0
     for row in rows:
         await pg.execute(

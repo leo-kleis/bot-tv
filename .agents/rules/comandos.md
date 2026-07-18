@@ -50,3 +50,9 @@
 - `pnpm run lint` (Ejecuta oxlint y eslint en el directorio static)
 - `pnpm run lint:fix` (Ejecuta oxlint y eslint con corrección automática en el directorio static)
 
+## Prisma (Gestión de Base de Datos)
+- `pnpm run prisma:migrate -- --name <nombre>` (Crea y aplica una nueva migración en PostgreSQL basándose en los cambios de schema.prisma)
+- `pnpm run prisma:push` (Sincroniza directamente el esquema schema.prisma con la base de datos en la nube sin crear historial de migraciones)
+- `pnpm run prisma:status` (Comprueba el estado del historial de migraciones de la base de datos)
+
+

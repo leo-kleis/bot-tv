@@ -8,14 +8,16 @@ import asyncpg
 from bot_tv.database.repositories.base import BaseRepository
 
 
-class FollowerRepository(BaseRepository):
-    """Repositorio para gestionar las operaciones sobre la tabla followers."""
+class ChannelUserRepository(BaseRepository):
+    """Repositorio para gestionar las operaciones sobre la tabla channel_users
+    (seguidores y roles por canal).
+    """
 
     async def get_follower_ids(self, channel_id: str) -> set[str]:
         """Devuelve el conjunto de user_id que siguen a un canal."""
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(
-                "SELECT user_id FROM followers "
+                "SELECT user_id FROM channel_users "
                 "WHERE channel_id = $1 AND unfollowed_at IS NULL",
                 channel_id,
             )
@@ -41,12 +43,12 @@ class FollowerRepository(BaseRepository):
             # Batch: marcar unfollows
             if unfollowed_ids:
                 await conn.executemany(
-                    "UPDATE followers SET unfollowed_at = $1 "
+                    "UPDATE channel_users SET unfollowed_at = $1 "
                     "WHERE channel_id = $2 AND user_id = $3",
                     [(now_iso, channel_id, uid) for uid in unfollowed_ids],
                 )
 
-            # Batch: upsert users + followers solo para los nuevos
+            # Batch: upsert users + channel_users solo para los nuevos
             if new_followers:
                 await conn.executemany(
                     """
@@ -60,7 +62,7 @@ class FollowerRepository(BaseRepository):
                 )
                 await conn.executemany(
                     """
-                    INSERT INTO followers (
+                    INSERT INTO channel_users (
                         channel_id, user_id, followed_at, unfollowed_at
                     )
                     VALUES ($1, $2, $3, NULL)
@@ -68,12 +70,8 @@ class FollowerRepository(BaseRepository):
                         followed_at   = EXCLUDED.followed_at,
                         unfollowed_at = NULL
                     """,
-                    [
-                        (channel_id, uid, fat)
-                        for uid, _, fat in new_followers
-                    ],
+                    [(channel_id, uid, fat) for uid, _, fat in new_followers],
                 )
-
 
     async def get_follower_stats(self, channel_id: str) -> dict[str, int] | None:
         """Devuelve las estadísticas generales de seguidores para un canal."""
@@ -83,7 +81,7 @@ class FollowerRepository(BaseRepository):
                             THEN 1 ELSE 0 END) as active_followers,
                    SUM(CASE WHEN unfollowed_at IS NOT NULL
                             THEN 1 ELSE 0 END) as unfollowers
-            FROM followers
+            FROM channel_users
             WHERE channel_id = $1
         """
         async with self._db.acquire() as conn:
@@ -108,18 +106,18 @@ class FollowerRepository(BaseRepository):
         like_pattern = f"%{search_term}%"
         query = """
             SELECT u.username, u.display_name, u.nickname,
-                   f.followed_at, f.unfollowed_at
-            FROM followers f
-            JOIN users u ON f.user_id = u.user_id
-            WHERE f.channel_id = $1 AND (
+                   cu.followed_at, cu.unfollowed_at
+            FROM channel_users cu
+            JOIN users u ON cu.user_id = u.user_id
+            WHERE cu.channel_id = $1 AND (
                 u.username ILIKE $2 OR
                 u.display_name ILIKE $2 OR
                 u.nickname ILIKE $2
             )
         """
         if active_only:
-            query += " AND f.unfollowed_at IS NULL"
-        query += " ORDER BY f.followed_at DESC LIMIT $3"
+            query += " AND cu.unfollowed_at IS NULL"
+        query += " ORDER BY cu.followed_at DESC LIMIT $3"
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(
@@ -134,14 +132,14 @@ class FollowerRepository(BaseRepository):
         limit = max(1, limit)
         query = """
             SELECT u.username, u.display_name, u.nickname,
-                   f.followed_at, f.unfollowed_at
-            FROM followers f
-            JOIN users u ON f.user_id = u.user_id
-            WHERE f.channel_id = $1
+                   cu.followed_at, cu.unfollowed_at
+            FROM channel_users cu
+            JOIN users u ON cu.user_id = u.user_id
+            WHERE cu.channel_id = $1
         """
         if active_only:
-            query += " AND f.unfollowed_at IS NULL"
-        query += " ORDER BY f.followed_at DESC LIMIT $2"
+            query += " AND cu.unfollowed_at IS NULL"
+        query += " ORDER BY cu.followed_at DESC LIMIT $2"
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
@@ -154,12 +152,36 @@ class FollowerRepository(BaseRepository):
         limit = max(1, limit)
         query = """
             SELECT u.username, u.display_name, u.nickname,
-                   f.followed_at, f.unfollowed_at
-            FROM followers f
-            JOIN users u ON f.user_id = u.user_id
-            WHERE f.channel_id = $1 AND f.unfollowed_at IS NOT NULL
-            ORDER BY f.unfollowed_at DESC LIMIT $2
+                   cu.followed_at, cu.unfollowed_at
+            FROM channel_users cu
+            JOIN users u ON cu.user_id = u.user_id
+            WHERE cu.channel_id = $1 AND cu.unfollowed_at IS NOT NULL
+            ORDER BY cu.unfollowed_at DESC LIMIT $2
         """
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
         return [dict(row) for row in rows]
+
+    async def upsert_channel_user_roles(
+        self,
+        channel_id: str,
+        user_id: str,
+        is_moderator: bool,
+        is_vip: bool,
+        is_subscriber: bool,
+    ) -> None:
+        """Registra o actualiza los roles específicos del canal para un usuario."""
+        query = """
+            INSERT INTO channel_users (
+                channel_id, user_id, is_moderator, is_vip, is_subscriber
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (channel_id, user_id)
+            DO UPDATE SET is_moderator = EXCLUDED.is_moderator,
+                          is_vip = EXCLUDED.is_vip,
+                          is_subscriber = EXCLUDED.is_subscriber
+        """
+        async with self._db.acquire() as conn:
+            await conn.execute(
+                query, channel_id, user_id, is_moderator, is_vip, is_subscriber
+            )

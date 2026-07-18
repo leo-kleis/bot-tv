@@ -87,12 +87,18 @@ async def endpoint_update_user_roles(request: Request) -> Response:
     is_moderator = bool(body.get("is_moderator", False))
     is_vip = bool(body.get("is_vip", False))
 
+    channels = await bot.get_channels()
+    channel_id = body.get("channel_id") or (
+        channels[0]["user_id"] if channels else None
+    )
+
     result = await action_update_user_roles(
         bot,
         username,
         is_bot=is_bot,
         is_moderator=is_moderator,
         is_vip=is_vip,
+        channel_id=channel_id,
     )
     if isinstance(result, str):
         return _err(result)
@@ -115,7 +121,12 @@ async def endpoint_sync_user_roles(request: Request) -> Response:
     if not username:
         return _err("Campo 'username' requerido.")
 
-    result = await action_sync_user_roles(bot, username)
+    channels = await bot.get_channels()
+    channel_id = body.get("channel_id") or (
+        channels[0]["user_id"] if channels else None
+    )
+
+    result = await action_sync_user_roles(bot, username, channel_id=channel_id)
     if isinstance(result, str):
         return _err(result)
 
@@ -397,6 +408,7 @@ async def endpoint_list_users(request: Request) -> Response:
                 "is_moderator": bool(r["is_moderator"]),
                 "is_vip": bool(r["is_vip"]),
                 "is_subscriber": bool(r["is_subscriber"]),
+                "sub_tier": r.get("sub_tier"),
                 "followed_at": r.get("followed_at"),
                 "unfollowed_at": r.get("unfollowed_at"),
                 "is_follower": r.get("followed_at") is not None

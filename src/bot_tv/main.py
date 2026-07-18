@@ -10,7 +10,6 @@ from bot_tv.consumers.terminal import TerminalConsumer
 from bot_tv.database import (
     TokenRepository,
     create_pg_pool,
-    run_pg_migrations,
 )
 from bot_tv.event_bus import EventBus
 from bot_tv.utils.logger import setup_logging
@@ -26,8 +25,6 @@ def main() -> None:
         try:
             pool = await create_pg_pool()
             try:
-                await run_pg_migrations(pool)
-
                 token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
 

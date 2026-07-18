@@ -1,3 +1,7 @@
+allowBuilds:
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
 minimumReleaseAgeExclude:
   - '@oxlint/binding-android-arm-eabi@1.71.0'
   - '@oxlint/binding-android-arm64@1.71.0'

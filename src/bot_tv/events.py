@@ -52,6 +52,7 @@ class UserJoinEvent:
     is_moderator: bool = False
     is_vip: bool = False
     is_subscriber: bool = False
+    sub_tier: str | None = None
     timestamp: str = field(default_factory=_now)
 
 

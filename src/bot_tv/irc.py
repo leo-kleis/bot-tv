@@ -213,6 +213,7 @@ class TwitchIRCClient:
             is_mod = False
             is_vip = False
             is_sub = False
+            sub_tier = None
             if twitch_user:
                 is_bot = (twitch_user.id == self.bot.bot_id) or (
                     await self.bot.user_repo.is_user_bot(str(twitch_user.id))
@@ -221,11 +222,14 @@ class TwitchIRCClient:
                 is_bot = await self.bot.user_repo.is_user_bot(user_id)
 
             if user_id:
-                roles = await self.bot.user_repo.get_user_roles(user_id)
+                roles = await self.bot.user_repo.get_user_roles(
+                    user_id, self.bot.owner_id
+                )
                 if roles:
                     is_mod = roles["is_moderator"]
                     is_vip = roles["is_vip"]
                     is_sub = roles["is_subscriber"]
+                    sub_tier = roles.get("sub_tier")
 
             join_event = UserJoinEvent(
                 timestamp=datetime.now().isoformat(),
@@ -239,6 +243,7 @@ class TwitchIRCClient:
                 is_moderator=is_mod,
                 is_vip=is_vip,
                 is_subscriber=is_sub,
+                sub_tier=sub_tier,
             )
             self.connected_users[usuario] = join_event
             await self.bot.event_bus.emit(join_event)

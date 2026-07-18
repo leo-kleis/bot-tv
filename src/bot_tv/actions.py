@@ -62,6 +62,8 @@ class UserRolesResult:
     is_moderator: bool
     is_vip: bool
     is_subscriber: bool
+    sub_tier: str | None = None    # "1000" | "2000" | "3000"
+    gifter_id: str | None = None   # user_id de quien regaló la sub
 
 
 @dataclass
@@ -172,6 +174,7 @@ async def action_update_user_roles(
     is_bot: bool,
     is_moderator: bool,
     is_vip: bool,
+    channel_id: str | None = None,
 ) -> UserRolesResult | str:
     """Actualiza los roles de un usuario en Twitch y en la DB."""
     import logging
@@ -202,13 +205,13 @@ async def action_update_user_roles(
     channels = await bot.get_channels()
     if not channels:
         return "No hay canales configurados."
-    broadcaster_id = channels[0]["user_id"]
+    broadcaster_id = channel_id or channels[0]["user_id"]
 
     if user_id == broadcaster_id:
         return "No se pueden modificar los roles del broadcaster."
 
     # Obtener roles actuales
-    current_roles = await bot.user_repo.get_user_roles(user_id)
+    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
     current_mod = current_roles.get("is_moderator", False) if current_roles else False
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
@@ -289,6 +292,7 @@ async def action_update_user_roles(
     # Actualizar en la base de datos local
     await bot.user_repo.update_user_roles(
         user_id=user_id,
+        channel_id=broadcaster_id,
         is_bot=is_bot,
         is_moderator=is_moderator,
         is_vip=is_vip,
@@ -307,6 +311,7 @@ async def action_update_user_roles(
 async def action_sync_user_roles(
     bot: Bot,
     username: str,
+    channel_id: str | None = None,
 ) -> UserRolesResult | str:
     """Consulta Twitch para sincronizar los roles actuales de un usuario."""
     import logging
@@ -336,27 +341,19 @@ async def action_sync_user_roles(
     channels = await bot.get_channels()
     if not channels:
         return "No hay canales configurados."
-    broadcaster_id = channels[0]["user_id"]
+    broadcaster_id = channel_id or channels[0]["user_id"]
 
-    # Obtener token de acceso del broadcaster de la base de datos de tokens
-    async with bot.database.acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT token FROM tokens WHERE user_id = $1",
-            broadcaster_id,
-        )
-    if not row:
-        return "No se encontró el token de acceso del Broadcaster."
-    from bot_tv.database.migrations import get_fernet
-    broadcaster_token = get_fernet().decrypt(row["token"].encode()).decode()
-
-    # Si es el broadcaster, tiene todos los roles excepto bot por defecto
+    # Si es el broadcaster, tiene todos los roles excepto bot y sub por defecto
     if user_id == broadcaster_id:
-        # Asegurarse de que esté correcto en DB
         await bot.user_repo.update_user_roles(
             user_id=user_id,
+            channel_id=broadcaster_id,
             is_bot=False,
             is_moderator=True,
             is_vip=False,
+            is_subscriber=False,
+            sub_tier=None,
+            gifter_id=None,
         )
         return UserRolesResult(
             username=username,
@@ -364,11 +361,11 @@ async def action_sync_user_roles(
             is_bot=False,
             is_moderator=True,
             is_vip=False,
-            is_subscriber=True,
+            is_subscriber=False,
         )
 
     # Obtener roles locales actuales por si falla la sincronización de algún rol
-    current_roles = await bot.user_repo.get_user_roles(user_id)
+    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
     current_mod = current_roles.get("is_moderator", False) if current_roles else False
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
@@ -407,48 +404,68 @@ async def action_sync_user_roles(
         )
 
     # 3. Comprobar Suscriptor
+    is_subscriber = False
+    sub_tier = None
+    gifter_id = None
     try:
-        import aiohttp
-
-        from bot_tv.utils.env import CLIENT_ID
-
-        headers = {
-            "Client-Id": CLIENT_ID,
-            "Authorization": f"Bearer {broadcaster_token}",
-        }
-        params = {
-            "broadcaster_id": broadcaster_id,
-            "user_id": user_id,
-        }
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(
-                "https://api.twitch.tv/helix/subscriptions/user",
-                headers=headers,
-                params=params,
-            ) as resp,
-        ):
-            if resp.status == 200:
-                data = await resp.json()
-                is_subscriber = bool(data and data.get("data"))
-            elif resp.status == 404:
-                is_subscriber = False
-            elif resp.status in (401, 403):
-                logger.warning(
-                    "No se pudo comprobar la suscripción para %s (HTTP %s): "
-                    "la cuenta Broadcaster podría no ser afiliada/partner o "
-                    "falta el scope de suscripciones.",
-                    username,
-                    resp.status,
+        data = await bot._http.get_broadcaster_subscriptions(
+            token_for=broadcaster_id,
+            broadcaster_id=broadcaster_id,
+            user_ids=[user_id],
+        )
+        async for sub in data.subscriptions:
+            is_subscriber = True
+            sub_tier = sub.tier
+            if sub.gift and sub.gifter and sub.gifter.name:
+                gifter_id = sub.gifter.id
+                gifter_name = sub.gifter.name
+                # Asegurar que el gifter existe en la DB
+                existing = await bot.user_repo.get_user_id_by_name(
+                    gifter_name.lower()
                 )
-            else:
-                body_text = await resp.text()
-                logger.warning(
-                    "Error al obtener suscripción de Twitch para %s (HTTP %s): %s",
-                    username,
-                    resp.status,
-                    body_text,
-                )
+                if not existing:
+                    try:
+                        gifter_user = await bot.fetch_user(id=gifter_id)
+                        if gifter_user and gifter_user.name:
+                            await bot.user_repo.upsert_user(
+                                gifter_user.id,
+                                gifter_user.name,
+                                gifter_user.display_name,
+                            )
+                    except Exception as eg:
+                        logger.warning(
+                            "No se pudo upsert el gifter %s: %s", gifter_id, eg
+                        )
+            break
+    except twitchio.HTTPException as e:
+        if e.status == 404:
+            # 404 = el usuario no está suscrito (respuesta normal de la API)
+            is_subscriber = False
+        elif e.status in (401, 403):
+            is_subscriber = False
+            twitch_msg = ""
+            if isinstance(e.extra, dict) and "message" in e.extra:
+                twitch_msg = f": {e.extra['message']}"
+            elif isinstance(e.extra, str):
+                twitch_msg = f": {e.extra}"
+            logger.warning(
+                "No se pudo comprobar la suscripción para %s (HTTP %s)%s",
+                username,
+                e.status,
+                twitch_msg,
+            )
+        else:
+            twitch_msg = ""
+            if isinstance(e.extra, dict) and "message" in e.extra:
+                twitch_msg = f": {e.extra['message']}"
+            elif isinstance(e.extra, str):
+                twitch_msg = f": {e.extra}"
+            logger.warning(
+                "Error al obtener suscripción de Twitch para %s (HTTP %s)%s",
+                username,
+                e.status,
+                twitch_msg,
+            )
     except Exception as e:
         logger.warning(
             "Error inesperado al comprobar suscripción para %s: %s",
@@ -457,22 +474,20 @@ async def action_sync_user_roles(
         )
 
     # Mantener el rol de bot actual en base de datos
-    current_roles = await bot.user_repo.get_user_roles(user_id)
+    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
     is_bot = current_roles.get("is_bot", False) if current_roles else False
 
     # Actualizar en base de datos local
     await bot.user_repo.update_user_roles(
         user_id=user_id,
+        channel_id=broadcaster_id,
         is_bot=is_bot,
         is_moderator=is_moderator,
         is_vip=is_vip,
+        is_subscriber=is_subscriber,
+        sub_tier=sub_tier,
+        gifter_id=gifter_id,
     )
-    async with bot.user_repo._db.acquire() as conn:
-        await conn.execute(
-            "UPDATE users SET is_subscriber = $1 WHERE user_id = $2",
-            is_subscriber,
-            user_id,
-        )
 
     return UserRolesResult(
         username=username,
@@ -481,6 +496,8 @@ async def action_sync_user_roles(
         is_moderator=is_moderator,
         is_vip=is_vip,
         is_subscriber=is_subscriber,
+        sub_tier=sub_tier,
+        gifter_id=gifter_id,
     )
 
 

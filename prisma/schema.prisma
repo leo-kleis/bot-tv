@@ -1,0 +1,76 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  user_id           String        @id @map("user_id")
+  username          String        @map("username")
+  display_name      String?       @map("display_name")
+  nickname          String?       @map("nickname")
+  is_bot            Boolean       @default(false) @map("is_bot")
+  profile_image_url String?       @map("profile_image_url")
+  chat_history      ChatHistory[]
+  channel_users     ChannelUser[]
+
+  @@map("users")
+}
+
+model ChatHistory {
+  id         BigInt @id @default(autoincrement()) @map("id")
+  channel_id String @map("channel_id")
+  user_id    String @map("user_id")
+  message    String @map("message")
+  timestamp  String @map("timestamp")
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@map("chat_history")
+}
+
+model ChannelUser {
+  channel_id    String  @map("channel_id")
+  user_id       String  @map("user_id")
+  followed_at   String? @map("followed_at")
+  unfollowed_at String? @map("unfollowed_at")
+
+  // Roles específicos del canal
+  is_moderator  Boolean @default(false) @map("is_moderator")
+  is_vip        Boolean @default(false) @map("is_vip")
+  is_subscriber Boolean @default(false) @map("is_subscriber")
+  sub_tier      String? @map("sub_tier")   // "1000" | "2000" | "3000"
+  gifter_id     String? @map("gifter_id")  // user_id de quien regaló la sub
+
+  user User @relation(fields: [user_id], references: [user_id])
+
+  @@id([channel_id, user_id])
+  @@map("channel_users")
+}
+
+model AppSettings {
+  key   String @id @map("key")
+  value String @map("value")
+
+  @@map("app_settings")
+}
+
+model ApiConsumptionLog {
+  id        BigInt @id @default(autoincrement()) @map("id")
+  model     String @map("model")
+  timestamp Float  @map("timestamp")
+  type      String @map("type")
+
+  @@map("api_consumption_log")
+}
+
+model Token {
+  user_id  String @id @map("user_id")
+  username String @map("username")
+  token    String @map("token")
+  refresh  String @map("refresh")
+
+  @@map("tokens")
+}

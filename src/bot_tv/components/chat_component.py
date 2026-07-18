@@ -65,6 +65,11 @@ class ChatComponent(commands.Component):
             user_id,
             username,
             display_name,
+        )
+
+        await self.bot.channel_user_repo.upsert_channel_user_roles(
+            payload.broadcaster.id,
+            user_id,
             is_moderator=chatter.moderator,
             is_vip=chatter.vip,
             is_subscriber=chatter.subscriber,

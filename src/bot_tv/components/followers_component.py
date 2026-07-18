@@ -59,9 +59,7 @@ class FollowersComponent(commands.Component):
         current_ids = set(current_map.keys())
 
         # 2. Obtener IDs previos de la DB (ya están en cache)
-        previous_ids = await self.bot.follower_repo.get_follower_ids(
-            channel_id
-        )
+        previous_ids = await self.bot.channel_user_repo.get_follower_ids(channel_id)
 
         # 3. Comparar localmente
         nuevos_ids = current_ids - previous_ids
@@ -74,9 +72,7 @@ class FollowersComponent(commands.Component):
 
         if previous_ids:
             if nuevos_ids:
-                nuevos_info = await self.bot.user_repo.get_users_info(
-                    list(nuevos_ids)
-                )
+                nuevos_info = await self.bot.user_repo.get_users_info(list(nuevos_ids))
                 now_iso = datetime.now(UTC).isoformat()
                 nuevos_ordenados = sorted(
                     nuevos_ids,
@@ -93,23 +89,19 @@ class FollowersComponent(commands.Component):
                 ]
 
             if perdidos_ids:
-                perdidos_data = (
-                    await self.bot.user_repo.get_unfollowers_data(
-                        channel_id, list(perdidos_ids)
-                    )
+                perdidos_data = await self.bot.user_repo.get_unfollowers_data(
+                    channel_id, list(perdidos_ids)
                 )
                 perdidos_ordenados = sorted(
                     perdidos_ids,
                     key=lambda uid: (
-                        perdidos_data.get(uid, {}).get("display_name")
-                        or uid
+                        perdidos_data.get(uid, {}).get("display_name") or uid
                     ).lower(),
                 )
                 lost_labels = [
                     _format_label(
                         uid,
-                        perdidos_data.get(uid, {}).get("display_name")
-                        or uid,
+                        perdidos_data.get(uid, {}).get("display_name") or uid,
                         perdidos_data.get(uid, {}).get("followed_at"),
                         perdidos_data.get(uid, {}).get("nickname"),
                     )
@@ -134,7 +126,7 @@ class FollowersComponent(commands.Component):
             (uid, current_map[uid][0], current_map[uid][1])
             for uid in (current_ids if is_first_sync else nuevos_ids)
         ]
-        await self.bot.follower_repo.sync_followers(
+        await self.bot.channel_user_repo.sync_followers(
             channel_id,
             new_followers,
             unfollowed_ids=list(perdidos_ids),
@@ -149,9 +141,7 @@ class FollowersComponent(commands.Component):
         """
         user = await self.bot.fetch_user(id=int(channel_id))
         if not user:
-            LOGGER.warning(
-                "No se encontró el usuario con ID %s", channel_id
-            )
+            LOGGER.warning("No se encontró el usuario con ID %s", channel_id)
             return []
 
         channel_followers = await user.fetch_followers()
@@ -162,9 +152,7 @@ class FollowersComponent(commands.Component):
         async for follower_event in channel_followers.followers:
             count += 1
             fid = follower_event.user.id
-            fname = (
-                follower_event.user.name or follower_event.user.id
-            )
+            fname = follower_event.user.name or follower_event.user.id
             followed_at = (
                 follower_event.followed_at.isoformat()
                 if follower_event.followed_at

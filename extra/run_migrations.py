@@ -1,4 +1,5 @@
 """Script utilitario para crear las tablas en PostgreSQL."""
+
 import asyncio
 import sys
 

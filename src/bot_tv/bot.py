@@ -16,8 +16,8 @@ from bot_tv.components.followers_component import FollowersComponent
 from bot_tv.components.stream_component import StreamComponent
 from bot_tv.components.twitch_events_component import TwitchEventsComponent
 from bot_tv.database import (
+    ChannelUserRepository,
     ChatRepository,
-    FollowerRepository,
     SettingsRepository,
     TokenPersistMixin,
     TokenRepository,
@@ -55,7 +55,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.token_repo = TokenRepository(database)
         self.user_repo = UserRepository(database)
         self.chat_repo = ChatRepository(database)
-        self.follower_repo = FollowerRepository(database)
+        self.channel_user_repo = ChannelUserRepository(database)
         self.settings_repo = SettingsRepository(database)
 
         super().__init__(

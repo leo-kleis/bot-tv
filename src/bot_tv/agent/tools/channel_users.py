@@ -13,15 +13,15 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
-    """Construye las herramientas relacionadas con la consulta de seguidores
-    en la base de datos.
+def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
+    """Construye las herramientas relacionadas con la consulta de usuarios y seguidores
+    del canal en la base de datos.
     """
 
-    async def get_follower_stats() -> str:
+    async def get_channel_user_stats() -> str:
         """Obtiene estadísticas generales sobre los seguidores en la base de datos."""
         try:
-            row = await bot.follower_repo.get_follower_stats(OWNER_ID)
+            row = await bot.channel_user_repo.get_follower_stats(OWNER_ID)
             if not row:
                 return "No hay datos de seguidores registrados en la base de datos."
 
@@ -39,7 +39,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             LOGGER.error("Error al obtener estadísticas de seguidores: %s", e)
             return f"Error al consultar base de datos: {e}"
 
-    async def search_followers(
+    async def search_channel_users(
         search_term: str, active_only: bool = False, limit: int = 10
     ) -> str:
         """Busca seguidores en la base de datos por coincidencia de nombre.
@@ -52,7 +52,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            rows = await bot.follower_repo.search_followers(
+            rows = await bot.channel_user_repo.search_followers(
                 channel_id=OWNER_ID,
                 search_term=search_term,
                 active_only=active_only,
@@ -81,9 +81,9 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             LOGGER.error("Error al buscar seguidores: %s", e)
             return f"Error al consultar base de datos: {e}"
 
-    async def get_follower_info(username: str) -> str:
-        """Obtiene información de seguimiento detallada para un usuario específico
-        por su nombre exacto de usuario (username).
+    async def get_channel_user_info(username: str) -> str:
+        """Obtiene información detallada de seguimiento y roles de un usuario
+        por su nombre de usuario exacto (username).
 
         Args:
             username: El nombre de usuario de Twitch exacto (ej: 'twitchdev').
@@ -107,7 +107,9 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             LOGGER.error("Error al obtener información del seguidor: %s", e)
             return f"Error al consultar base de datos: {e}"
 
-    async def get_recent_followers(limit: int = 5, active_only: bool = False) -> str:
+    async def get_recent_channel_users(
+        limit: int = 5, active_only: bool = False
+    ) -> str:
         """Obtiene una lista de los seguidores registrados más recientemente.
 
         Args:
@@ -116,7 +118,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            rows = await bot.follower_repo.get_recent_followers(
+            rows = await bot.channel_user_repo.get_recent_followers(
                 channel_id=OWNER_ID, limit=limit, active_only=active_only
             )
 
@@ -140,7 +142,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             LOGGER.error("Error al obtener seguidores recientes: %s", e)
             return f"Error al consultar base de datos: {e}"
 
-    async def get_recent_unfollowers(limit: int = 5) -> str:
+    async def get_recent_channel_unfollowers(limit: int = 5) -> str:
         """Obtiene la lista de los usuarios que han dejado de seguir
         el canal más recientemente.
 
@@ -149,7 +151,7 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             limit = max(1, limit)
-            rows = await bot.follower_repo.get_recent_unfollowers(
+            rows = await bot.channel_user_repo.get_recent_unfollowers(
                 channel_id=OWNER_ID, limit=limit
             )
 
@@ -174,9 +176,9 @@ def build_follower_tools(bot: Bot) -> list[Callable[..., Any]]:
             return f"Error al consultar base de datos: {e}"
 
     return [
-        get_follower_stats,
-        search_followers,
-        get_follower_info,
-        get_recent_followers,
-        get_recent_unfollowers,
+        get_channel_user_stats,
+        search_channel_users,
+        get_channel_user_info,
+        get_recent_channel_users,
+        get_recent_channel_unfollowers,
     ]
