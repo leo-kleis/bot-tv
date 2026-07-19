@@ -1,6 +1,6 @@
 [project]
 name = "bot-tv"
-version = "0.6.1"
+version = "0.6.2"
 description = "Bot de Twitch"
 authors = [{ name = "leo-kleis" }]
 requires-python = ">=3.14,<4.0"
