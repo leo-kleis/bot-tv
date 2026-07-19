@@ -20,19 +20,38 @@ Esto significa que la query debe usar **términos que existan literalmente en el
 
 ---
 
-## Flujo obligatorio: Explorar antes de preguntar
+## Flujo recomendado al inicio de una sesión
 
-Antes de usar `query_codebase`, debes saber qué términos usa el código. Si no los sabes:
+Al trabajar con un proyecto por primera vez, o al retomar una sesión:
 
-1. **Explorar primero**: Usa `grep_search`, `list_dir` o `view_file` para descubrir los nombres reales que usa el codebase.
-2. **Luego consultar el RAG**: Una vez que conoces el símbolo o término correcto, úsalo en la query.
+1. **`get_config`** — verifica si el índice existe (`LANCEDB_INDEXADA: Sí/No`).
+2. **`ingest_codebase`** — si el índice no existe o el usuario lo aprueba tras cambios estructurales. **No ejecutar de forma autónoma — proponer y esperar confirmación.**
+3. **`get_project_map`** — obtén el mapa de clases, servicios y modelos del proyecto. Úsalo para conocer los nombres exactos que usa el código.
+4. **`query_codebase`** — con los nombres encontrados en el mapa, obtén el código real.
 
 ```
-MAL:  query_codebase("how does the vehicle system work")
-       → el código usa "automatic_move", no "vehicle"
+Ejemplo:
+  get_project_map() →
+    [nestjs] Controllers: AuthController, BillingController
+             Services: BillingService, UserService
+    [nestjs/prisma] Models: User, Order, Payment
 
-BIEN: grep_search("vehicle" OR "auto" OR "move") → descubre "AutomaticMoveService"
-      query_codebase("AutomaticMoveService logic")  ← ahora sí funciona
+  → Ahora sé que debo buscar: query_codebase("BillingService PaymentController")
+```
+
+## Flujo obligatorio antes de hacer una query
+
+Si ya tienes el mapa en contexto, úsalo directamente. Si no:
+
+```
+SIN MAPA: query_codebase("how does the vehicle system work")
+           → el código usa "automatic_move", no "vehicle" → NO_CONTEXT
+
+CON MAPA: get_project_map() → descubre "AutomaticMoveService"
+          query_codebase("AutomaticMoveService logic")  ← funciona
+
+ALTERNATIVA (si no hay índice): grep_search("vehicle" OR "auto" OR "move")
+          → descubre "AutomaticMoveService" → query_codebase(...)
 ```
 
 ---

@@ -18,7 +18,8 @@ class ChannelUserRepository(BaseRepository):
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(
                 "SELECT user_id FROM channel_users "
-                "WHERE channel_id = $1 AND unfollowed_at IS NULL",
+                "WHERE channel_id = $1 "
+                "AND followed_at IS NOT NULL AND unfollowed_at IS NULL",
                 channel_id,
             )
         return {row["user_id"] for row in rows}
