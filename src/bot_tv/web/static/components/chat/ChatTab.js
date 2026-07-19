@@ -89,7 +89,8 @@ function IrcUser({ user }) {
     badges.push(html`<span class="irc-badge badge-vip">VIP</span>`);
   }
   if (user.is_subscriber) {
-    const label = user.sub_tier === '3000' ? 'Sub T3' : (user.sub_tier === '2000' ? 'Sub T2' : 'Sub T1');
+    const label =
+      user.sub_tier === '3000' ? 'Sub T3' : user.sub_tier === '2000' ? 'Sub T2' : 'Sub T1';
     badges.push(html`<span class="irc-badge badge-subscriber">${label}</span>`);
   }
 

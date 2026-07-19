@@ -84,6 +84,7 @@ HISTORY_EVENT_TYPES: list[type] = [
     StreamOfflineEvent,
     ViewerUpdateEvent,
     FollowerSyncEvent,
+    FollowerProgressEvent,
     AgentResponseEvent,
     ClipCreatedEvent,
     TwitchRaidEvent,

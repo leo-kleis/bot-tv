@@ -212,6 +212,9 @@ export function FollowersTab({ followers }) {
     if (data.ok) {
       setResult({ ok: true, msg: 'Sincronización completada.' });
       fetchUsers(); // Actualizar listado tras sincronizar
+      setTimeout(() => {
+        setResult(null);
+      }, 5000);
     } else {
       setResult({ ok: false, msg: data.error || 'Error al sincronizar.' });
     }
@@ -288,7 +291,7 @@ export function FollowersTab({ followers }) {
     setPage(1);
   }
 
-  const progPct = prog ? Math.round((prog.count / prog.total) * 100) : 0;
+  const progPct = prog && prog.total > 0 ? Math.round((prog.count / prog.total) * 100) : 0;
   const totalPages = Math.ceil(totalUsers / limit);
 
   return html`
@@ -324,7 +327,9 @@ export function FollowersTab({ followers }) {
                 ? html`
                     <div>
                       <div class="progress-text" style="margin-bottom:6px">
-                        ${prog.count} / ${prog.total} seguidores
+                        ${prog.total > 0
+                          ? `${prog.count} / ${prog.total} seguidores`
+                          : 'Iniciando sincronización...'}
                       </div>
                       <div class="progress-bar-wrap">
                         <div class="progress-bar-fill" style="width:${progPct}%"></div>
@@ -338,11 +343,13 @@ export function FollowersTab({ followers }) {
                 class="btn btn-primary"
                 style="width:100%"
                 onClick=${handleSync}
-                disabled=${syncing}
+                disabled=${syncing || !!prog || !sync}
               >
-                ${syncing
+                ${syncing || !!prog
                   ? html`<span class="spinner"></span> Sincronizando...`
-                  : html`<i class="fa-solid fa-rotate"></i> Sincronizar ahora`}
+                  : !sync
+                    ? html`<span class="spinner"></span> Inicializando bot...`
+                    : html`<i class="fa-solid fa-rotate"></i> Sincronizar ahora`}
               </button>
 
               ${result
@@ -621,11 +628,13 @@ export function FollowersTab({ followers }) {
                                     ? html`<span class="irc-badge badge-vip">VIP</span>`
                                     : null}
                                   ${u.is_subscriber
-                                    ? html`<span class="irc-badge badge-subscriber">${
-                                        u.sub_tier === '3000' ? 'Sub T3'
-                                        : u.sub_tier === '2000' ? 'Sub T2'
-                                        : 'Sub T1'
-                                      }</span>`
+                                    ? html`<span class="irc-badge badge-subscriber"
+                                        >${u.sub_tier === '3000'
+                                          ? 'Sub T3'
+                                          : u.sub_tier === '2000'
+                                            ? 'Sub T2'
+                                            : 'Sub T1'}</span
+                                      >`
                                     : null}
                                   ${u.is_bot
                                     ? html`<span class="irc-badge badge-bot">Bot</span>`

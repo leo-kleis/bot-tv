@@ -55,4 +55,13 @@
 - `pnpm run prisma:push` (Sincroniza directamente el esquema schema.prisma con la base de datos en la nube sin crear historial de migraciones)
 - `pnpm run prisma:status` (Comprueba el estado del historial de migraciones de la base de datos)
 
+## Lefthook (Git Hooks)
+- `pnpm exec lefthook install` (Instala y activa los Git hooks locales en el repositorio)
+- `pnpm exec lefthook run pre-commit` (Ejecuta manualmente las verificaciones de pre-commit en los archivos locales)
+
+## Release-it (Gestión de Versiones)
+- `pnpm run release patch` (Incrementa la versión parche, ej. 0.6.1 a 0.6.2, crea el commit, tag de Git y sube todo a GitHub)
+- `pnpm run release minor` (Incrementa la versión menor, ej. 0.6.1 a 0.7.0, crea commit, tag y push)
+- `pnpm run release -- --dry-run` (Simula el proceso de lanzamiento mostrando el diff y los comandos a ejecutar sin aplicarlos)
+
 

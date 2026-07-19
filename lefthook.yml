@@ -1,0 +1,28 @@
+# lefthook.yml
+# Configuración rápida de Git Hooks para el proyecto híbrido Python + JS.
+
+pre-commit:
+  parallel: true
+  commands:
+    # ── PYTHON (Backend) ──
+    ruff-lint:
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    ruff-format:
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    pyrefly:
+      glob: "*.py"
+      run: uv run pyrefly check
+
+    # ── JAVASCRIPT/TYPESCRIPT (Frontend) ──
+    oxlint:
+      glob: "src/bot_tv/web/static/**/*.js"
+      run: pnpm exec oxlint --fix {staged_files}
+      stage_fixed: true
+    prettier:
+      glob: "src/bot_tv/web/static/**/*.{js,html,css}"
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true

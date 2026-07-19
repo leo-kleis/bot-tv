@@ -57,6 +57,9 @@ async def _parse_body(request: Request) -> dict:
 async def endpoint_sync_followers(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     results = await action_sync_followers(bot)
+    errors = [r.error for r in results if not r.ok and r.error]
+    if errors:
+        return _err(errors[0], status=409)
     return _ok([{"channel": r.channel, "ok": r.ok, "error": r.error} for r in results])
 
 

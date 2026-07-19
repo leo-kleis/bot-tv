@@ -1,0 +1,18 @@
+{
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "push": true
+  },
+  "npm": {
+    "publish": false
+  },
+  "hooks": {
+    "after:bump": [
+      "pnpm install --lockfile-only",
+      "uv run python -c \"import re; p=open('pyproject.toml'); c=re.sub(r'^version\\s*=\\s*\\\".*\\\"', 'version = \\\"${version}\\\"', p.read(), flags=re.M); open('pyproject.toml','w').write(c)\"",
+      "uv sync",
+      "git add pyproject.toml uv.lock pnpm-lock.yaml"
+    ]
+  }
+}
