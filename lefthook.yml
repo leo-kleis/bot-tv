@@ -6,23 +6,23 @@ pre-commit:
   commands:
     # ── PYTHON (Backend) ──
     ruff-lint:
-      glob: "*.py"
+      glob: '*.py'
       run: uv run ruff check --fix {staged_files}
       stage_fixed: true
     ruff-format:
-      glob: "*.py"
+      glob: '*.py'
       run: uv run ruff format {staged_files}
       stage_fixed: true
     pyrefly:
-      glob: "*.py"
-      run: uv run pyrefly check
+      glob: '*.py'
+      run: uv run pyrefly check --min-severity warn
 
     # ── JAVASCRIPT/TYPESCRIPT (Frontend) ──
     oxlint:
-      glob: "src/bot_tv/web/static/**/*.js"
+      glob: 'src/bot_tv/web/static/**/*.js'
       run: pnpm exec oxlint --fix {staged_files}
       stage_fixed: true
     prettier:
-      glob: "src/bot_tv/web/static/**/*.{js,html,css}"
+      glob: 'src/bot_tv/web/static/**/*.{js,html,css}'
       run: pnpm exec prettier --write {staged_files}
       stage_fixed: true
