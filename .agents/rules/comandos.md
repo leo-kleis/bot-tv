@@ -56,12 +56,14 @@
 - `pnpm run prisma:status` (Comprueba el estado del historial de migraciones de la base de datos)
 
 ## Lefthook (Git Hooks)
-- `pnpm exec lefthook install` (Instala y activa los Git hooks locales en el repositorio)
-- `pnpm exec lefthook run pre-commit` (Ejecuta manualmente las verificaciones de pre-commit en los archivos locales)
+- `lefthook install` (Instala y activa los Git hooks locales en el repositorio mediante la versión gestionada por mise)
+- `lefthook run pre-commit` (Ejecuta manualmente las verificaciones de pre-commit en los archivos locales)
+- `lefthook uninstall` (Desactiva y remueve los Git hooks locales del repositorio)
 
 ## Release-it (Gestión de Versiones)
 - `pnpm run release patch` (Incrementa la versión parche, ej. 0.6.1 a 0.6.2, crea el commit, tag de Git y sube todo a GitHub)
 - `pnpm run release minor` (Incrementa la versión menor, ej. 0.6.1 a 0.7.0, crea commit, tag y push)
+- `pnpm run release major` (Incrementa la versión mayor, ej. 0.6.1 a 1.0.0, crea commit, tag y push)
 - `pnpm run release -- --dry-run` (Simula el proceso de lanzamiento mostrando el diff y los comandos a ejecutar sin aplicarlos)
 
 
