@@ -73,8 +73,11 @@ class FollowersComponent(commands.Component):
             }
             current_ids = set(current_map.keys())
 
-            # 2. Obtener IDs previos de la DB (ya están en cache)
-            previous_ids = await self.bot.channel_user_repo.get_follower_ids(channel_id)
+            # 2. Obtener IDs previos de la DB / Caché (ya están en memoria)
+            cache = self.bot.user_cache
+            previous_ids = await self.bot.channel_user_repo.get_follower_ids(
+                channel_id, cache=cache
+            )
 
             # 3. Comparar localmente
             nuevos_ids = current_ids - previous_ids
@@ -138,7 +141,7 @@ class FollowersComponent(commands.Component):
                 )
             )
 
-            # 6. Escribir solo las diferencias a la DB (batch)
+            # 6. Escribir solo las diferencias a la DB y actualizar la caché en memoria
             new_followers = [
                 (uid, current_map[uid][0], current_map[uid][1])
                 for uid in (current_ids if is_first_sync else nuevos_ids)
@@ -147,7 +150,9 @@ class FollowersComponent(commands.Component):
                 channel_id,
                 new_followers,
                 unfollowed_ids=list(perdidos_ids),
+                cache=cache,
             )
+
         finally:
             self._is_syncing = False
 

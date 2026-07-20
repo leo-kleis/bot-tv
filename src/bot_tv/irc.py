@@ -154,7 +154,7 @@ class TwitchIRCClient:
         if usuario.id == self.bot.bot_id:
             return "Bot"
 
-        if await self.bot.user_repo.is_user_bot(usuario.id):
+        if await self.bot.user_repo.is_user_bot(usuario.id, cache=self.bot.user_cache):
             return "Bot"
 
         follow = await broadcaster.fetch_followers(user=usuario, first=1)
@@ -167,7 +167,8 @@ class TwitchIRCClient:
         if usuario == self.bot_username:
             return
 
-        user_id = await self.bot.user_repo.get_user_id_by_name(usuario)
+        cache = self.bot.user_cache
+        user_id = await self.bot.user_repo.get_user_id_by_name(usuario, cache=cache)
         display_name = usuario
 
         twitch_user = None
@@ -181,13 +182,14 @@ class TwitchIRCClient:
                         user_id,
                         twitch_user.name,
                         display_name,
+                        cache=cache,
                     )
         except Exception as e:
             LOGGER.error("Error al buscar fetch_user para %s: %s", usuario, e)
 
         nickname = None
         if user_id:
-            nickname = await self.bot.user_repo.get_user_nickname(user_id)
+            nickname = await self.bot.user_repo.get_user_nickname(user_id, cache=cache)
 
         r, g, b = get_chatter_rgb(None, usuario)
 
@@ -216,14 +218,16 @@ class TwitchIRCClient:
             sub_tier = None
             if twitch_user:
                 is_bot = (twitch_user.id == self.bot.bot_id) or (
-                    await self.bot.user_repo.is_user_bot(str(twitch_user.id))
+                    await self.bot.user_repo.is_user_bot(
+                        str(twitch_user.id), cache=cache
+                    )
                 )
             elif user_id:
-                is_bot = await self.bot.user_repo.is_user_bot(user_id)
+                is_bot = await self.bot.user_repo.is_user_bot(user_id, cache=cache)
 
             if user_id:
                 roles = await self.bot.user_repo.get_user_roles(
-                    user_id, self.bot.owner_id
+                    user_id, self.bot.owner_id, cache=cache
                 )
                 if roles:
                     is_mod = roles["is_moderator"]

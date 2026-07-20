@@ -1,22 +1,50 @@
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
 
+if TYPE_CHECKING:
+    from bot_tv.database.user_cache import UserMemoryCache
+
+LOGGER = logging.getLogger(__name__)
+
 
 class UserRepository(BaseRepository):
     """Repositorio para gestionar las operaciones sobre la tabla users."""
+
+    async def preload_cache(self, cache: UserMemoryCache) -> None:
+        """Precarga todos los usuarios y sus roles desde PostgreSQL a la caché."""
+        async with self._db.acquire() as conn:
+            users_rows = await conn.fetch(
+                "SELECT user_id, username, display_name, is_bot, nickname, "
+                "profile_image_url FROM users"
+            )
+            roles_rows = await conn.fetch(
+                "SELECT channel_id, user_id, is_moderator, is_vip, "
+                "is_subscriber, sub_tier FROM channel_users"
+            )
+        cache.preload([dict(r) for r in users_rows], [dict(r) for r in roles_rows])
 
     async def upsert_user(
         self,
         user_id: str,
         username: str,
         display_name: str | None = None,
+        cache: UserMemoryCache | None = None,
     ) -> None:
         """Inserta o actualiza un usuario (sin tocar el nickname si ya existe)."""
+        if cache is not None:
+            if not cache.needs_user_update(user_id, username, display_name):
+                return
+            cache.update_user(user_id, username, display_name)
+
+        LOGGER.info(
+            "DB UPDATE/INSERT usuario en PostgreSQL: %s (ID: %s)", username, user_id
+        )
         query = """
             INSERT INTO users (user_id, username, display_name)
             VALUES ($1, $2, $3)
@@ -32,16 +60,26 @@ class UserRepository(BaseRepository):
                 display_name,
             )
 
-    async def get_user_nickname(self, user_id: str) -> str | None:
+    async def get_user_nickname(
+        self, user_id: str, cache: UserMemoryCache | None = None
+    ) -> str | None:
         """Devuelve el nickname del usuario, o None si no tiene."""
+        if cache is not None:
+            return cache.get_user_nickname(user_id)
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
                 "SELECT nickname FROM users WHERE user_id = $1", user_id
             )
         return row["nickname"] if row else None
 
-    async def get_user_id_by_name(self, username: str) -> str | None:
+    async def get_user_id_by_name(
+        self, username: str, cache: UserMemoryCache | None = None
+    ) -> str | None:
         """Devuelve el user_id de un usuario a partir de su username."""
+        if cache is not None:
+            cached_id = cache.get_user_id_by_name(username)
+            if cached_id is not None:
+                return cached_id
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
                 "SELECT user_id FROM users WHERE username ILIKE $1",
@@ -49,8 +87,13 @@ class UserRepository(BaseRepository):
             )
         return row["user_id"] if row else None
 
-    async def set_nickname(self, user_id: str, nickname: str | None) -> None:
+    async def set_nickname(
+        self, user_id: str, nickname: str | None, cache: UserMemoryCache | None = None
+    ) -> None:
         """Establece o elimina el apodo personalizado de un usuario."""
+        if cache is not None:
+            cache.set_nickname(user_id, nickname)
+        LOGGER.info("DB UPDATE apodo para user_id %s: %s", user_id, nickname)
         async with self._db.acquire() as conn:
             await conn.execute(
                 "UPDATE users SET nickname = $1 WHERE user_id = $2",
@@ -58,16 +101,25 @@ class UserRepository(BaseRepository):
                 user_id,
             )
 
-    async def is_user_bot(self, user_id: str) -> bool:
+    async def is_user_bot(
+        self, user_id: str, cache: UserMemoryCache | None = None
+    ) -> bool:
         """Devuelve True si el usuario está marcado como bot en la DB."""
+        if cache is not None:
+            return cache.is_user_bot(user_id)
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
                 "SELECT is_bot FROM users WHERE user_id = $1", user_id
             )
         return bool(row["is_bot"]) if row else False
 
-    async def set_user_bot(self, user_id: str, is_bot: bool) -> None:
+    async def set_user_bot(
+        self, user_id: str, is_bot: bool, cache: UserMemoryCache | None = None
+    ) -> None:
         """Marca o desmarca un usuario como bot."""
+        if cache is not None:
+            cache.set_user_bot(user_id, is_bot)
+        LOGGER.info("DB UPDATE bot status para user_id %s: %s", user_id, is_bot)
         async with self._db.acquire() as conn:
             await conn.execute(
                 "UPDATE users SET is_bot = $1 WHERE user_id = $2",
@@ -117,9 +169,13 @@ class UserRepository(BaseRepository):
         }
 
     async def get_user_roles(
-        self, user_id: str, channel_id: str
+        self, user_id: str, channel_id: str, cache: UserMemoryCache | None = None
     ) -> dict[str, Any] | None:
         """Devuelve los roles (moderador, VIP, suscriptor) del usuario para un canal."""
+        if cache is not None:
+            cached_roles = cache.get_user_roles(user_id, channel_id)
+            if cached_roles is not None:
+                return cached_roles
         async with self._db.acquire() as conn:
             exists = await conn.fetchval(
                 "SELECT 1 FROM users WHERE user_id = $1", user_id
@@ -187,8 +243,24 @@ class UserRepository(BaseRepository):
         is_follower: str | None = None,
         limit: int = 20,
         offset: int = 0,
+        cache: UserMemoryCache | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Devuelve usuarios registrados filtrados y el total coincidente."""
+        if cache is not None:
+            return cache.list_users_with_filters(
+                channel_id=channel_id,
+                broadcaster_id=broadcaster_id,
+                role=role,
+                username_search=username_search,
+                followed_after=followed_after,
+                followed_before=followed_before,
+                unfollowed_after=unfollowed_after,
+                unfollowed_before=unfollowed_before,
+                is_follower=is_follower,
+                limit=limit,
+                offset=offset,
+            )
+
         limit = max(1, limit)
         offset = max(0, offset)
         where_clauses: list[str] = []
@@ -301,10 +373,29 @@ class UserRepository(BaseRepository):
         is_subscriber: bool | None = None,
         sub_tier: str | None = None,
         gifter_id: str | None = None,
+        cache: UserMemoryCache | None = None,
     ) -> None:
         """Actualiza los roles de un usuario en la base de datos
         a nivel global y de canal.
         """
+        if cache is not None:
+            cache.set_user_bot(user_id, is_bot)
+            cache.update_roles(
+                channel_id,
+                user_id,
+                is_moderator,
+                is_vip,
+                is_subscriber if is_subscriber is not None else False,
+                sub_tier,
+            )
+
+        LOGGER.info(
+            "DB UPDATE roles para user_id %s (mod=%s, vip=%s, sub=%s)",
+            user_id,
+            is_moderator,
+            is_vip,
+            is_subscriber,
+        )
         async with self._db.acquire() as conn:
             # 1. Actualizar is_bot global en users
             await conn.execute(
@@ -328,8 +419,13 @@ class UserRepository(BaseRepository):
                 """
                 await conn.execute(
                     query,
-                    channel_id, user_id, is_moderator, is_vip,
-                    is_subscriber, sub_tier, gifter_id,
+                    channel_id,
+                    user_id,
+                    is_moderator,
+                    is_vip,
+                    is_subscriber,
+                    sub_tier,
+                    gifter_id,
                 )
             else:
                 query = """
@@ -366,8 +462,14 @@ class UserRepository(BaseRepository):
             rows: list[asyncpg.Record] = await conn.fetch(query, like_pattern, limit)
         return [dict(row) for row in rows]
 
-    async def get_profile_image_url(self, user_id: str) -> str | None:
+    async def get_profile_image_url(
+        self, user_id: str, cache: UserMemoryCache | None = None
+    ) -> str | None:
         """Devuelve la URL del avatar cacheada, o None si no existe."""
+        if cache is not None:
+            url = cache.get_profile_image_url(user_id)
+            if url is not None:
+                return url
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
                 "SELECT profile_image_url FROM users WHERE user_id = $1",
@@ -377,8 +479,13 @@ class UserRepository(BaseRepository):
             return None
         return row["profile_image_url"]
 
-    async def set_profile_image_url(self, user_id: str, url: str) -> None:
+    async def set_profile_image_url(
+        self, user_id: str, url: str, cache: UserMemoryCache | None = None
+    ) -> None:
         """Guarda o actualiza la URL del avatar del usuario."""
+        if cache is not None:
+            cache.set_profile_image_url(user_id, url)
+        LOGGER.info("DB UPDATE avatar para user_id %s en PostgreSQL", user_id)
         async with self._db.acquire() as conn:
             await conn.execute(
                 "UPDATE users SET profile_image_url = $1 WHERE user_id = $2",

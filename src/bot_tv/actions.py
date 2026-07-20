@@ -62,8 +62,8 @@ class UserRolesResult:
     is_moderator: bool
     is_vip: bool
     is_subscriber: bool
-    sub_tier: str | None = None    # "1000" | "2000" | "3000"
-    gifter_id: str | None = None   # user_id de quien regaló la sub
+    sub_tier: str | None = None  # "1000" | "2000" | "3000"
+    gifter_id: str | None = None  # user_id de quien regaló la sub
 
 
 @dataclass
@@ -143,12 +143,13 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
 
 async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
     """Marca/desmarca un usuario como bot. Retorna BotToggleResult o string de error."""
-    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    cache = bot.user_cache
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
     if not user_id:
         return f"El usuario '{username}' no existe en la base de datos."
 
-    es_bot = await bot.user_repo.is_user_bot(user_id)
-    await bot.user_repo.set_user_bot(user_id, not es_bot)
+    es_bot = await bot.user_repo.is_user_bot(user_id, cache=cache)
+    await bot.user_repo.set_user_bot(user_id, not es_bot, cache=cache)
     return BotToggleResult(
         username=username,
         is_bot=not es_bot,
@@ -160,11 +161,12 @@ async def action_set_nickname(
     bot: Bot, username: str, nickname: str | None
 ) -> NicknameResult | str:
     """Asigna o elimina el apodo de un usuario."""
-    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    cache = bot.user_cache
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
     if not user_id:
         return f"El usuario '{username}' no existe en la base de datos."
 
-    await bot.user_repo.set_nickname(user_id, nickname)
+    await bot.user_repo.set_nickname(user_id, nickname, cache=cache)
     return NicknameResult(username=username, nickname=nickname)
 
 
@@ -181,7 +183,8 @@ async def action_update_user_roles(
 
     logger = logging.getLogger(__name__)
 
-    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    cache = bot.user_cache
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
     if not user_id:
         # Intentar buscarlo en Twitch si no está en la base de datos local
         try:
@@ -196,6 +199,7 @@ async def action_update_user_roles(
                 user_id,
                 twitch_user.name or username,
                 twitch_user.display_name,
+                cache=cache,
             )
         except Exception as e:
             logger.exception("Error al buscar usuario en Twitch: %s", e)
@@ -211,7 +215,9 @@ async def action_update_user_roles(
         return "No se pueden modificar los roles del broadcaster."
 
     # Obtener roles actuales
-    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
+    current_roles = await bot.user_repo.get_user_roles(
+        user_id, broadcaster_id, cache=cache
+    )
     current_mod = current_roles.get("is_moderator", False) if current_roles else False
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
@@ -289,13 +295,14 @@ async def action_update_user_roles(
                 )
             return f"Error de Twitch al agregar VIP: {msg_twitch}"
 
-    # Actualizar en la base de datos local
+    # Actualizar en la base de datos local y en memoria
     await bot.user_repo.update_user_roles(
         user_id=user_id,
         channel_id=broadcaster_id,
         is_bot=is_bot,
         is_moderator=is_moderator,
         is_vip=is_vip,
+        cache=cache,
     )
 
     return UserRolesResult(
@@ -420,9 +427,7 @@ async def action_sync_user_roles(
                 gifter_id = sub.gifter.id
                 gifter_name = sub.gifter.name
                 # Asegurar que el gifter existe en la DB
-                existing = await bot.user_repo.get_user_id_by_name(
-                    gifter_name.lower()
-                )
+                existing = await bot.user_repo.get_user_id_by_name(gifter_name.lower())
                 if not existing:
                     try:
                         gifter_user = await bot.fetch_user(id=gifter_id)

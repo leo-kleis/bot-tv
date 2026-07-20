@@ -1,11 +1,15 @@
-from __future__ import annotations
-
+import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
+
+if TYPE_CHECKING:
+    from bot_tv.database.user_cache import UserMemoryCache
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ChannelUserRepository(BaseRepository):
@@ -13,8 +17,12 @@ class ChannelUserRepository(BaseRepository):
     (seguidores y roles por canal).
     """
 
-    async def get_follower_ids(self, channel_id: str) -> set[str]:
+    async def get_follower_ids(
+        self, channel_id: str, cache: UserMemoryCache | None = None
+    ) -> set[str]:
         """Devuelve el conjunto de user_id que siguen a un canal."""
+        if cache is not None:
+            return cache.get_follower_ids(channel_id)
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(
                 "SELECT user_id FROM channel_users "
@@ -29,6 +37,7 @@ class ChannelUserRepository(BaseRepository):
         channel_id: str,
         new_followers: list[tuple[str, str, str | None]],
         unfollowed_ids: list[str] | None = None,
+        cache: UserMemoryCache | None = None,
     ) -> None:
         """Sincroniza solo las diferencias con la DB usando batch operations.
 
@@ -39,6 +48,15 @@ class ChannelUserRepository(BaseRepository):
             return
 
         now_iso = datetime.now(UTC).isoformat()
+        if cache is not None:
+            cache.sync_followers(channel_id, new_followers, unfollowed_ids, now_iso)
+
+        LOGGER.info(
+            "DB BATCH UPDATE seguidores canal %s: %d nuevos, %d unfollows",
+            channel_id,
+            len(new_followers),
+            len(unfollowed_ids or []),
+        )
 
         async with self._db.acquire() as conn:
             # Batch: marcar unfollows
@@ -170,8 +188,16 @@ class ChannelUserRepository(BaseRepository):
         is_moderator: bool,
         is_vip: bool,
         is_subscriber: bool,
+        cache: UserMemoryCache | None = None,
     ) -> None:
         """Registra o actualiza los roles específicos del canal para un usuario."""
+        if cache is not None:
+            if not cache.needs_roles_update(
+                channel_id, user_id, is_moderator, is_vip, is_subscriber
+            ):
+                return
+            cache.update_roles(channel_id, user_id, is_moderator, is_vip, is_subscriber)
+
         query = """
             INSERT INTO channel_users (
                 channel_id, user_id, is_moderator, is_vip, is_subscriber

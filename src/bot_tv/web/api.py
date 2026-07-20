@@ -399,6 +399,7 @@ async def endpoint_list_users(request: Request) -> Response:
             is_follower=is_follower,
             limit=limit,
             offset=offset,
+            cache=bot.user_cache,
         )
 
         users_list = [

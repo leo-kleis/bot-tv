@@ -44,7 +44,7 @@ class ChatComponent(commands.Component):
         if user_id == self.bot.bot_id:
             return "Bot"
 
-        if await self.bot.user_repo.is_user_bot(user_id):
+        if await self.bot.user_repo.is_user_bot(user_id, cache=self.bot.user_cache):
             return "Bot"
 
         follow = await chatter.follow_info()
@@ -60,11 +60,13 @@ class ChatComponent(commands.Component):
         user_id = chatter.id
         username = chatter.name or user_id
         display_name = chatter.display_name or username
+        cache = self.bot.user_cache
 
         await self.bot.user_repo.upsert_user(
             user_id,
             username,
             display_name,
+            cache=cache,
         )
 
         await self.bot.channel_user_repo.upsert_channel_user_roles(
@@ -73,9 +75,10 @@ class ChatComponent(commands.Component):
             is_moderator=chatter.moderator,
             is_vip=chatter.vip,
             is_subscriber=chatter.subscriber,
+            cache=cache,
         )
 
-        es_bot = await self.bot.user_repo.is_user_bot(user_id)
+        es_bot = await self.bot.user_repo.is_user_bot(user_id, cache=cache)
         if not es_bot:
             await self.bot.chat_repo.save_chat_message(
                 payload.broadcaster.id,
@@ -83,7 +86,7 @@ class ChatComponent(commands.Component):
                 payload.text,
             )
 
-        nickname = await self.bot.user_repo.get_user_nickname(user_id)
+        nickname = await self.bot.user_repo.get_user_nickname(user_id, cache=cache)
 
         hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)
@@ -91,7 +94,9 @@ class ChatComponent(commands.Component):
         role = await self._get_chatter_role(chatter, payload.broadcaster.id)
 
         # Obtener avatar cacheado o consultarlo a la API de Twitch
-        profile_image_url = await self.bot.user_repo.get_profile_image_url(user_id)
+        profile_image_url = await self.bot.user_repo.get_profile_image_url(
+            user_id, cache=cache
+        )
         if profile_image_url is None or user_id not in self._verified_avatars:
             try:
                 fetched_users = await self.bot.fetch_users(ids=[int(user_id)])
@@ -102,7 +107,7 @@ class ChatComponent(commands.Component):
                         if new_url != profile_image_url:
                             profile_image_url = new_url
                             await self.bot.user_repo.set_profile_image_url(
-                                user_id, profile_image_url
+                                user_id, profile_image_url, cache=cache
                             )
                         self._verified_avatars.add(user_id)
             except Exception:

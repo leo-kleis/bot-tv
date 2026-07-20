@@ -1,5 +1,6 @@
-from __future__ import annotations
-
+import asyncio
+import contextlib
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -7,9 +8,31 @@ import asyncpg
 
 from bot_tv.database.repositories.base import BaseRepository
 
+LOGGER = logging.getLogger(__name__)
+
+BATCH_FLUSH_INTERVAL = 2.0
+MAX_BATCH_SIZE = 20
+
 
 class ChatRepository(BaseRepository):
     """Repositorio para gestionar las operaciones sobre la tabla chat_history."""
+
+    def __init__(self, db: asyncpg.Pool) -> None:
+        super().__init__(db)
+        self._msg_queue: list[tuple[str, str, str, str]] = []
+        self._batch_task: asyncio.Task[None] | None = None
+        self._flush_lock = asyncio.Lock()
+
+    def start_batch_worker(self) -> None:
+        """Inicia el worker en segundo plano si no está corriendo."""
+        if self._batch_task is None or self._batch_task.done():
+            self._batch_task = asyncio.create_task(self._batch_loop())
+
+    async def _batch_loop(self) -> None:
+        """Bucle periódico para hacer flush de la cola de chat."""
+        while True:
+            await asyncio.sleep(BATCH_FLUSH_INTERVAL)
+            await self.flush()
 
     async def save_chat_message(
         self,
@@ -17,14 +40,49 @@ class ChatRepository(BaseRepository):
         user_id: str,
         message: str,
     ) -> None:
-        """Guarda un mensaje en el historial de chat."""
+        """Encola un mensaje para su guardado en lote en chat_history."""
         now = datetime.now(UTC).isoformat()
-        query = """
-            INSERT INTO chat_history (channel_id, user_id, message, timestamp)
-            VALUES ($1, $2, $3, $4)
-        """
-        async with self._db.acquire() as conn:
-            await conn.execute(query, channel_id, user_id, message, now)
+        self._msg_queue.append((channel_id, user_id, message, now))
+        self.start_batch_worker()
+
+        if len(self._msg_queue) >= MAX_BATCH_SIZE:
+            task = asyncio.create_task(self.flush())
+            task.add_done_callback(lambda _: None)
+
+    async def flush(self) -> None:
+        """Escribe todos los mensajes acumulados en la cola a PostgreSQL."""
+        async with self._flush_lock:
+            if not self._msg_queue:
+                return
+
+            to_insert = self._msg_queue.copy()
+            self._msg_queue.clear()
+
+            try:
+                query = """
+                    INSERT INTO chat_history (channel_id, user_id, message, timestamp)
+                    VALUES ($1, $2, $3, $4)
+                """
+                async with self._db.acquire() as conn:
+                    await conn.executemany(query, to_insert)
+                LOGGER.info(
+                    "DB BATCH INSERT chat_history: %d mensajes guardados",
+                    len(to_insert),
+                )
+
+            except Exception as e:
+                LOGGER.exception("Error al hacer batch insert en chat_history: %s", e)
+
+                # Re-encolar si falla la transacción
+                self._msg_queue.extend(to_insert)
+
+    async def close(self) -> None:
+        """Cancela el worker y vacía los mensajes pendientes."""
+        if self._batch_task and not self._batch_task.done():
+            self._batch_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._batch_task
+        await self.flush()
 
     async def get_message_count_in_range(
         self, channel_id: str, start_time: str, end_time: str

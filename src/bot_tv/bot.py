@@ -21,6 +21,7 @@ from bot_tv.database import (
     SettingsRepository,
     TokenPersistMixin,
     TokenRepository,
+    UserMemoryCache,
     UserRepository,
 )
 from bot_tv.event_bus import EventBus
@@ -51,7 +52,8 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self._irc_task: asyncio.Task[None] | None = None
         self.irc: TwitchIRCClient | None = None
 
-        # Instanciar repositorios (todos comparten el mismo pool)
+        # Instanciar repositorios y caché de memoria
+        self.user_cache = UserMemoryCache()
         self.token_repo = TokenRepository(database)
         self.user_repo = UserRepository(database)
         self.chat_repo = ChatRepository(database)
@@ -109,6 +111,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
+        await self.user_repo.preload_cache(self.user_cache)
         tokens_metadata = await self.token_repo.get_all_tokens_metadata()
 
         bot_name = self.bot_id
@@ -149,6 +152,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def close(self, **options: Any) -> None:
         """Cancela tareas pendientes antes de cerrar el bot."""
+        await self.chat_repo.close()
         if self._irc_task and not self._irc_task.done():
             if self.irc:
                 self.irc._running = False

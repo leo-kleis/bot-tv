@@ -10,6 +10,7 @@ from bot_tv.database.repositories import (
     TokenRepository,
     UserRepository,
 )
+from bot_tv.database.user_cache import UserMemoryCache
 
 __all__ = [
     "BaseRepository",
@@ -18,6 +19,7 @@ __all__ = [
     "SettingsRepository",
     "TokenPersistMixin",
     "TokenRepository",
+    "UserMemoryCache",
     "UserRepository",
     "create_pg_pool",
 ]
