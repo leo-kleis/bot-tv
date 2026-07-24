@@ -14,30 +14,27 @@ class ModelConfig:
 
 
 AVAILABLE_MODELS: dict[str, ModelConfig] = {
-    "gemini-3.1-flash-lite": ModelConfig(
-        "gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite", 15, 250_000, 500, True
-    ),
-    "gemini-2.5-flash-lite": ModelConfig(
-        "gemini-2.5-flash-lite", "Gemini 2.5 Flash Lite", 10, 250_000, 20, True
-    ),
-    "gemini-3-flash": ModelConfig(
-        "gemini-3-flash", "Gemini 3 Flash", 5, 250_000, 20, True
-    ),
-    "gemini-3.5-flash": ModelConfig(
-        "gemini-3.5-flash", "Gemini 3.5 Flash", 5, 250_000, 20, True
-    ),
     "gemini-2.5-flash": ModelConfig(
-        "gemini-2.5-flash", "Gemini 2.5 Flash", 5, 250_000, 20, True
+        "gemini-2.5-flash", "Gemini 2.5 Flash", 15, 1_000_000, 1_500, True
     ),
-    "gemini-2.5-pro": ModelConfig("gemini-2.5-pro", "Gemini 2.5 Pro", 0, 0, 0, False),
-    "gemini-2-flash": ModelConfig("gemini-2-flash", "Gemini 2 Flash", 0, 0, 0, False),
-    "gemini-2-flash-lite": ModelConfig(
-        "gemini-2-flash-lite", "Gemini 2 Flash Lite", 0, 0, 0, False
+    "gemini-2.0-flash": ModelConfig(
+        "gemini-2.0-flash", "Gemini 2.0 Flash", 15, 1_000_000, 1_500, True
     ),
-    "gemini-3.1-pro": ModelConfig("gemini-3.1-pro", "Gemini 3.1 Pro", 0, 0, 0, False),
+    "gemini-3.1-flash-lite": ModelConfig(
+        "gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite", 30, 1_000_000, 1_500, True
+    ),
+    "gemini-3-flash-preview": ModelConfig(
+        "gemini-3-flash-preview", "Gemini 3 Flash (Preview)", 15, 1_000_000, 1_500, True
+    ),
+    "gemini-flash-latest": ModelConfig(
+        "gemini-flash-latest", "Gemini Flash (Latest)", 15, 1_000_000, 1_500, True
+    ),
+    "gemini-2.5-pro": ModelConfig(
+        "gemini-2.5-pro", "Gemini 2.5 Pro", 2, 32_000, 50, False
+    ),
 }
 
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 
 def get_enabled_models() -> dict[str, ModelConfig]:

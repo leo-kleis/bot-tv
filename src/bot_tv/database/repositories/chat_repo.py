@@ -170,9 +170,9 @@ class ChatRepository(BaseRepository):
             if role_clean in ("bot", "bots"):
                 where_clauses.append("u.is_bot = TRUE")
             elif role_clean in ("moderator", "moderador", "mods", "mod"):
-                where_clauses.append("u.is_moderator = TRUE")
+                where_clauses.append("cu.is_moderator = TRUE")
             elif role_clean in ("vip", "vips"):
-                where_clauses.append("u.is_vip = TRUE")
+                where_clauses.append("cu.is_vip = TRUE")
             elif role_clean in (
                 "subscriber",
                 "suscriptor",
@@ -180,15 +180,18 @@ class ChatRepository(BaseRepository):
                 "sub",
                 "subs",
             ):
-                where_clauses.append("u.is_subscriber = TRUE")
+                where_clauses.append("cu.is_subscriber = TRUE")
 
         query = f"""
             SELECT u.username, u.display_name, u.nickname, c.message, c.timestamp
             FROM chat_history c
             JOIN users u ON c.user_id = u.user_id
+            LEFT JOIN channel_users cu
+                   ON c.user_id = cu.user_id AND c.channel_id = cu.channel_id
             WHERE {" AND ".join(where_clauses)}
             ORDER BY c.timestamp DESC LIMIT ${len(params) + 1}
         """
+
         params.append(limit)
 
         async with self._db.acquire() as conn:

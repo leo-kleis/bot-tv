@@ -14,10 +14,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from bot_tv.actions import (
+    action_clear_agent_chat,
     action_create_clip,
     action_exit,
     action_get_models,
     action_get_rpm_status,
+    action_set_context_limit,
     action_set_nickname,
     action_switch_model,
     action_sync_followers,
@@ -179,25 +181,54 @@ async def endpoint_talk(request: Request) -> Response:
     return _ok({"response": result.response, "model": result.model})
 
 
+async def endpoint_clear_agent_chat(request: Request) -> Response:
+    """Limpia la memoria conversacional del agente."""
+    agent: TalkAgent = request.app.state.agent
+    action_clear_agent_chat(agent)
+    return _ok({"message": "Historial de conversación limpiado."})
+
+
+async def endpoint_set_context_limit(request: Request) -> Response:
+    """Actualiza y persiste el límite de contexto del agente."""
+    agent: TalkAgent = request.app.state.agent
+    body = await _parse_body(request)
+    limit_val = body.get("limit", 0)
+    try:
+        limit = max(0, int(limit_val))
+    except ValueError, TypeError:
+        return _err("El campo 'limit' debe ser un número entero >= 0.")
+
+    await action_set_context_limit(agent, limit)
+    return _ok(
+        {
+            "message": f"Límite de contexto actualizado a {limit}.",
+            "context_limit": agent.context_limit,
+        }
+    )
+
+
 async def endpoint_get_rpm(request: Request) -> Response:
     agent: TalkAgent = request.app.state.agent
     show_all = request.query_params.get("all", "").lower() in ("1", "true", "yes")
     statuses = action_get_rpm_status(agent, show_all)
     return _ok(
-        [
-            {
-                "model": s.model,
-                "display_name": s.display_name,
-                "rpm_used": s.rpm_used,
-                "rpm_limit": s.rpm_limit,
-                "rpd_used": s.rpd_used,
-                "rpd_limit": s.rpd_limit,
-                "is_blocked": s.is_blocked,
-                "blocked_reason": s.blocked_reason,
-                "next_slot_in": s.next_slot_in,
-            }
-            for s in statuses
-        ]
+        {
+            "context_limit": agent.context_limit,
+            "statuses": [
+                {
+                    "model": s.model,
+                    "display_name": s.display_name,
+                    "rpm_used": s.rpm_used,
+                    "rpm_limit": s.rpm_limit,
+                    "rpd_used": s.rpd_used,
+                    "rpd_limit": s.rpd_limit,
+                    "is_blocked": s.is_blocked,
+                    "blocked_reason": s.blocked_reason,
+                    "next_slot_in": s.next_slot_in,
+                }
+                for s in statuses
+            ],
+        }
     )
 
 
@@ -372,6 +403,14 @@ async def endpoint_list_users(request: Request) -> Response:
     if unfollowed_before and len(unfollowed_before) == 10:
         unfollowed_before = f"{unfollowed_before}T23:59:59Z"
 
+    sort_by = request.query_params.get("sort_by", "username").strip().lower()
+    if sort_by not in ("username", "role", "follow_date"):
+        sort_by = "username"
+
+    sort_order = request.query_params.get("sort_order", "asc").strip().lower()
+    if sort_order not in ("asc", "desc"):
+        sort_order = "asc"
+
     limit_param = request.query_params.get("limit", "50")
     try:
         limit = int(limit_param)
@@ -397,6 +436,8 @@ async def endpoint_list_users(request: Request) -> Response:
             unfollowed_after=unfollowed_after,
             unfollowed_before=unfollowed_before,
             is_follower=is_follower,
+            sort_by=sort_by,
+            sort_order=sort_order,
             limit=limit,
             offset=offset,
             cache=bot.user_cache,

@@ -5,8 +5,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from bot_tv.agent.tools._helpers import format_user_details
-from bot_tv.utils.env import OWNER_ID
+from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
 from bot_tv.utils.formatting import format_date
 
 if TYPE_CHECKING:
@@ -49,6 +48,7 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad máxima de mensajes a retornar.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
             since_param = since.replace(" ", "T") if since else None
             if hours_ago is not None:
@@ -62,7 +62,7 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
             user_details = ""
             if username:
                 user_row = await bot.user_repo.get_user_detail_by_name(
-                    username, OWNER_ID
+                    username, channel_id
                 )
                 if not user_row:
                     return (
@@ -78,7 +78,7 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
                 )
 
             rows = await bot.chat_repo.get_messages_with_filters(
-                channel_id=OWNER_ID,
+                channel_id=channel_id,
                 username=username,
                 role=role,
                 search_term=search_term,
@@ -122,8 +122,9 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
         usuarios únicos y top chatters.
         """
         try:
-            stats_row = await bot.chat_repo.get_chat_stats(OWNER_ID)
-            top_rows = await bot.chat_repo.get_top_chatters(OWNER_ID, limit=5)
+            channel_id = await get_broadcaster_id(bot)
+            stats_row = await bot.chat_repo.get_chat_stats(channel_id)
+            top_rows = await bot.chat_repo.get_top_chatters(channel_id, limit=5)
 
             if not stats_row or stats_row["total_messages"] == 0:
                 return "No hay estadísticas de chat registradas aún."

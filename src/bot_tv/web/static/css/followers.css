@@ -237,6 +237,24 @@
   user-select: none;
 }
 
+.users-table th.sortable {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.users-table th.sortable:hover {
+  color: var(--accent-text, #fff);
+}
+
+.users-table th.sortable i {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.users-table th.sortable i.sort-icon-muted {
+  opacity: 0.3;
+}
+
 .users-table tr:last-child td {
   border-bottom: none;
 }

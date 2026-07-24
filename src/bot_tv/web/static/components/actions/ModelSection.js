@@ -16,7 +16,13 @@ export function ModelSection() {
       }
     });
     apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data?.length) setRpm(d.data[0]);
+      if (d.ok && d.data) {
+        const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+        if (statuses?.length) {
+          setRpm(statuses[0]);
+          setSelected(statuses[0].model);
+        }
+      }
     });
   }, []);
 
@@ -28,8 +34,14 @@ export function ModelSection() {
     setLoading(false);
     if (data.ok) {
       setResult({ ok: true, msg: data.data.message });
+      if (data.data.current_model) {
+        setSelected(data.data.current_model);
+      }
       apiGet('/api/rpm').then(d => {
-        if (d.ok && d.data?.length) setRpm(d.data[0]);
+        if (d.ok && d.data) {
+          const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+          if (statuses?.length) setRpm(statuses[0]);
+        }
       });
     } else {
       setResult({ ok: false, msg: data.error || 'Error.' });
@@ -64,13 +76,10 @@ export function ModelSection() {
               id="select-model"
               value=${selected}
               onChange=${setSelected}
-              options=${[
-                { value: '', label: '— Seleccionar modelo —' },
-                ...models.map(m => ({
-                  value: m.name,
-                  label: `${m.display_name} (${m.rpm_limit} RPM)`,
-                })),
-              ]}
+              options=${models.map(m => ({
+                value: m.name,
+                label: `${m.display_name} (${m.rpm_limit} RPM)`,
+              }))}
               disabled=${loading}
             />
           </div>
@@ -78,7 +87,7 @@ export function ModelSection() {
             id="btn-switch-model"
             class="btn btn-primary"
             onClick=${switchModel}
-            disabled=${!selected || loading}
+            disabled=${!selected || loading || selected === rpm?.model}
           >
             ${loading ? html`<span class="spinner"></span>` : 'Cambiar'}
           </button>

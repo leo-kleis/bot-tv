@@ -17,6 +17,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
 from bot_tv.web.api import (
+    endpoint_clear_agent_chat,
     endpoint_create_clip,
     endpoint_exit,
     endpoint_get_avatar,
@@ -26,6 +27,7 @@ from bot_tv.web.api import (
     endpoint_list_users,
     endpoint_search_users,
     endpoint_send_chat_message,
+    endpoint_set_context_limit,
     endpoint_set_nickname,
     endpoint_switch_model,
     endpoint_sync_followers,
@@ -63,6 +65,18 @@ def _compute_static_hash() -> str:
     return hasher.hexdigest()[:8]
 
 
+class NoCacheStaticFiles(StaticFiles):
+    """Evita el almacenamiento en caché del navegador para archivos estáticos."""
+
+    async def get_response(self, path: str, scope: any) -> Response:  # type: ignore[override]
+
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+
 def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     """Crea y configura la aplicación Starlette con todos los endpoints."""
     ws_manager = WebSocketManager(event_bus, bot)
@@ -78,7 +92,11 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         return Response(
             sw_body,
             media_type="application/javascript",
-            headers={"Cache-Control": "no-cache"},
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
         )
 
     async def websocket_endpoint(ws: WebSocket) -> None:
@@ -99,6 +117,8 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/update_user_roles", endpoint_update_user_roles, methods=["POST"]),
         Route("/api/sync_user_roles", endpoint_sync_user_roles, methods=["POST"]),
         Route("/api/switch_model", endpoint_switch_model, methods=["POST"]),
+        Route("/api/agent/clear", endpoint_clear_agent_chat, methods=["POST"]),
+        Route("/api/agent/context_limit", endpoint_set_context_limit, methods=["POST"]),
         Route("/api/talk", endpoint_talk, methods=["POST"]),
         Route("/api/rpm", endpoint_get_rpm, methods=["GET"]),
         Route("/api/models", endpoint_get_models, methods=["GET"]),
@@ -110,7 +130,7 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/send_chat_message", endpoint_send_chat_message, methods=["POST"]),
         Route("/api/avatar/{user_id}", endpoint_get_avatar, methods=["GET"]),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
-        Mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static"),
+        Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]
 
     app = Starlette(

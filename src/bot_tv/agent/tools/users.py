@@ -4,8 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from bot_tv.agent.tools._helpers import format_user_details
-from bot_tv.utils.env import OWNER_ID
+from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -26,7 +25,8 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             username: El nombre de usuario a consultar (ej: 'twitchdev').
         """
         try:
-            row = await bot.user_repo.get_user_detail_by_name(username, OWNER_ID)
+            channel_id = await get_broadcaster_id(bot)
+            row = await bot.user_repo.get_user_detail_by_name(username, channel_id)
 
             if not row:
                 return (
@@ -60,57 +60,41 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
 
     async def list_users(
         role: str | None = None,
-        has_nickname: bool | None = None,
-        limit: int = 20,
+        search_term: str | None = None,
+        limit: int = 10,
+        offset: int = 0,
     ) -> str:
-        """Obtiene una lista de usuarios registrados en el canal con filtros
-        opcionales por rol o presencia de apodo/nickname.
+        """Lista usuarios registrados en la base de datos aplicando filtros.
 
         Args:
-            role: Filtrar por rol. Valores permitidos: 'bot', 'moderator',
-                'vip', 'subscriber'.
-            has_nickname: Si es True, muestra solo usuarios con apodo.
-            limit: Límite de resultados a retornar.
+            role: Filtrar por un rol específico en el canal.
+                Valores válidos: 'bot', 'moderator', 'vip', 'subscriber' (opcional).
+            search_term: Término de búsqueda para filtrar por nombre de usuario,
+                display name o apodo (opcional).
+            limit: Cantidad de registros a retornar (por defecto: 10).
+            offset: Desplazamiento para paginación (por defecto: 0).
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
-            if role:
-                role_clean = role.lower()
-                valid_roles = {
-                    "bot",
-                    "bots",
-                    "moderator",
-                    "moderador",
-                    "mods",
-                    "mod",
-                    "vip",
-                    "vips",
-                    "subscriber",
-                    "suscriptor",
-                    "subscribers",
-                    "sub",
-                    "subs",
-                }
-                if role_clean not in valid_roles:
-                    return (
-                        f"Rol '{role}' no reconocido. Roles válidos: "
-                        "bot, moderator, vip, subscriber."
-                    )
-
+            offset = max(0, offset)
             rows, _ = await bot.user_repo.list_users_with_filters(
-                channel_id=OWNER_ID,
+                channel_id=channel_id,
+                broadcaster_id=channel_id,
                 role=role,
-                has_nickname=has_nickname,
+                username_search=search_term,
                 limit=limit,
+                offset=offset,
+                cache=bot.user_cache,
             )
 
             if not rows:
                 return (
-                    "No se encontraron usuarios que coincidan "
-                    "con los filtros especificados."
+                    "No se encontraron usuarios registrados en la base de datos "
+                    "con los filtros indicados."
                 )
 
-            lines = [f"Usuarios encontrados ({len(rows)}):"]
+            lines = [f"Usuarios registrados ({len(rows)} en esta página):"]
             for r in rows:
                 details = format_user_details(
                     r["username"],
@@ -128,6 +112,7 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
                     roles.append("Sub")
                 if r["is_bot"]:
                     roles.append("Bot")
+
                 roles_str = f" [{', '.join(roles)}]" if roles else ""
                 lines.append(f"- {details}{roles_str}")
 

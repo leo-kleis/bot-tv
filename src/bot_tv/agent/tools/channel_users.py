@@ -4,8 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from bot_tv.agent.tools._helpers import format_user_details
-from bot_tv.utils.env import OWNER_ID
+from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -21,7 +20,8 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
     async def get_channel_user_stats() -> str:
         """Obtiene estadísticas generales sobre los seguidores en la base de datos."""
         try:
-            row = await bot.channel_user_repo.get_follower_stats(OWNER_ID)
+            channel_id = await get_broadcaster_id(bot)
+            row = await bot.channel_user_repo.get_follower_stats(channel_id)
             if not row:
                 return "No hay datos de seguidores registrados en la base de datos."
 
@@ -51,9 +51,10 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Límite de resultados a retornar.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
             rows = await bot.channel_user_repo.search_followers(
-                channel_id=OWNER_ID,
+                channel_id=channel_id,
                 search_term=search_term,
                 active_only=active_only,
                 limit=limit,
@@ -89,7 +90,8 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             username: El nombre de usuario de Twitch exacto (ej: 'twitchdev').
         """
         try:
-            row = await bot.user_repo.get_user_detail_by_name(username, OWNER_ID)
+            channel_id = await get_broadcaster_id(bot)
+            row = await bot.user_repo.get_user_detail_by_name(username, channel_id)
             if not row:
                 return (
                     f"No se encontró información del usuario "
@@ -107,19 +109,23 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             LOGGER.error("Error al obtener información del seguidor: %s", e)
             return f"Error al consultar base de datos: {e}"
 
-    async def get_recent_channel_users(
-        limit: int = 5, active_only: bool = False
-    ) -> str:
-        """Obtiene una lista de los seguidores registrados más recientemente.
+    async def get_recent_channel_users(limit: int = 5, active_only: bool = True) -> str:
+        """Obtiene la lista de los últimos seguidores activos reales del canal.
+
+        Por defecto filtra únicamente a usuarios que son seguidores vigentes/activos
+        y excluye a cuentas marcadas como bots o unfollowers.
 
         Args:
             limit: Cantidad de seguidores a mostrar.
-            active_only: Si es True, solo muestra seguidores vigentes/activos.
+            active_only: Si es True, solo muestra seguidores vigentes/activos
+                (por defecto True).
         """
+
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
             rows = await bot.channel_user_repo.get_recent_followers(
-                channel_id=OWNER_ID, limit=limit, active_only=active_only
+                channel_id=channel_id, limit=limit, active_only=active_only
             )
 
             if not rows:
@@ -150,9 +156,10 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad de usuarios a mostrar.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
             rows = await bot.channel_user_repo.get_recent_unfollowers(
-                channel_id=OWNER_ID, limit=limit
+                channel_id=channel_id, limit=limit
             )
 
             if not rows:

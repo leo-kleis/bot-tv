@@ -1,4 +1,6 @@
-import { html, useState } from 'preact-setup';
+import { html, useState, useEffect } from 'preact-setup';
+import { apiGet, apiPost } from '/static/components/api.js';
+import { ModelSection } from '/static/components/actions/ModelSection.js';
 
 const MIN_FONT = 12;
 const MAX_FONT = 22;
@@ -15,6 +17,34 @@ export function SettingsTab() {
     }
     return 14.5; // Valor por defecto
   });
+
+  const [contextLimit, setContextLimit] = useState(0);
+  const [savingLimit, setSavingLimit] = useState(false);
+  const [limitSavedMsg, setLimitSavedMsg] = useState('');
+
+  useEffect(() => {
+    apiGet('/api/rpm').then(d => {
+      if (d.ok && d.data) {
+        if (typeof d.data.context_limit === 'number') {
+          setContextLimit(d.data.context_limit);
+        }
+      }
+    });
+  }, []);
+
+  async function handleContextLimitChange(newVal) {
+    const val = Math.max(0, parseInt(newVal, 10) || 0);
+    setContextLimit(val);
+    setSavingLimit(true);
+    setLimitSavedMsg('');
+
+    const res = await apiPost('/api/agent/context_limit', { limit: val });
+    setSavingLimit(false);
+    if (res.ok) {
+      setLimitSavedMsg('Guardado');
+      setTimeout(() => setLimitSavedMsg(''), 2000);
+    }
+  }
 
   const updateFontSize = newSize => {
     const size = Math.max(MIN_FONT, Math.min(MAX_FONT, newSize));
@@ -38,6 +68,50 @@ export function SettingsTab() {
 
   return html`
     <div class="settings-tab">
+      <!-- Sección Agente -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <i class="fa-solid fa-robot"></i> Configuración del Agente de IA
+        </h3>
+
+        <!-- Selección de Modelo -->
+        <div style="margin-bottom: 20px;">
+          <${ModelSection} />
+        </div>
+
+        <!-- Límite de Contexto -->
+        <div class="settings-control-group">
+          <label class="settings-label" for="context-limit-input">
+            Límite de Contexto de Conversación (Turnos)
+          </label>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+            <input
+              id="context-limit-input"
+              type="number"
+              min="0"
+              max="100"
+              value=${contextLimit}
+              onInput=${e => handleContextLimitChange(e.target.value)}
+              style="width:100px;padding:6px 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;"
+            />
+            <span style="font-size:12px;color:var(--text-muted);">
+              ${contextLimit === 0
+                ? '0 = Sin Límite (Ilimitado)'
+                : `Conserva los últimos ${contextLimit} turnos`}
+            </span>
+            ${savingLimit
+              ? html`<span class="spinner" style="border-top-color:var(--accent)"></span>`
+              : null}
+            ${limitSavedMsg
+              ? html`<span style="color:var(--success);font-size:12px;font-weight:600;"
+                  >${limitSavedMsg}</span
+                >`
+              : null}
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección Estilo -->
       <div class="settings-section">
         <h3 class="settings-section-title">
           <i class="fa-solid fa-sliders"></i> Personalización de Estilo

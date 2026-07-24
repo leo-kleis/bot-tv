@@ -90,6 +90,10 @@ export function FollowersTab({ followers }) {
   const [unfollowedAfter, setUnfollowedAfter] = useState('');
   const [unfollowedBefore, setUnfollowedBefore] = useState('');
 
+  // Estados de ordenamiento
+  const [sortBy, setSortBy] = useState('username'); // 'username', 'role', 'follow_date'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
+
   // Estados de paginación y carga
   const [users, setUsers] = useState([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -117,6 +121,8 @@ export function FollowersTab({ followers }) {
     followedBefore,
     unfollowedAfter,
     unfollowedBefore,
+    sortBy,
+    sortOrder,
   });
 
   // Debounce del buscador de nombre (1s)
@@ -136,7 +142,9 @@ export function FollowersTab({ followers }) {
       prevFilters.current.followedAfter !== followedAfter ||
       prevFilters.current.followedBefore !== followedBefore ||
       prevFilters.current.unfollowedAfter !== unfollowedAfter ||
-      prevFilters.current.unfollowedBefore !== unfollowedBefore;
+      prevFilters.current.unfollowedBefore !== unfollowedBefore ||
+      prevFilters.current.sortBy !== sortBy ||
+      prevFilters.current.sortOrder !== sortOrder;
 
     prevFilters.current = {
       nameSearch,
@@ -146,6 +154,8 @@ export function FollowersTab({ followers }) {
       followedBefore,
       unfollowedAfter,
       unfollowedBefore,
+      sortBy,
+      sortOrder,
     };
 
     if (filtersChanged && page !== 1) {
@@ -162,6 +172,8 @@ export function FollowersTab({ followers }) {
     followedBefore,
     unfollowedAfter,
     unfollowedBefore,
+    sortBy,
+    sortOrder,
   ]);
 
   // Efecto para limpiar campos de fecha del filtro opuesto si cambia el combo de estado
@@ -190,6 +202,8 @@ export function FollowersTab({ followers }) {
     if (followedBefore) params.append('followed_before', followedBefore);
     if (unfollowedAfter) params.append('unfollowed_after', unfollowedAfter);
     if (unfollowedBefore) params.append('unfollowed_before', unfollowedBefore);
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortOrder) params.append('sort_order', sortOrder);
     params.append('limit', limit.toString());
     params.append('page', page.toString());
 
@@ -201,6 +215,15 @@ export function FollowersTab({ followers }) {
     } else {
       setUsers([]);
       setTotalUsers(0);
+    }
+  }
+
+  function handleSort(field) {
+    if (sortBy === field) {
+      setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
     }
   }
 
@@ -288,6 +311,8 @@ export function FollowersTab({ followers }) {
     setFollowedBefore('');
     setUnfollowedAfter('');
     setUnfollowedBefore('');
+    setSortBy('username');
+    setSortOrder('asc');
     setPage(1);
   }
 
@@ -580,9 +605,42 @@ export function FollowersTab({ followers }) {
                     <table class="users-table">
                       <thead>
                         <tr>
-                          <th>Usuario</th>
-                          <th>Roles</th>
-                          <th>Estado Seguimiento</th>
+                          <th
+                            class="sortable"
+                            onClick=${() => handleSort('username')}
+                            title="Ordenar por usuario (alfabético)"
+                          >
+                            Usuario
+                            ${sortBy === 'username'
+                              ? html`<i
+                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                ></i>`
+                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
+                          </th>
+                          <th
+                            class="sortable"
+                            onClick=${() => handleSort('role')}
+                            title="Ordenar por rol prioritario (Moderador -> VIP -> Suscriptor -> Bot)"
+                          >
+                            Roles
+                            ${sortBy === 'role'
+                              ? html`<i
+                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                ></i>`
+                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
+                          </th>
+                          <th
+                            class="sortable"
+                            onClick=${() => handleSort('follow_date')}
+                            title="Ordenar por fecha y hora de seguimiento / unfollow"
+                          >
+                            Estado Seguimiento
+                            ${sortBy === 'follow_date'
+                              ? html`<i
+                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                ></i>`
+                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
+                          </th>
                           <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                       </thead>

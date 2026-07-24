@@ -11,9 +11,20 @@ export function AgentTab({ conversations = [], dispatch }) {
   // Cargar estado RPM al montar
   useEffect(() => {
     apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data?.length) setRpmInfo(d.data[0]);
+      if (d.ok && d.data) {
+        const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+        if (statuses?.length) setRpmInfo(statuses[0]);
+      }
     });
   }, []);
+
+  async function clearChat() {
+    if (loading) return;
+    const res = await apiPost('/api/agent/clear', {});
+    if (res.ok) {
+      dispatch({ type: 'agent_clear_history' });
+    }
+  }
 
   // Auto-scroll al final
   useEffect(() => {
@@ -102,20 +113,38 @@ export function AgentTab({ conversations = [], dispatch }) {
             )}
       </div>
 
-      <!-- Info RPM -->
-      ${rpm
-        ? html`
-            <div class="agent-model-info">
-              <span class="rpm-dot ${rpmDotClass}"></span>
-              <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
-              ${rpm.is_blocked
-                ? html`<span style="color:var(--danger)"
-                    >Bloqueado ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
-                  >`
-                : null}
-            </div>
-          `
-        : null}
+      <!-- Info RPM y Limpiar Chat -->
+      <div
+        class="agent-model-info"
+        style="display:flex;justify-content:space-between;align-items:center;"
+      >
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${rpm
+            ? html`
+                <span class="rpm-dot ${rpmDotClass}"></span>
+                <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
+                ${rpm.is_blocked
+                  ? html`<span style="color:var(--danger)"
+                      >Bloqueado
+                      ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
+                    >`
+                  : null}
+              `
+            : null}
+        </div>
+        ${conversations.length > 0
+          ? html`
+              <button
+                class="btn btn-secondary"
+                style="padding:4px 10px;font-size:12px;"
+                onClick=${clearChat}
+                title="Borrar conversación y empezar un nuevo chat con el agente"
+              >
+                <i class="fa-solid fa-trash" style="margin-right:4px"></i> Limpiar chat
+              </button>
+            `
+          : null}
+      </div>
 
       <!-- Input -->
       <div class="agent-input-area">

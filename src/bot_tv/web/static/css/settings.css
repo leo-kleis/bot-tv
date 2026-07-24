@@ -21,6 +21,17 @@
   gap: 16px;
   box-shadow: var(--shadow-sm);
   animation: msg-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 1;
+}
+
+.settings-section:first-child {
+  z-index: 10;
+}
+
+.settings-section:has(.custom-select-wrap.open),
+.settings-section:focus-within {
+  z-index: 100;
 }
 
 .settings-section-title {

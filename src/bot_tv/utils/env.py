@@ -24,5 +24,5 @@ DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 DIRECT_URL: str = os.getenv("DIRECT_URL", DATABASE_URL)
 # API Key para Antigravity SDK
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-# Modelo por defecto del Antigravity SDK
-GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# Modelo por defecto del Antigravity SDK (30 RPM)
+GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")

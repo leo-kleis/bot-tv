@@ -91,7 +91,7 @@ class UserMemoryCache:
         """Devuelve los roles del usuario en un canal dado."""
         if user_id not in self._users:
             return None
-        roles = self._channel_roles.get((str(channel_id), str(user_id)))
+        roles = self._channel_roles.get((channel_id, user_id))
         if not roles:
             return {
                 "is_moderator": False,
@@ -122,7 +122,7 @@ class UserMemoryCache:
         is_subscriber: bool,
     ) -> bool:
         """Determina si se requieren escrituras SQL en la tabla channel_users."""
-        roles = self._channel_roles.get((str(channel_id), str(user_id)))
+        roles = self._channel_roles.get((channel_id, user_id))
         if not roles:
             return True
         return (
@@ -175,12 +175,20 @@ class UserMemoryCache:
         sub_tier: str | None = None,
     ) -> None:
         """Actualiza los roles de un usuario para un canal en la caché."""
-        self._channel_roles[(str(channel_id), str(user_id))] = {
-            "is_moderator": is_moderator,
-            "is_vip": is_vip,
-            "is_subscriber": is_subscriber,
-            "sub_tier": sub_tier,
-        }
+        roles = self._channel_roles.get((channel_id, user_id))
+        if not roles:
+            roles = {
+                "channel_id": channel_id,
+                "user_id": user_id,
+                "followed_at": None,
+                "unfollowed_at": None,
+            }
+            self._channel_roles[(channel_id, user_id)] = roles
+
+        roles["is_moderator"] = is_moderator
+        roles["is_vip"] = is_vip
+        roles["is_subscriber"] = is_subscriber
+        roles["sub_tier"] = sub_tier
 
     def set_nickname(self, user_id: str, nickname: str | None) -> None:
         """Establece o elimina el apodo en la caché."""
@@ -202,7 +210,7 @@ class UserMemoryCache:
 
     def get_follower_ids(self, channel_id: str) -> set[str]:
         """Devuelve el conjunto de user_id que siguen al canal en la caché."""
-        cid = str(channel_id)
+        cid = channel_id
         return {
             uid
             for (c, uid), roles in self._channel_roles.items()
@@ -217,7 +225,7 @@ class UserMemoryCache:
         now_iso: str | None = None,
     ) -> None:
         """Sincroniza los cambios de seguidores en la caché."""
-        cid = str(channel_id)
+        cid = channel_id
 
         if unfollowed_ids:
             for uid in unfollowed_ids:
@@ -256,11 +264,13 @@ class UserMemoryCache:
         unfollowed_after: str | None = None,
         unfollowed_before: str | None = None,
         is_follower: str | None = None,
+        sort_by: str = "username",
+        sort_order: str = "asc",
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
         """Filtra y pagina los usuarios almacenados en la caché en memoria."""
-        cid = str(channel_id)
+        cid = channel_id
         matching_users: list[dict[str, Any]] = []
 
         role_clean = role.lower() if role else None
@@ -326,7 +336,7 @@ class UserMemoryCache:
                 "not_follower",
                 "unfollower",
             ):
-                if broadcaster_id and uid == str(broadcaster_id):
+                if broadcaster_id and uid == broadcaster_id:
                     continue
 
                 if is_follower == "follower":
@@ -354,8 +364,51 @@ class UserMemoryCache:
                 }
             )
 
-        # Ordenar por username alfabéticamente
-        matching_users.sort(key=lambda u: u["username"].lower())
+        # Ordenar los usuarios según sort_by y sort_order
+        rev = sort_order.lower() == "desc"
+        sb = sort_by.lower()
+
+        if sb == "role":
+
+            def _role_rank(u: dict[str, Any]) -> int:
+                if u.get("is_moderator"):
+                    return 1
+                if u.get("is_vip"):
+                    return 2
+                if u.get("is_subscriber"):
+                    return 3
+                if u.get("is_bot"):
+                    return 4
+                return 5
+
+            matching_users.sort(
+                key=lambda u: (_role_rank(u), u["username"].lower()),
+                reverse=rev,
+            )
+        elif sb == "follow_date":
+            if rev:
+                matching_users.sort(
+                    key=lambda u: (
+                        1 if (u.get("unfollowed_at") or u.get("followed_at")) else 0,
+                        u.get("unfollowed_at") or u.get("followed_at") or "",
+                        u["username"].lower(),
+                    ),
+                    reverse=True,
+                )
+            else:
+                matching_users.sort(
+                    key=lambda u: (
+                        0 if (u.get("unfollowed_at") or u.get("followed_at")) else 1,
+                        u.get("unfollowed_at") or u.get("followed_at") or "",
+                        u["username"].lower(),
+                    ),
+                    reverse=False,
+                )
+        else:
+            matching_users.sort(
+                key=lambda u: (u.get("display_name") or u["username"]).lower(),
+                reverse=rev,
+            )
 
         total_count = len(matching_users)
         limit_val = max(1, limit)

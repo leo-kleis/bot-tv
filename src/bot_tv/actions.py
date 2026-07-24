@@ -7,7 +7,6 @@ Cada función retorna datos tipados que cada consumer formatea a su modo.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -581,15 +580,19 @@ def action_switch_model(agent: TalkAgent, model: str) -> str:
 
 
 async def action_talk(agent: TalkAgent, message: str) -> AgentTalkResult:
-    """Envía un mensaje al agente y retorna la respuesta limpia y el modelo usado."""
+    """Envía un mensaje al agente y retorna la respuesta y el modelo usado."""
     raw = await agent.chat(message)
+    return AgentTalkResult(response=raw.strip(), model=agent.current_model)
 
-    # Limpiar marcas de formato Markdown
-    cleaned = re.sub(r"\*\*|__", "", raw)
-    cleaned = re.sub(r"\*|_", "", cleaned)
-    cleaned = re.sub(r"`", "", cleaned)
 
-    return AgentTalkResult(response=cleaned, model=agent.current_model)
+def action_clear_agent_chat(agent: TalkAgent) -> None:
+    """Limpia el historial conversacional del agente."""
+    agent.clear_history()
+
+
+async def action_set_context_limit(agent: TalkAgent, limit: int) -> None:
+    """Establece y persiste el límite de contexto del agente."""
+    await agent.set_context_limit(limit)
 
 
 # ── Ciclo de vida ────────────────────────────────────────────────────────────

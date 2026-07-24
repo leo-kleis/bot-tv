@@ -93,15 +93,16 @@ class ChannelUserRepository(BaseRepository):
                 )
 
     async def get_follower_stats(self, channel_id: str) -> dict[str, int] | None:
-        """Devuelve las estadísticas generales de seguidores para un canal."""
+        """Devuelve las estadísticas de seguidores (excluyendo bots)."""
         query = """
             SELECT COUNT(*) as total_records,
-                   SUM(CASE WHEN unfollowed_at IS NULL
+                   SUM(CASE WHEN cu.unfollowed_at IS NULL
                             THEN 1 ELSE 0 END) as active_followers,
-                   SUM(CASE WHEN unfollowed_at IS NOT NULL
+                   SUM(CASE WHEN cu.unfollowed_at IS NOT NULL
                             THEN 1 ELSE 0 END) as unfollowers
-            FROM channel_users
-            WHERE channel_id = $1
+            FROM channel_users cu
+            JOIN users u ON cu.user_id = u.user_id
+            WHERE cu.channel_id = $1 AND u.is_bot = FALSE
         """
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(query, channel_id)
@@ -128,7 +129,7 @@ class ChannelUserRepository(BaseRepository):
                    cu.followed_at, cu.unfollowed_at
             FROM channel_users cu
             JOIN users u ON cu.user_id = u.user_id
-            WHERE cu.channel_id = $1 AND (
+            WHERE cu.channel_id = $1 AND u.is_bot = FALSE AND (
                 u.username ILIKE $2 OR
                 u.display_name ILIKE $2 OR
                 u.nickname ILIKE $2
@@ -136,7 +137,7 @@ class ChannelUserRepository(BaseRepository):
         """
         if active_only:
             query += " AND cu.unfollowed_at IS NULL"
-        query += " ORDER BY cu.followed_at DESC LIMIT $3"
+        query += " ORDER BY cu.followed_at DESC NULLS LAST LIMIT $3"
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(
@@ -145,20 +146,21 @@ class ChannelUserRepository(BaseRepository):
         return [dict(row) for row in rows]
 
     async def get_recent_followers(
-        self, channel_id: str, limit: int = 5, active_only: bool = False
+        self, channel_id: str, limit: int = 5, active_only: bool = True
     ) -> list[dict[str, Any]]:
-        """Obtiene la lista de los seguidores registrados más recientemente."""
+        """Obtiene los seguidores más recientes (activos por defecto)."""
+
         limit = max(1, limit)
         query = """
             SELECT u.username, u.display_name, u.nickname,
                    cu.followed_at, cu.unfollowed_at
             FROM channel_users cu
             JOIN users u ON cu.user_id = u.user_id
-            WHERE cu.channel_id = $1
+            WHERE cu.channel_id = $1 AND u.is_bot = FALSE
         """
         if active_only:
             query += " AND cu.unfollowed_at IS NULL"
-        query += " ORDER BY cu.followed_at DESC LIMIT $2"
+        query += " ORDER BY cu.followed_at DESC NULLS LAST LIMIT $2"
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)

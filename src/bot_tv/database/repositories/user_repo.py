@@ -24,8 +24,8 @@ class UserRepository(BaseRepository):
                 "profile_image_url FROM users"
             )
             roles_rows = await conn.fetch(
-                "SELECT channel_id, user_id, is_moderator, is_vip, "
-                "is_subscriber, sub_tier FROM channel_users"
+                "SELECT channel_id, user_id, followed_at, unfollowed_at, "
+                "is_moderator, is_vip, is_subscriber, sub_tier FROM channel_users"
             )
         cache.preload([dict(r) for r in users_rows], [dict(r) for r in roles_rows])
 
@@ -241,6 +241,8 @@ class UserRepository(BaseRepository):
         unfollowed_after: str | None = None,
         unfollowed_before: str | None = None,
         is_follower: str | None = None,
+        sort_by: str = "username",
+        sort_order: str = "asc",
         limit: int = 20,
         offset: int = 0,
         cache: UserMemoryCache | None = None,
@@ -257,6 +259,8 @@ class UserRepository(BaseRepository):
                 unfollowed_after=unfollowed_after,
                 unfollowed_before=unfollowed_before,
                 is_follower=is_follower,
+                sort_by=sort_by,
+                sort_order=sort_order,
                 limit=limit,
                 offset=offset,
             )
@@ -335,6 +339,23 @@ class UserRepository(BaseRepository):
 
         where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
+        sort_by_clean = (sort_by or "username").lower()
+        sort_order_sql = "DESC" if (sort_order or "").lower() == "desc" else "ASC"
+
+        if sort_by_clean == "role":
+            order_by_sql = (
+                "ORDER BY (CASE WHEN cu.is_moderator THEN 1 WHEN cu.is_vip THEN 2 "
+                "WHEN cu.is_subscriber THEN 3 WHEN u.is_bot THEN 4 ELSE 5 END) "
+                f"{sort_order_sql}, u.username ASC"
+            )
+        elif sort_by_clean == "follow_date":
+            order_by_sql = (
+                f"ORDER BY COALESCE(cu.unfollowed_at, cu.followed_at) "
+                f"{sort_order_sql} NULLS LAST, u.username ASC"
+            )
+        else:
+            order_by_sql = f"ORDER BY u.username {sort_order_sql}"
+
         count_query = f"""
             SELECT COUNT(*) AS total
             FROM users u
@@ -350,7 +371,7 @@ class UserRepository(BaseRepository):
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
-            ORDER BY u.username ASC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
+            {order_by_sql} LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """
 
         async with self._db.acquire() as conn:
@@ -439,27 +460,58 @@ class UserRepository(BaseRepository):
                 """
                 await conn.execute(query, channel_id, user_id, is_moderator, is_vip)
 
-    async def search_users(self, q: str, limit: int = 10) -> list[dict[str, Any]]:
+    async def search_users(
+        self, q: str, limit: int = 10, channel_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""
         like_pattern = f"%{q}%"
-        query = """
-            SELECT u.user_id, u.username, u.display_name,
-                   COALESCE(u.nickname, '') AS nickname,
-                   u.is_bot,
-                   COALESCE(cu.is_moderator, FALSE) AS is_moderator,
-                   COALESCE(cu.is_vip, FALSE) AS is_vip,
-                   COALESCE(cu.is_subscriber, FALSE) AS is_subscriber,
-                   (cu.user_id IS NOT NULL AND cu.unfollowed_at IS NULL) AS is_follower
-            FROM users u
-            LEFT JOIN channel_users cu ON u.user_id = cu.user_id
-            WHERE u.username ILIKE $1 OR u.display_name ILIKE $1 OR u.nickname ILIKE $1
-            GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
-                     cu.is_moderator, cu.is_vip, cu.is_subscriber
-            ORDER BY u.display_name
-            LIMIT $2
-        """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, like_pattern, limit)
+        if channel_id:
+            query = """
+                SELECT u.user_id, u.username, u.display_name,
+                       COALESCE(u.nickname, '') AS nickname,
+                       u.is_bot,
+                       COALESCE(cu.is_moderator, FALSE) AS is_moderator,
+                       COALESCE(cu.is_vip, FALSE) AS is_vip,
+                       COALESCE(cu.is_subscriber, FALSE) AS is_subscriber,
+                       (cu.user_id IS NOT NULL AND cu.unfollowed_at IS NULL)
+                        AS is_follower
+                FROM users u
+                LEFT JOIN channel_users cu
+                       ON u.user_id = cu.user_id AND cu.channel_id = $3
+                WHERE u.username ILIKE $1
+                   OR u.display_name ILIKE $1
+                   OR u.nickname ILIKE $1
+                GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
+                         cu.is_moderator, cu.is_vip, cu.is_subscriber
+                ORDER BY u.display_name
+                LIMIT $2
+            """
+            async with self._db.acquire() as conn:
+                rows: list[asyncpg.Record] = await conn.fetch(
+                    query, like_pattern, limit, channel_id
+                )
+        else:
+            query = """
+                SELECT u.user_id, u.username, u.display_name,
+                       COALESCE(u.nickname, '') AS nickname,
+                       u.is_bot,
+                       COALESCE(cu.is_moderator, FALSE) AS is_moderator,
+                       COALESCE(cu.is_vip, FALSE) AS is_vip,
+                       COALESCE(cu.is_subscriber, FALSE) AS is_subscriber,
+                       (cu.user_id IS NOT NULL AND cu.unfollowed_at IS NULL)
+                        AS is_follower
+                FROM users u
+                LEFT JOIN channel_users cu ON u.user_id = cu.user_id
+                WHERE u.username ILIKE $1
+                   OR u.display_name ILIKE $1
+                   OR u.nickname ILIKE $1
+                GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
+                         cu.is_moderator, cu.is_vip, cu.is_subscriber
+                ORDER BY u.display_name
+                LIMIT $2
+            """
+            async with self._db.acquire() as conn:
+                rows = await conn.fetch(query, like_pattern, limit)
         return [dict(row) for row in rows]
 
     async def get_profile_image_url(

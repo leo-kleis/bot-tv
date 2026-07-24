@@ -6,7 +6,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
-from bot_tv.utils.env import OWNER_ID
+from bot_tv.agent.tools._helpers import get_broadcaster_id
 from bot_tv.utils.formatting import format_date
 
 if TYPE_CHECKING:
@@ -45,20 +45,21 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
             new_title: El nuevo título para el stream.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             old_title = "Desconocido (Stream offline o sin título)"
-            streams = bot.fetch_streams(user_ids=[int(OWNER_ID)])
+            streams = bot.fetch_streams(user_ids=[channel_id])
             async for stream in streams:
                 if stream.title:
                     old_title = stream.title
                 break
             else:
-                channel_info = await bot.fetch_channel(broadcaster_id=OWNER_ID)
+                channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
                 if channel_info and channel_info.title:
                     old_title = channel_info.title
 
-            canal = bot.create_partialuser(user_id=OWNER_ID)
+            canal = bot.create_partialuser(user_id=channel_id)
             # pyrefly: ignore [missing-attribute]
-            await canal.modify_stream(title=new_title, token_for=OWNER_ID)
+            await canal.modify_stream(title=new_title, token_for=channel_id)
             return (
                 f"Título cambiado con éxito.\n"
                 f"Antes: '{old_title}'\n"
@@ -75,6 +76,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
             category_name: El nombre de la nueva categoría o juego en Twitch.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             games = await bot.fetch_games(names=[category_name])
             if not games:
                 return (
@@ -87,19 +89,19 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
             resolved_name = target_game.name
 
             old_category = "Desconocida"
-            streams = bot.fetch_streams(user_ids=[int(OWNER_ID)])
+            streams = bot.fetch_streams(user_ids=[channel_id])
             async for stream in streams:
                 if stream.game_name:
                     old_category = stream.game_name
                 break
             else:
-                channel_info = await bot.fetch_channel(broadcaster_id=OWNER_ID)
+                channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
                 if channel_info and channel_info.game_name:
                     old_category = channel_info.game_name
 
-            canal = bot.create_partialuser(user_id=OWNER_ID)
+            canal = bot.create_partialuser(user_id=channel_id)
             # pyrefly: ignore [missing-attribute]
-            await canal.modify_stream(game_id=game_id, token_for=OWNER_ID)
+            await canal.modify_stream(game_id=game_id, token_for=channel_id)
             return (
                 f"Categoría cambiada con éxito.\n"
                 f"Antes: '{old_category}'\n"
@@ -115,7 +117,8 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
         Retorna título, categoría y cantidad de espectadores actuales.
         """
         try:
-            streams = bot.fetch_streams(user_ids=[int(OWNER_ID)])
+            channel_id = await get_broadcaster_id(bot)
+            streams = bot.fetch_streams(user_ids=[channel_id])
             async for stream in streams:
                 return (
                     f"El canal está EN VIVO.\n"
@@ -124,7 +127,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                     f"Espectadores: {stream.viewer_count}"
                 )
 
-            channel_info = await bot.fetch_channel(broadcaster_id=OWNER_ID)
+            channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
             if channel_info:
                 return (
                     f"El canal está OFFLINE.\n"
@@ -157,6 +160,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad de streams pasados a retornar.
         """
         try:
+            channel_id = await get_broadcaster_id(bot)
             limit = max(1, limit)
 
             game_id = None
@@ -168,7 +172,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
 
             # pyrefly: ignore [missing-attribute]
             videos = await bot.fetch_videos(
-                user_id=OWNER_ID,
+                user_id=channel_id,
                 type="archive",
                 period=period,
                 sort=sort,
@@ -191,7 +195,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 end_utc = (video.created_at + duration).isoformat()
 
                 msg_count = await bot.chat_repo.get_message_count_in_range(
-                    OWNER_ID, start_utc, end_utc
+                    channel_id, start_utc, end_utc
                 )
 
                 start_local = format_date(start_utc)

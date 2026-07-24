@@ -214,6 +214,9 @@ select option {
   position: relative;
   width: 100%;
 }
+.custom-select-wrap.open {
+  z-index: 100;
+}
 
 .custom-select-trigger {
   width: 100%;

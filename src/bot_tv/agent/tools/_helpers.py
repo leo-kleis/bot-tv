@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from bot_tv.utils.formatting import format_date
+
+if TYPE_CHECKING:
+    from bot_tv.bot import Bot
+
+
+async def get_broadcaster_id(bot: Bot) -> str:
+    """Obtiene el ID del broadcaster de forma segura (OWNER_ID o primer canal)."""
+    if bot.owner_id and bot.owner_id.strip():
+        return bot.owner_id.strip()
+    channels = await bot.get_channels()
+    if channels:
+        return channels[0]["user_id"]
+    return ""
 
 
 def format_user_details(

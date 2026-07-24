@@ -9,6 +9,13 @@ export function useWebSocket(dispatch) {
   useEffect(() => {
     let destroyed = false;
 
+    // Timeout de seguridad de 2.5s para no bloquear la UI en el pantalla de carga si el servidor está apagado
+    const initTimer = setTimeout(() => {
+      if (!destroyed && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
+        dispatch({ type: 'WS_DISCONNECTED' });
+      }
+    }, 2500);
+
     function connect() {
       if (destroyed) return;
 
@@ -17,8 +24,15 @@ export function useWebSocket(dispatch) {
         timeoutIdRef.current = null;
       }
 
-      if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         return;
+      }
+
+      // Si había una conexión en progreso pegada (CONNECTING), cerrarla antes de reintentar
+      if (wsRef.current && wsRef.current.readyState === WebSocket.CONNECTING) {
+        try {
+          wsRef.current.close();
+        } catch {}
       }
 
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -47,31 +61,47 @@ export function useWebSocket(dispatch) {
 
         if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
 
+        // Reintento continuo rápido (máx 5s) para reconectar automáticamente en móviles
         timeoutIdRef.current = setTimeout(() => {
-          reconnectRef.current = Math.min(reconnectRef.current * 1.5, 30000);
+          reconnectRef.current = Math.min(reconnectRef.current * 1.3, 5000);
           connect();
         }, reconnectRef.current);
       };
 
-      ws.onerror = () => ws.close();
+      ws.onerror = () => {
+        try {
+          ws.close();
+        } catch {}
+      };
     }
 
     connectFnRef.current = connect;
     connect();
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-          reconnectRef.current = 1000;
-          connect();
-        }
+    // Reaccionar a eventos móviles de primer plano y red
+    const handleWakeup = () => {
+      if (!destroyed && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
+        reconnectRef.current = 1000;
+        connect();
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    window.addEventListener('online', handleWakeup);
+    window.addEventListener('pageshow', handleWakeup);
+    window.addEventListener('focus', handleWakeup);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        handleWakeup();
+      }
+    });
 
     return () => {
       destroyed = true;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(initTimer);
+      window.removeEventListener('online', handleWakeup);
+      window.removeEventListener('pageshow', handleWakeup);
+      window.removeEventListener('focus', handleWakeup);
+      document.removeEventListener('visibilitychange', handleWakeup);
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       wsRef.current?.close();
     };
@@ -79,11 +109,12 @@ export function useWebSocket(dispatch) {
 
   const triggerReconnect = () => {
     reconnectRef.current = 1000;
-    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-      connectFnRef.current?.();
-    } else {
-      wsRef.current.close();
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch {}
     }
+    connectFnRef.current?.();
   };
 
   return { triggerReconnect };

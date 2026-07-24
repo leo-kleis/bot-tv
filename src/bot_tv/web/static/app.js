@@ -203,6 +203,9 @@ function reducer(state, action) {
       return { ...state, agentConversations: list };
     }
 
+    case 'agent_clear_history':
+      return { ...state, agentConversations: [] };
+
     case 'BOT_EXITED':
       return { ...state, exited: true };
 
@@ -255,3 +258,31 @@ function Root() {
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
 render(html`<${Root} />`, document.getElementById('app'));
+
+// ── ServiceWorker Registration & Auto-Reload ────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      // Buscar actualizaciones periódicamente o en reconexión
+      reg.update();
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        }
+      });
+    });
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+  });
+}

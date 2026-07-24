@@ -174,7 +174,7 @@ dev = [
 requires-dist = [
     { name = "asyncpg", specifier = "==0.31.0" },
     { name = "cryptography", specifier = "==49.0.0" },
-    { name = "google-antigravity", specifier = "==0.1.3" },
+    { name = "google-antigravity", specifier = "==0.1.7" },
     { name = "keyboard", specifier = "==0.13.5" },
     { name = "prompt-toolkit", specifier = "==3.0.52" },
     { name = "python-dotenv", specifier = "==1.2.2" },
@@ -399,7 +399,7 @@ wheels = [
 
 [[package]]
 name = "google-antigravity"
-version = "0.1.3"
+version = "0.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "absl-py" },
@@ -411,11 +411,11 @@ dependencies = [
     { name = "websockets" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/65/79a2e49d3356c411854e6211f7e9b9b0b35c8970dc8d095aedfe30e5de91/google_antigravity-0.1.3-py3-none-macosx_11_0_arm64.whl", hash = "sha256:51d170bef7995fe6fd21f1794a96ee545f714a8e7be6c1022f84881b5512fe05", size = 30274137, upload-time = "2026-06-11T20:09:54.392Z" },
-    { url = "https://files.pythonhosted.org/packages/6d/8a/e592d320c0560dde3a346ac6faad414d38670c5a1285890c25fa949ff447/google_antigravity-0.1.3-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:9bef739888bccfa0747fcbc85696c2ee91ee29481405efd5d982c11fe9e211ff", size = 32714515, upload-time = "2026-06-11T20:09:57.575Z" },
-    { url = "https://files.pythonhosted.org/packages/6c/75/decfdc6519d3c5e9e0a2c4b021431ccb5ffb035fa9ccb96098213eee534b/google_antigravity-0.1.3-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:44c3314e544ac4a9ea62779f25e2ae392983ac59b3d4f4f7fc2a68708f98f25c", size = 35787216, upload-time = "2026-06-11T20:10:00.464Z" },
-    { url = "https://files.pythonhosted.org/packages/c2/e7/d12857adc6038f3bad06132e4dce35e809b47b866df4031921cba9c3116d/google_antigravity-0.1.3-py3-none-win_amd64.whl", hash = "sha256:576642f09248f299b5d1dbb672d06ef69c29051e215fa32a7b3b27b54b6227dc", size = 34907976, upload-time = "2026-06-11T20:10:03.69Z" },
-    { url = "https://files.pythonhosted.org/packages/58/68/e33e3f3ced6239c5e8d5198e1e3a99c9406c23fc0dbc99c9f01ddc162d0d/google_antigravity-0.1.3-py3-none-win_arm64.whl", hash = "sha256:808f8d3bda1a0ee64ca49acb83c55c057262379157dcd501d58427d2e9059d9a", size = 31575092, upload-time = "2026-06-11T20:10:06.701Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/aa/609ecaca0611519fe49094d7993e046f274c5d8622541d502b4a6b6bc8e5/google_antigravity-0.1.7-py3-none-macosx_11_0_arm64.whl", hash = "sha256:2707d823bba1dfc4c3384d7d78aea13eb25fdf8a28a8345944b38c16c1405c8a", size = 31644051, upload-time = "2026-07-16T21:03:58.157Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/d9/8936a14195c3d923c49f3ee4810ab9dd0655c9618814a7c35837734e075d/google_antigravity-0.1.7-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:c5070a0f9a6c4406ea460550ae1a543cfb7c9fc185b80921c31ea681aa645ec5", size = 37042570, upload-time = "2026-07-16T21:04:01.126Z" },
+    { url = "https://files.pythonhosted.org/packages/41/55/c5e11b0f91c70540a0e247c53de117c0986b167e94e205c131dc8fadcf76/google_antigravity-0.1.7-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:0958f4481dd4700a0a32acb948f959fb1858657038f103c5a0d067727010f71e", size = 39141605, upload-time = "2026-07-16T21:04:04.392Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/80/1bd2f9ef2dc20b498186d6e888c09b86ce519748e85188c898d1c7bba77c/google_antigravity-0.1.7-py3-none-win_amd64.whl", hash = "sha256:c2a20d7a22b9ca086c570efce2d36b688ef15e30a371f7fbb93cd05aba49d563", size = 36434279, upload-time = "2026-07-16T21:04:07.246Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/3b/e2cf44fb9da8ac407199c1c351fcdc4876c0aece1b61123b2a439a36af66/google_antigravity-0.1.7-py3-none-win_arm64.whl", hash = "sha256:6acaa5ed047cb9bad6ad50992aea71616eff2a6767161b96aab5f7a1cd765ce5", size = 32907283, upload-time = "2026-07-16T21:04:10.104Z" },
 ]
 
 [[package]]
