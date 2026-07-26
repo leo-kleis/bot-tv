@@ -4,7 +4,6 @@ import { StreamTab } from '/static/components/stream/StreamTab.js';
 import { ChatTab } from '/static/components/chat/ChatTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab } from '/static/components/agent/AgentTab.js';
-import { ActionsTab } from '/static/components/actions/ActionsTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
 import { ToastOverlay } from '/static/components/ToastOverlay.js';
 
@@ -13,7 +12,6 @@ const TABS = [
   { id: 'stream', icon: html`<i class="fa-solid fa-tv"></i>`, label: 'Stream' },
   { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
   { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
-  { id: 'actions', icon: html`<i class="fa-solid fa-bolt"></i>`, label: 'Acciones' },
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
 ];
 
@@ -81,7 +79,7 @@ export function App({ state, dispatch, onReconnect }) {
   }
 
   const filteredIrcCount = [...state.ircUsers.values()].filter(
-    u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot'
+    u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
   ).length;
 
   return html`
@@ -132,19 +130,14 @@ export function App({ state, dispatch, onReconnect }) {
             showIrcMobile=${showIrcMobile}
             onToggleIrc=${setShowIrcMobile}
             dispatch=${dispatch}
+            streamOnline=${state.stream.online}
           />
         `}
         ${active === 'stream' && html` <${StreamTab} channel=${state.stream.broadcasterName} /> `}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
         ${active === 'agent' &&
         html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}
-        ${active === 'actions' &&
-        html`<${ActionsTab}
-          clips=${state.clips}
-          dispatch=${dispatch}
-          streamOnline=${state.stream.online}
-        />`}
-        ${active === 'settings' && html`<${SettingsTab} />`}
+        ${active === 'settings' && html`<${SettingsTab} dispatch=${dispatch} />`}
       </main>
       <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />
     </div>

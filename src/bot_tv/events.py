@@ -30,6 +30,7 @@ class ChatMessageEvent:
     text: str
     channel_id: str
     is_bot: bool
+    id: str | None = None
     emotes: list[dict[str, str]] = field(default_factory=list)
     profile_image_url: str | None = None
     timestamp: str = field(default_factory=_now)
@@ -66,6 +67,31 @@ class UserPartEvent:
     nickname: str | None
     color_rgb: tuple[int, int, int]
     role: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class UserRoleUpdatedEvent:
+    """Cambio o sincronización de roles/funciones de un usuario."""
+
+    user_id: str
+    username: str
+    display_name: str
+    is_bot: bool = False
+    is_moderator: bool = False
+    is_vip: bool = False
+    is_subscriber: bool = False
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
+class UserNicknameUpdatedEvent:
+    """Asignación o eliminación del apodo (nickname) de un usuario."""
+
+    user_id: str
+    username: str
+    display_name: str
+    nickname: str | None
     timestamp: str = field(default_factory=_now)
 
 

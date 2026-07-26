@@ -537,7 +537,8 @@ class UserRepository(BaseRepository):
         """Guarda o actualiza la URL del avatar del usuario."""
         if cache is not None:
             cache.set_profile_image_url(user_id, url)
-        LOGGER.info("DB UPDATE avatar para user_id %s en PostgreSQL", user_id)
+        LOGGER.debug("DB UPDATE avatar para user_id %s en PostgreSQL", user_id)
+
         async with self._db.acquire() as conn:
             await conn.execute(
                 "UPDATE users SET profile_image_url = $1 WHERE user_id = $2",

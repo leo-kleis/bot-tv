@@ -33,7 +33,7 @@ export async function fetchEmotes(broadcasterId) {
           }
         }
       })
-      .catch(err => console.warn('Error al cargar emotes globales de BTTV:', err)),
+      .catch(() => {}),
 
     // 2. FFZ Global
     fetch('https://api.frankerfacez.com/v1/set/global')
@@ -52,7 +52,7 @@ export async function fetchEmotes(broadcasterId) {
           }
         }
       })
-      .catch(err => console.warn('Error al cargar emotes globales de FFZ:', err)),
+      .catch(() => {}),
   ];
 
   if (broadcasterId) {
@@ -71,10 +71,10 @@ export async function fetchEmotes(broadcasterId) {
             });
           }
         })
-        .catch(err => console.warn('Error al cargar emotes de canal de BTTV:', err)),
+        .catch(() => {}),
 
-      // 4. FFZ Channel
-      fetch(`https://api.frankerfacez.com/v1/room/id/${broadcasterId}`)
+      // 4. FFZ Channel (vía proxy para evitar 404 en consola si el canal no usa FFZ)
+      fetch(`/api/emotes/ffz/${broadcasterId}`)
         .then(async res => {
           if (res.ok) {
             const data = await res.json();
@@ -90,7 +90,7 @@ export async function fetchEmotes(broadcasterId) {
             }
           }
         })
-        .catch(err => console.warn('Error al cargar emotes de canal de FFZ:', err))
+        .catch(() => {})
     );
   }
 

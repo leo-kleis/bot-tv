@@ -6,8 +6,8 @@ export const EVENT_CONFIG = {
     toastClassName: 'toast-raid',
     toastTitle: '¡Raid Recibida!',
     chatHtml: (data, html) =>
-      html`<strong>${data.from_display_name}</strong> nos hizo raid con
-        <strong>${data.viewer_count}</strong> espectadores!`,
+      html`<strong>${data.from_display_name}</strong
+        >${' nos hizo raid con '}<strong>${data.viewer_count}</strong>${' espectadores!'}`,
     toastText: data => `${data.from_display_name} nos trajo a ${data.viewer_count} espectadores.`,
   },
   twitch_subscribe: {
@@ -17,8 +17,8 @@ export const EVENT_CONFIG = {
     toastTitle: '¡Nueva Suscripción!',
     chatHtml: (data, html) => {
       const regalo = data.is_gift ? ' (Regalo)' : '';
-      return html`<strong>${data.display_name}</strong> se suscribió en Tier
-        <strong>${data.tier}</strong>${regalo}!`;
+      return html`<strong>${data.display_name}</strong
+        >${' se suscribió en Tier '}<strong>${data.tier}</strong>${regalo}!`;
     },
     toastText: data => {
       const regalo = data.is_gift ? ' (Regalo)' : '';
@@ -33,8 +33,8 @@ export const EVENT_CONFIG = {
     chatHtml: (data, html) => {
       const donante = data.is_anonymous ? 'Anónimo' : data.display_name;
       const acum = data.cumulative_total ? ` (Total: ${data.cumulative_total})` : '';
-      return html`<strong>${donante}</strong> regaló <strong>${data.total}</strong> subs de Tier
-        <strong>${data.tier}</strong>${acum}!`;
+      return html`<strong>${donante}</strong
+        >${' regaló '}<strong>${data.total}</strong>${' subs de Tier '}<strong>${data.tier}</strong>${acum}!`;
     },
     toastText: data => {
       const donante = data.is_anonymous ? 'Un donante anónimo' : data.display_name;
@@ -50,8 +50,8 @@ export const EVENT_CONFIG = {
     chatHtml: (data, html) => {
       const msgStr = data.message ? ` - "${data.message}"` : '';
       const rachaStr = data.streak_months ? ` (Racha: ${data.streak_months} meses)` : '';
-      return html`<strong>${data.display_name}</strong> se resuscribió por
-        <strong>${data.cumulative_months}</strong> meses${rachaStr}!${msgStr}`;
+      return html`<strong>${data.display_name}</strong
+        >${' se resuscribió por '}<strong>${data.cumulative_months}</strong>${' meses'}${rachaStr}!${msgStr}`;
     },
     toastText: data => {
       const msgStr = data.message ? `: "${data.message}"` : '.';
@@ -67,8 +67,8 @@ export const EVENT_CONFIG = {
     chatHtml: (data, html) => {
       const cheerDonante = data.is_anonymous ? 'Anónimo' : data.display_name;
       const cheerMsg = data.message ? ` - "${data.message}"` : '';
-      return html`<strong>${cheerDonante}</strong> envió
-        <strong>${data.bits}</strong> bits!${cheerMsg}`;
+      return html`<strong>${cheerDonante}</strong
+        >${' envió '}<strong>${data.bits}</strong>${' bits!'}${cheerMsg}`;
     },
     toastText: data => {
       const cheerDonante = data.is_anonymous ? 'Anónimo' : data.display_name;
@@ -83,9 +83,8 @@ export const EVENT_CONFIG = {
     toastTitle: '¡Canje de Puntos!',
     chatHtml: (data, html) => {
       const inputStr = data.user_input ? ` ("${data.user_input}")` : '';
-      return html`<strong>${data.display_name}</strong> canjeó
-        <strong>${data.reward_title}</strong> por
-        <strong>${data.reward_cost}</strong> puntos!${inputStr}`;
+      return html`<strong>${data.display_name}</strong
+        >${' canjeó '}<strong>${data.reward_title}</strong>${' por '}<strong>${data.reward_cost}</strong>${' puntos!'}${inputStr}`;
     },
     toastText: data => {
       const inputStr = data.user_input ? ` ("${data.user_input}")` : '';
@@ -98,8 +97,9 @@ export const EVENT_CONFIG = {
     toastClassName: 'toast-prediction',
     toastTitle: '¡Predicción Iniciada!',
     chatHtml: (data, html) =>
-      html`Predicción iniciada: "<strong>${data.title}</strong>" - Opciones:
-      ${data.outcomes.join(', ')}`,
+      html`${'Predicción iniciada: "'}<strong>${data.title}</strong>${'" - Opciones: '}${data.outcomes.join(
+        ', '
+      )}`,
     toastText: data => `"${data.title}" - Opciones: ${data.outcomes.join(', ')}`,
   },
   prediction_lock: {
@@ -107,7 +107,8 @@ export const EVENT_CONFIG = {
     sysClassName: 'sys-prediction',
     toastClassName: 'toast-prediction',
     toastTitle: '¡Apuestas Cerradas!',
-    chatHtml: (data, html) => html`Apuestas cerradas para: "<strong>${data.title}</strong>"`,
+    chatHtml: (data, html) =>
+      html`${'Apuestas cerradas para: "'}<strong>${data.title}</strong>${'"'}`,
     toastText: data => `Las apuestas de la predicción "${data.title}" se han cerrado.`,
   },
   prediction_end: {
@@ -117,9 +118,9 @@ export const EVENT_CONFIG = {
     toastTitle: '¡Predicción Finalizada!',
     chatHtml: (data, html) => {
       const resultado = data.winning_outcome_title
-        ? html`Ganador: <strong>${data.winning_outcome_title}</strong>`
+        ? html`${'Ganador: '}<strong>${data.winning_outcome_title}</strong>`
         : `Estado: ${data.status}`;
-      return html`Predicción finalizada: "<strong>${data.title}</strong>" - ${resultado}`;
+      return html`${'Predicción finalizada: "'}<strong>${data.title}</strong>${'" - '}${resultado}`;
     },
     toastText: data => {
       const resultado = data.winning_outcome_title
@@ -136,8 +137,8 @@ export const EVENT_CONFIG = {
     chatHtml: (data, html) => {
       const tipo = data.permanent ? 'Baneo permanente' : `Timeout de ${data.duration_seconds}s`;
       const razon = data.reason ? ` (Razón: "${data.reason}")` : '';
-      return html`<strong>${data.display_name}</strong> sancionado (${tipo}) por
-        <strong>${data.moderator_name}</strong>${razon}.`;
+      return html`<strong>${data.display_name}</strong
+        >${` sancionado (${tipo}) por `}<strong>${data.moderator_name}</strong>${razon}.`;
     },
     toastText: data => {
       const tipo = data.permanent ? 'Baneo permanente' : `Timeout de ${data.duration_seconds}s`;
@@ -151,8 +152,8 @@ export const EVENT_CONFIG = {
     toastClassName: 'toast-mod-green',
     toastTitle: 'Usuario Desbaneado',
     chatHtml: (data, html) =>
-      html`<strong>${data.display_name}</strong> desbaneado por
-        <strong>${data.moderator_name}</strong>.`,
+      html`<strong>${data.display_name}</strong
+        >${' desbaneado por '}<strong>${data.moderator_name}</strong>.`,
     toastText: data =>
       `${data.display_name} fue desbaneado por el moderador ${data.moderator_name}.`,
   },
@@ -170,7 +171,7 @@ export const EVENT_CONFIG = {
     toastClassName: 'toast-mod',
     toastTitle: 'Mensajes Purgados',
     chatHtml: (data, html) =>
-      html`Los mensajes de <strong>${data.display_name}</strong> fueron eliminados por un moderador.`,
+      html`${'Los mensajes de '}<strong>${data.display_name}</strong>${' fueron eliminados por un moderador.'}`,
     toastText: data => `Los mensajes de ${data.display_name} fueron eliminados por un moderador.`,
   },
   twitch_message_delete: {
@@ -178,9 +179,59 @@ export const EVENT_CONFIG = {
     sysClassName: 'sys-mod',
     toastClassName: 'toast-mod',
     toastTitle: 'Mensaje Eliminado',
-    chatHtml: (data, html) => html`Se eliminó un mensaje de <strong>${data.display_name}</strong>.`,
+    chatHtml: (data, html) =>
+      html`${'Se eliminó un mensaje de '}<strong>${data.display_name}</strong>.`,
     toastText: data => `Se borró un mensaje del usuario ${data.display_name}.`,
   },
+  user_nickname_updated: {
+    icon: 'fa-signature',
+    sysClassName: 'sys-mod-green',
+    toastClassName: 'toast-mod-green',
+    toastTitle: 'Apodo Actualizado',
+    chatHtml: (data, html) => {
+      const apodoStr = data.nickname ? `"${data.nickname}"` : 'eliminado';
+      return html`${'Se actualizó el apodo de '}<strong>${data.display_name}</strong>${' a: '}${apodoStr}.`;
+    },
+    toastText: data => {
+      const apodoStr = data.nickname ? `"${data.nickname}"` : 'eliminado';
+      return `Se actualizó el apodo de ${data.display_name} a: ${apodoStr}.`;
+    },
+  },
+  user_role_updated: {
+    icon: 'fa-user-gear',
+    sysClassName: 'sys-mod-green',
+    toastClassName: 'toast-mod-green',
+    toastTitle: 'Rol Actualizado',
+    chatHtml: (data, html) => {
+      const roles = [];
+      if (data.is_moderator) roles.push('Moderador');
+      if (data.is_vip) roles.push('VIP');
+      if (data.is_bot) roles.push('Bot');
+      const roleStr = roles.join(', ') || 'Visita';
+      return html`${'Se actualizó la función de '}<strong>${data.display_name}</strong>${': '}${roleStr}.`;
+    },
+    toastText: data => {
+      const roles = [];
+      if (data.is_moderator) roles.push('Moderador');
+      if (data.is_vip) roles.push('VIP');
+      if (data.is_bot) roles.push('Bot');
+      const roleStr = roles.join(', ') || 'Visita';
+      return `Se actualizó la función de ${data.display_name}: ${roleStr}.`;
+    },
+  },
+
+  clip_created: {
+    icon: 'fa-clapperboard',
+    sysClassName: 'sys-mod-green',
+    toastClassName: 'toast-mod-green',
+    toastTitle: '¡Clip Creado!',
+    chatHtml: (data, html) =>
+      html`${'¡Nuevo clip generado! '}<a href="${data.url}" target="_blank" rel="noopener"
+          >${data.url}</a
+        >`,
+    toastText: data => `¡Nuevo clip generado!: ${data.url}`,
+  },
+
   api_success: {
     icon: 'fa-circle-check',
     sysClassName: 'sys-mod-green',

@@ -2,19 +2,6 @@ import { html, render, useReducer } from 'preact-setup';
 import { App } from '/static/components/App.js';
 import { useWebSocket } from '/static/hooks/useWebSocket.js';
 
-// ── Registro del service worker ──────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
-  });
-}
-
 // ── Constantes ───────────────────────────────────────────────────────────────
 const MAX_CHAT = 300;
 
@@ -66,19 +53,44 @@ function reducer(state, action) {
       return { ...state, ircConnected: action.data.connected };
 
     case 'chat_message': {
-      const msgs = [...state.chatMessages, action.data];
+      const newMsg = action.data;
+      const exists = state.chatMessages.some(
+        m =>
+          (m.id && newMsg.id && m.id === newMsg.id) ||
+          (m.message_id && newMsg.message_id && m.message_id === newMsg.message_id) ||
+          (m.timestamp === newMsg.timestamp &&
+            m.username === newMsg.username &&
+            (m.text || m.message) === (newMsg.text || newMsg.message))
+      );
+      if (exists) {
+        return state;
+      }
+      const msgs = [...state.chatMessages, newMsg];
       return { ...state, chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs };
     }
 
     case 'user_join': {
       const next = new Map(state.ircUsers);
-      next.set(action.data.username, action.data);
+      const nowISO = action.data.timestamp || new Date().toISOString();
+      const existing = next.get(action.data.username);
+      next.set(action.data.username, {
+        ...action.data,
+        present: true,
+        joinedAt: existing?.joinedAt || nowISO,
+        partedAt: null,
+      });
       return { ...state, ircUsers: next };
     }
 
     case 'user_part': {
       const next = new Map(state.ircUsers);
-      next.delete(action.data.username);
+      const nowISO = action.data.timestamp || new Date().toISOString();
+      const existing = next.get(action.data.username);
+      if (existing) {
+        next.set(action.data.username, { ...existing, present: false, partedAt: nowISO });
+      } else {
+        next.set(action.data.username, { ...action.data, present: false, partedAt: nowISO });
+      }
       return { ...state, ircUsers: next };
     }
 
@@ -169,8 +181,26 @@ function reducer(state, action) {
       return { ...state, followers: { ...state.followers, progress: action.data } };
 
     case 'clip_created': {
-      const clips = [action.data, ...state.clips].slice(0, 20);
-      return { ...state, clips };
+      const clips = state.clips.some(c => c.url === action.data.url)
+        ? state.clips
+        : [action.data, ...state.clips].slice(0, 20);
+
+      const systemMsg = {
+        isSystem: true,
+        type: action.type,
+        timestamp: action.data.timestamp || new Date().toISOString(),
+        data: action.data,
+      };
+      const exists = state.chatMessages.some(
+        m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
+      );
+      const msgs = exists ? state.chatMessages : [...state.chatMessages, systemMsg];
+
+      return {
+        ...state,
+        clips,
+        chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
+      };
     }
 
     case 'agent_question_pending': {
@@ -209,6 +239,93 @@ function reducer(state, action) {
     case 'BOT_EXITED':
       return { ...state, exited: true };
 
+    case 'user_nickname_updated': {
+      const { user_id, nickname } = action.data;
+      const ircUsers = new Map(state.ircUsers);
+
+      let targetKey = user_id;
+      if (!targetKey && action.data.username) {
+        for (const [k, u] of ircUsers.entries()) {
+          if (u.username?.toLowerCase() === action.data.username.toLowerCase()) {
+            targetKey = k;
+            break;
+          }
+        }
+      }
+
+      if (targetKey && ircUsers.has(targetKey)) {
+        const u = ircUsers.get(targetKey);
+        ircUsers.set(targetKey, {
+          ...u,
+          nickname,
+        });
+      }
+
+      const systemMsg = {
+        isSystem: true,
+        type: action.type,
+        timestamp: action.data.timestamp || new Date().toISOString(),
+        data: action.data,
+      };
+
+      const exists = state.chatMessages.some(
+        m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
+      );
+      const msgs = exists ? state.chatMessages : [...state.chatMessages, systemMsg];
+
+      return {
+        ...state,
+        ircUsers,
+        chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
+      };
+    }
+
+    case 'user_role_updated': {
+      const { user_id, is_bot, is_moderator, is_vip, is_subscriber, sub_tier } = action.data;
+      const ircUsers = new Map(state.ircUsers);
+
+      // Buscar por user_id o username
+      let targetKey = user_id;
+      if (!targetKey && action.data.username) {
+        for (const [k, u] of ircUsers.entries()) {
+          if (u.username?.toLowerCase() === action.data.username.toLowerCase()) {
+            targetKey = k;
+            break;
+          }
+        }
+      }
+
+      if (targetKey && ircUsers.has(targetKey)) {
+        const u = ircUsers.get(targetKey);
+        ircUsers.set(targetKey, {
+          ...u,
+          is_bot: is_bot ?? u.is_bot,
+          is_moderator: is_moderator ?? u.is_moderator,
+          is_vip: is_vip ?? u.is_vip,
+          is_subscriber: is_subscriber ?? u.is_subscriber,
+          sub_tier: sub_tier ?? u.sub_tier,
+        });
+      }
+
+      const systemMsg = {
+        isSystem: true,
+        type: action.type,
+        timestamp: action.data.timestamp || new Date().toISOString(),
+        data: action.data,
+      };
+
+      const exists = state.chatMessages.some(
+        m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
+      );
+      const msgs = exists ? state.chatMessages : [...state.chatMessages, systemMsg];
+
+      return {
+        ...state,
+        ircUsers,
+        chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
+      };
+    }
+
     case 'twitch_raid':
     case 'twitch_subscribe':
     case 'twitch_sub_gift':
@@ -229,6 +346,12 @@ function reducer(state, action) {
         timestamp: action.data.timestamp || new Date().toISOString(),
         data: action.data,
       };
+      const exists = state.chatMessages.some(
+        m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
+      );
+      if (exists) {
+        return state;
+      }
       const msgs = [...state.chatMessages, systemMsg];
       return { ...state, chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs };
     }
@@ -259,30 +382,9 @@ function Root() {
 // ── Mount ─────────────────────────────────────────────────────────────────────
 render(html`<${Root} />`, document.getElementById('app'));
 
-// ── ServiceWorker Registration & Auto-Reload ────────────────────────────────
+// ── ServiceWorker Registration (PWA) ──────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-      // Buscar actualizaciones periódicamente o en reconexión
-      reg.update();
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              window.location.reload();
-            }
-          });
-        }
-      });
-    });
-
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!refreshing) {
-        refreshing = true;
-        window.location.reload();
-      }
-    });
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }

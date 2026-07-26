@@ -1,4 +1,4 @@
-/* actions.css — Secciones de la pestaña de Acciones */
+/* actions.css — Secciones de configuración y acciones */
 .action-row {
   display: flex;
   gap: 10px;
@@ -27,43 +27,4 @@
   background: rgba(244, 63, 94, 0.08);
   color: var(--danger);
   border: 1px solid rgba(244, 63, 94, 0.15);
-}
-
-/* Grilla o lista de clips */
-.clip-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.clip-item {
-  background: var(--surface2);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  transition: border-color 0.2s;
-}
-.clip-item:hover {
-  border-color: var(--border);
-}
-.clip-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.clip-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.clip-meta {
-  font-size: 11px;
-  color: var(--text-muted);
 }

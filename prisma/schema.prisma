@@ -20,16 +20,18 @@ model User {
 }
 
 model ChatHistory {
-  id         BigInt @id @default(autoincrement()) @map("id")
+  id         String @id @db.Uuid @map("id")
   channel_id String @map("channel_id")
   user_id    String @map("user_id")
   message    String @map("message")
   timestamp  String @map("timestamp")
 
+
   user User @relation(fields: [user_id], references: [user_id])
 
   @@map("chat_history")
 }
+
 
 model ChannelUser {
   channel_id    String  @map("channel_id")

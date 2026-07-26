@@ -224,10 +224,13 @@ class TerminalConsumer:
                 f"{event.count}/{event.total}"
             )
 
-    # ── Clips ────────────────────────────────────────────────────────────────
-
     async def _on_clip_created(self, event: ClipCreatedEvent) -> None:
-        LOGGER.info("%s¡Clip creado con éxito!%s URL: %s", VERDE, RESET, event.url)
+        timestamp = format_timestamp()
+        url_link = f"[link={event.url}]{event.url}[/link]"
+        CONSOLE.print(
+            f"{timestamp} {VERDE}{BOLD}[CLIP CREADO]{RESET} "
+            f"{MORADO}►{RESET} ¡Nuevo clip generado! URL: {url_link}"
+        )
 
     # ── Twitch EventSub Alerts ────────────────────────────────────────────────
 

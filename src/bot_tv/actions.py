@@ -14,7 +14,11 @@ import twitchio
 
 from bot_tv.agent.models import AVAILABLE_MODELS
 from bot_tv.agent.rate_limiter import RateLimitStatus
-from bot_tv.events import ClipCreatedEvent
+from bot_tv.events import (
+    ClipCreatedEvent,
+    UserNicknameUpdatedEvent,
+    UserRoleUpdatedEvent,
+)
 
 if TYPE_CHECKING:
     from bot_tv.agent import TalkAgent
@@ -148,10 +152,47 @@ async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
         return f"El usuario '{username}' no existe en la base de datos."
 
     es_bot = await bot.user_repo.is_user_bot(user_id, cache=cache)
-    await bot.user_repo.set_user_bot(user_id, not es_bot, cache=cache)
+    nuevo_es_bot = not es_bot
+    await bot.user_repo.set_user_bot(user_id, nuevo_es_bot, cache=cache)
+
+    # Actualizar bot.irc.connected_users si el usuario está en IRC
+    if bot.irc and user_id in bot.irc.connected_users:
+        from dataclasses import replace as dataclass_replace
+
+        u = bot.irc.connected_users[user_id]
+        updated_u = dataclass_replace(u, is_bot=nuevo_es_bot)
+        bot.irc.connected_users[user_id] = updated_u
+        await bot.event_bus.emit(updated_u)
+
+    # Notificar la actualización de roles
+    display_name = username
+    if cache is not None:
+        cached_user = cache.get_user(user_id)
+        if cached_user and cached_user.get("display_name"):
+            display_name = cached_user["display_name"]
+
+    channels = await bot.get_channels()
+    broadcaster_id = channels[0]["user_id"] if channels else ""
+    roles_dict = await bot.user_repo.get_user_roles(
+        user_id, broadcaster_id, cache=cache
+    )
+    current_roles = roles_dict or {}
+
+    await bot.event_bus.emit(
+        UserRoleUpdatedEvent(
+            user_id=user_id,
+            username=username,
+            display_name=display_name,
+            is_bot=nuevo_es_bot,
+            is_moderator=current_roles.get("is_moderator", False),
+            is_vip=current_roles.get("is_vip", False),
+            is_subscriber=current_roles.get("is_subscriber", False),
+        )
+    )
+
     return BotToggleResult(
         username=username,
-        is_bot=not es_bot,
+        is_bot=nuevo_es_bot,
         user_id=user_id,
     )
 
@@ -166,6 +207,32 @@ async def action_set_nickname(
         return f"El usuario '{username}' no existe en la base de datos."
 
     await bot.user_repo.set_nickname(user_id, nickname, cache=cache)
+
+    # Actualizar bot.irc.connected_users si el usuario está en IRC
+    if bot.irc and user_id in bot.irc.connected_users:
+        from dataclasses import replace as dataclass_replace
+
+        u = bot.irc.connected_users[user_id]
+        updated_u = dataclass_replace(u, nickname=nickname)
+        bot.irc.connected_users[user_id] = updated_u
+        await bot.event_bus.emit(updated_u)
+
+    # Notificar la actualización a la web
+    display_name = username
+    if cache is not None:
+        cached_user = cache.get_user(user_id)
+        if cached_user and cached_user.get("display_name"):
+            display_name = cached_user["display_name"]
+
+    await bot.event_bus.emit(
+        UserNicknameUpdatedEvent(
+            user_id=user_id,
+            username=username,
+            display_name=display_name,
+            nickname=nickname,
+        )
+    )
+
     return NicknameResult(username=username, nickname=nickname)
 
 
@@ -302,6 +369,36 @@ async def action_update_user_roles(
         is_moderator=is_moderator,
         is_vip=is_vip,
         cache=cache,
+    )
+
+    # Actualizar bot.irc.connected_users si el usuario está activo en IRC
+    if bot.irc and user_id in bot.irc.connected_users:
+        from dataclasses import replace as dataclass_replace
+
+        u = bot.irc.connected_users[user_id]
+        updated_u = dataclass_replace(
+            u, is_moderator=is_moderator, is_vip=is_vip, is_bot=is_bot
+        )
+        bot.irc.connected_users[user_id] = updated_u
+        await bot.event_bus.emit(updated_u)
+
+    # Notificar la actualización de roles a todos los clientes web (WebSocket)
+    display_name = username
+    if cache is not None:
+        cached_user = cache.get_user(user_id)
+        if cached_user and cached_user.get("display_name"):
+            display_name = cached_user["display_name"]
+
+    await bot.event_bus.emit(
+        UserRoleUpdatedEvent(
+            user_id=user_id,
+            username=username,
+            display_name=display_name,
+            is_bot=is_bot,
+            is_moderator=is_moderator,
+            is_vip=is_vip,
+            is_subscriber=current_sub,
+        )
     )
 
     return UserRolesResult(
@@ -491,6 +588,42 @@ async def action_sync_user_roles(
         is_subscriber=is_subscriber,
         sub_tier=sub_tier,
         gifter_id=gifter_id,
+    )
+
+    # Actualizar bot.irc.connected_users si está presente
+    if bot.irc and user_id in bot.irc.connected_users:
+        from dataclasses import replace as dataclass_replace
+
+        u = bot.irc.connected_users[user_id]
+        updated_u = dataclass_replace(
+            u,
+            is_moderator=is_moderator,
+            is_vip=is_vip,
+            is_bot=is_bot,
+            is_subscriber=is_subscriber,
+            sub_tier=sub_tier,
+        )
+        bot.irc.connected_users[user_id] = updated_u
+        await bot.event_bus.emit(updated_u)
+
+    # Notificar la actualización a la web
+    display_name = username
+    cache = bot.user_cache
+    if cache is not None:
+        cached_user = cache.get_user(user_id)
+        if cached_user and cached_user.get("display_name"):
+            display_name = cached_user["display_name"]
+
+    await bot.event_bus.emit(
+        UserRoleUpdatedEvent(
+            user_id=user_id,
+            username=username,
+            display_name=display_name,
+            is_bot=is_bot,
+            is_moderator=is_moderator,
+            is_vip=is_vip,
+            is_subscriber=is_subscriber,
+        )
     )
 
     return UserRolesResult(

@@ -1,12 +1,13 @@
 import { html, useState, useEffect } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { ModelSection } from '/static/components/actions/ModelSection.js';
+import { DangerSection } from '/static/components/actions/DangerSection.js';
 
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 const STEP = 0.5;
 
-export function SettingsTab() {
+export function SettingsTab({ dispatch }) {
   const [fontSize, setFontSize] = useState(() => {
     const saved = localStorage.getItem('font-size');
     if (saved) {
@@ -183,6 +184,9 @@ export function SettingsTab() {
           </div>
         </div>
       </div>
+
+      <!-- Sección Apagar Bot -->
+      <${DangerSection} dispatch=${dispatch} />
     </div>
   `;
 }

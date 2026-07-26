@@ -69,6 +69,7 @@ function IrcUser({ user }) {
   const color = toRgb(user.color_rgb);
   const timeStr = user.timestamp ? fmtTime(user.timestamp) : '--:--';
   const nameStr = user.display_name || user.username;
+  const isParted = user.present === false;
 
   let followStatus = '';
   if (user.role === 'Broadcaster') {
@@ -94,19 +95,20 @@ function IrcUser({ user }) {
     badges.push(html`<span class="irc-badge badge-subscriber">${label}</span>`);
   }
 
+  const metaText = user.nickname ? `${user.nickname} · ${followStatus}` : followStatus;
+
   return html`
-    <div class="irc-user">
-      <div class="irc-user-main">
-        <${UserAvatar} userId=${user.user_id} displayName=${nameStr} color=${color} size="sm" />
-        <span class="irc-time">${timeStr}</span>
-        <span class="irc-name" style="color:${color}">${nameStr}</span>
-        <div class="irc-user-badges">${badges}</div>
-      </div>
-      <div class="irc-user-sub">
-        ${user.nickname && user.nickname !== nameStr
-          ? html`<span class="irc-nickname">(${user.nickname})</span>`
-          : null}
-        <span class="irc-follow-status">${followStatus}</span>
+    <div class="irc-user ${isParted ? 'is-parted' : ''}">
+      <${UserAvatar} userId=${user.user_id} displayName=${nameStr} color=${color} size="md" />
+      <div class="irc-user-details">
+        <div class="irc-user-top">
+          <span class="irc-name" style="color:${color}">${nameStr}</span>
+          ${badges.length > 0 ? html`<div class="irc-user-badges">${badges}</div>` : null}
+        </div>
+        <div class="irc-user-bottom">
+          <span class="irc-meta">${metaText}</span>
+          <span class="irc-time">${timeStr}</span>
+        </div>
       </div>
     </div>
   `;
@@ -119,6 +121,7 @@ export function ChatTab({
   showIrcMobile,
   onToggleIrc,
   dispatch,
+  streamOnline = false,
 }) {
   const feedRef = useRef(null);
   const inputRef = useRef(null);
@@ -131,7 +134,27 @@ export function ChatTab({
   const [selectedSenderId, setSelectedSenderId] = useState('');
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [clipping, setClipping] = useState(false);
   const [emotesMap, setEmotesMap] = useState({});
+
+  async function handleCreateClip() {
+    if (clipping || !streamOnline) return;
+    setClipping(true);
+    try {
+      const data = await apiPost('/api/create_clip', {});
+      if (!data.ok && dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: data.error || 'No se pudo crear el clip.' },
+          },
+        });
+      }
+    } catch {}
+    setClipping(false);
+  }
 
   // Cargar las cuentas autenticadas
   useEffect(() => {
@@ -233,7 +256,27 @@ export function ChatTab({
   const users = useMemo(() => {
     return [...ircUsers.values()]
       .filter(u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot')
-      .sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username));
+      .sort((a, b) => {
+        const aPresent = a.present !== false;
+        const bPresent = b.present !== false;
+
+        // JOIN siempre antes que PART
+        if (aPresent !== bPresent) {
+          return aPresent ? -1 : 1;
+        }
+
+        // Si ambos están en JOIN: primero el primero que entró (FIFO / joinedAt más antiguo)
+        if (aPresent && bPresent) {
+          const aTime = a.joinedAt || a.timestamp || '';
+          const bTime = b.joinedAt || b.timestamp || '';
+          return aTime.localeCompare(bTime);
+        }
+
+        // Si ambos están en PART: primero el último que salió (LIFO / partedAt más reciente)
+        const aPartTime = a.partedAt || a.timestamp || '';
+        const bPartTime = b.partedAt || b.timestamp || '';
+        return bPartTime.localeCompare(aPartTime);
+      });
   }, [ircUsers]);
 
   return html`
@@ -241,8 +284,22 @@ export function ChatTab({
       <!-- Panel Chat (izquierda) -->
       <div class="chat-panel">
         <div class="chat-panel-header">
-          <span>Chat</span>
-          <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span>Chat</span>
+            <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
+          </div>
+          <button
+            id="btn-chat-clip"
+            class="chat-clip-btn ${clipping ? 'is-clipping' : ''}"
+            onClick=${handleCreateClip}
+            disabled=${clipping || !streamOnline}
+            title=${!streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'}
+          >
+            ${clipping
+              ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+              : html`<i class="fa-solid fa-scissors"></i>`}
+            <span>Clip</span>
+          </button>
         </div>
 
         <div
@@ -354,8 +411,8 @@ export function ChatTab({
               <i class="fa-solid fa-triangle-exclamation"></i>
             </span>
           `}
-          <span class="irc-count">${users.length}</span>
         </div>
+
         <div class="irc-feed" id="irc-feed">
           ${!ircConnected &&
           html`

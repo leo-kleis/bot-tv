@@ -36,7 +36,9 @@ from bot_tv.events import (
     TwitchSubscriptionMessageEvent,
     TwitchUnbanEvent,
     UserJoinEvent,
+    UserNicknameUpdatedEvent,
     UserPartEvent,
+    UserRoleUpdatedEvent,
     ViewerUpdateEvent,
 )
 
@@ -51,6 +53,8 @@ EVENT_TYPE_MAP: dict[type, str] = {
     ChatMessageEvent: "chat_message",
     UserJoinEvent: "user_join",
     UserPartEvent: "user_part",
+    UserRoleUpdatedEvent: "user_role_updated",
+    UserNicknameUpdatedEvent: "user_nickname_updated",
     StreamOnlineEvent: "stream_online",
     StreamOfflineEvent: "stream_offline",
     ViewerUpdateEvent: "viewer_update",
@@ -80,6 +84,8 @@ EVENT_TYPE_MAP: dict[type, str] = {
 # Tipos de eventos que se incluyen en el historial inicial al conectar
 HISTORY_EVENT_TYPES: list[type] = [
     ChatMessageEvent,
+    UserRoleUpdatedEvent,
+    UserNicknameUpdatedEvent,
     StreamOnlineEvent,
     StreamOfflineEvent,
     ViewerUpdateEvent,
@@ -146,6 +152,24 @@ class WebSocketManager:
         if message is None:
             return
 
+        dead: set[WebSocket] = set()
+        for ws in self._connections:
+            try:
+                if ws.client_state == WebSocketState.CONNECTED:
+                    await ws.send_text(message)
+                else:
+                    dead.add(ws)
+            except Exception:
+                dead.add(ws)
+
+        self._connections -= dead
+
+    async def broadcast_dev_reload(self) -> None:
+        """Envía una señal dev_reload a todas las conexiones activas."""
+        if not self._connections:
+            return
+
+        message = json.dumps({"type": "dev_reload"})
         dead: set[WebSocket] = set()
         for ws in self._connections:
             try:

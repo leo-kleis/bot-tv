@@ -131,16 +131,6 @@ class ClipComponent(commands.Component):
                 )
             )
 
-            # 5. Mandar el link al chat (lo habla el Bot)
-            msg = (
-                f"¡Nuevo clip generado en vivo! El creador lo editará aquí: {url_final}"
-            )
-            await canal_user.send_message(
-                message=msg,
-                sender=self.bot.bot_id,
-                token_for=self.bot.bot_id,
-            )
-
         except twitchio.HTTPException as e:
             LOGGER.error(
                 "%sFallo al crear el clip en Twitch. Revisa la consola.%s", ROJO, RESET

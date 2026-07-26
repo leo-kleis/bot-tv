@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
+import asyncio
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,6 +24,7 @@ from bot_tv.web.api import (
     endpoint_exit,
     endpoint_get_avatar,
     endpoint_get_chat_accounts,
+    endpoint_get_ffz_emotes,
     endpoint_get_models,
     endpoint_get_rpm,
     endpoint_list_users,
@@ -49,22 +52,6 @@ STATIC_DIR = Path(__file__).parent / "static"
 WEB_PORT = 8080
 
 
-def _compute_static_hash() -> str:
-    """Genera un hash corto basado en el contenido de todos los archivos estáticos.
-
-    Recorre recursivamente STATIC_DIR, ordena los archivos por ruta relativa
-    para determinismo, y calcula un MD5 combinado. Retorna los primeros 8
-    caracteres del hash hexadecimal.
-    """
-    hasher = hashlib.md5()  # noqa: S324 — no se usa para seguridad
-    for file_path in sorted(STATIC_DIR.rglob("*")):
-        if file_path.is_file():
-            rel = file_path.relative_to(STATIC_DIR).as_posix()
-            hasher.update(rel.encode())
-            hasher.update(file_path.read_bytes())
-    return hasher.hexdigest()[:8]
-
-
 class NoCacheStaticFiles(StaticFiles):
     """Evita el almacenamiento en caché del navegador para archivos estáticos."""
 
@@ -85,26 +72,12 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     async def homepage(request: Request) -> Response:
         return FileResponse(STATIC_DIR / "index.html")
 
-    async def sw_endpoint(request: Request) -> Response:
-        static_hash = _compute_static_hash()
-        sw_template = (STATIC_DIR / "sw.js").read_text(encoding="utf-8")
-        sw_body = sw_template.replace("__CACHE_VERSION__", f"bot-tv-{static_hash}")
-        return Response(
-            sw_body,
-            media_type="application/javascript",
-            headers={
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Pragma": "no-cache",
-                "Expires": "0",
-            },
-        )
-
     async def websocket_endpoint(ws: WebSocket) -> None:
         await ws_manager.handle(ws)
 
     routes = [
         Route("/", homepage),
-        Route("/sw.js", sw_endpoint),
+        Route("/sw.js", lambda r: FileResponse(STATIC_DIR / "sw.js")),
         Route("/manifest.json", lambda r: FileResponse(STATIC_DIR / "manifest.json")),
         Route(
             "/favicon.ico",
@@ -129,12 +102,22 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/chat_accounts", endpoint_get_chat_accounts, methods=["GET"]),
         Route("/api/send_chat_message", endpoint_send_chat_message, methods=["POST"]),
         Route("/api/avatar/{user_id}", endpoint_get_avatar, methods=["GET"]),
+        Route("/api/emotes/ffz/{channel_id}", endpoint_get_ffz_emotes, methods=["GET"]),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
         Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]
 
+    @asynccontextmanager
+    async def lifespan(app_instance: Starlette) -> AsyncGenerator[None]:
+        task = asyncio.create_task(_watch_static_files(ws_manager))
+        try:
+            yield
+        finally:
+            task.cancel()
+
     app = Starlette(
         routes=routes,
+        lifespan=lifespan,
         middleware=[Middleware(GZipMiddleware, minimum_size=500, compresslevel=5)],
     )
 
@@ -145,3 +128,25 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
 
     LOGGER.info("Servidor web disponible en http://0.0.0.0:%d", WEB_PORT)
     return app
+
+
+async def _watch_static_files(ws_manager: WebSocketManager) -> None:
+    """Vigila los archivos estáticos en desarrollo y emite live reload por WebSocket."""
+    try:
+        from watchfiles import awatch
+    except ImportError:
+        LOGGER.debug("watchfiles no disponible; live reload desactivado")
+        return
+
+    LOGGER.info("Live reload activo: vigilando %s", STATIC_DIR)
+    try:
+        async for changes in awatch(STATIC_DIR):
+            LOGGER.info(
+                "Cambios detectados en frontend (%d). Notificando...",
+                len(changes),
+            )
+            await ws_manager.broadcast_dev_reload()
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        LOGGER.exception("Error en el watcher de archivos estáticos")

@@ -35,6 +35,41 @@
   flex-shrink: 0;
 }
 
+/* === Botón compacto de Clip en la cabecera === */
+.chat-clip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--accent-light, #a970ff);
+  background: rgba(145, 71, 255, 0.12);
+  border: 1px solid rgba(145, 71, 255, 0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1;
+}
+
+.chat-clip-btn:hover:not(:disabled) {
+  background: rgba(145, 71, 255, 0.25);
+  border-color: rgba(145, 71, 255, 0.5);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.chat-clip-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border-2, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted);
+}
+
 .chat-feed {
   flex: 1;
   overflow-y: auto;
@@ -245,45 +280,64 @@
 
 .irc-user {
   display: flex;
-  flex-direction: column;
-  padding: 6px 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
   border-radius: var(--radius-xs);
   margin-bottom: 4px;
-  transition: background 0.2s;
+  transition:
+    background 0.2s,
+    opacity 0.2s;
   cursor: default;
   user-select: none;
 }
 .irc-user:hover {
-  background: var(--accent-glow);
+  background: var(--surface2);
 }
-.irc-user-main {
+.irc-user.is-parted {
+  opacity: 0.45;
+  filter: grayscale(35%);
+}
+.irc-user.is-parted:hover {
+  opacity: 0.75;
+  background: var(--surface2);
+}
+
+.irc-user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.irc-user-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   width: 100%;
 }
-.irc-time {
-  font-size: 0.75em;
-  color: var(--text-muted);
-  font-family: var(--mono, monospace);
-  flex-shrink: 0;
-}
+
 .irc-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 600;
-  font-size: 0.9em;
+  font-size: 0.88rem;
   flex: 1;
+  min-width: 0;
 }
+
 .irc-user-badges {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
 }
+
 .irc-badge {
-  font-size: 0.65em;
+  font-size: 0.62rem;
   font-weight: 800;
   text-transform: uppercase;
   padding: 1px 4px;
@@ -305,16 +359,33 @@
   color: #2196f3;
   border: 1px solid rgba(30, 136, 229, 0.3);
 }
-.irc-user-sub {
+
+.irc-user-bottom {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  padding-left: 66px;
-  font-size: 0.75em;
-  color: var(--text-muted);
   width: 100%;
-  margin-top: 1px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
+
+.irc-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.irc-time {
+  font-size: 0.72rem;
+  font-family: var(--mono, monospace);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 .irc-nickname {
   font-style: italic;
   white-space: nowrap;

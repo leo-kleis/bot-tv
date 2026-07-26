@@ -78,12 +78,15 @@ class ChatComponent(commands.Component):
             cache=cache,
         )
 
+        msg_id = getattr(payload, "id", None)
+
         es_bot = await self.bot.user_repo.is_user_bot(user_id, cache=cache)
         if not es_bot:
             await self.bot.chat_repo.save_chat_message(
                 payload.broadcaster.id,
                 user_id,
                 payload.text,
+                msg_id=msg_id,
             )
 
         nickname = await self.bot.user_repo.get_user_nickname(user_id, cache=cache)
@@ -120,8 +123,10 @@ class ChatComponent(commands.Component):
                 if frag.type == "emote" and frag.emote:
                     twitch_emotes.append({"id": frag.emote.id, "text": frag.text})
 
+        msg_id = getattr(payload, "id", None)
         await self.bot.event_bus.emit(
             ChatMessageEvent(
+                id=msg_id,
                 timestamp=datetime.now().isoformat(),
                 user_id=user_id,
                 username=username,

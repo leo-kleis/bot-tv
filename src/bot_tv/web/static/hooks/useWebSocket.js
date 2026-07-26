@@ -49,6 +49,8 @@ export function useWebSocket(dispatch) {
           const msg = JSON.parse(e.data);
           if (msg.type === 'history_end') {
             dispatch({ type: 'HISTORY_END' });
+          } else if (msg.type === 'dev_reload') {
+            window.location.reload();
           } else {
             dispatch({ type: msg.type, data: msg.data });
           }

@@ -84,6 +84,23 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Permitir selección y copiado de texto en entradas, mensajes de chat y conversación del agente */
+input,
+textarea,
+[contenteditable='true'],
+.chat-msg-body,
+.sys-text,
+.chat-author,
+.agent-convo,
+.convo-q,
+.convo-a {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #app {

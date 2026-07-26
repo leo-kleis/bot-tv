@@ -491,3 +491,32 @@ async def endpoint_get_avatar(request: Request) -> Response:
         return _err("Avatar no encontrado", 404)
 
     return RedirectResponse(url=url, status_code=302)
+
+
+_FFZ_CACHE: dict[str, dict] = {}
+
+
+async def endpoint_get_ffz_emotes(request: Request) -> Response:
+    """Proxy para emotes de FFZ que responde 200 {} si la sala no existe."""
+    channel_id = request.path_params.get("channel_id", "")
+    if not channel_id:
+        return JSONResponse({})
+
+    if channel_id in _FFZ_CACHE:
+        return JSONResponse(_FFZ_CACHE[channel_id])
+
+    url = f"https://api.frankerfacez.com/v1/room/id/{channel_id}"
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                _FFZ_CACHE[channel_id] = data
+                return JSONResponse(data)
+    except Exception as e:
+        LOGGER.debug("FFZ channel %s no encontrado o fallo conexión: %s", channel_id, e)
+
+    _FFZ_CACHE[channel_id] = {}
+    return JSONResponse({})

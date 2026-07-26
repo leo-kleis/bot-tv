@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,7 +20,7 @@ class ChatRepository(BaseRepository):
 
     def __init__(self, db: asyncpg.Pool) -> None:
         super().__init__(db)
-        self._msg_queue: list[tuple[str, str, str, str]] = []
+        self._msg_queue: list[tuple[str, str, str, str, str]] = []
         self._batch_task: asyncio.Task[None] | None = None
         self._flush_lock = asyncio.Lock()
 
@@ -39,10 +40,13 @@ class ChatRepository(BaseRepository):
         channel_id: str,
         user_id: str,
         message: str,
+        msg_id: str | None = None,
     ) -> None:
         """Encola un mensaje para su guardado en lote en chat_history."""
+        if not msg_id:
+            msg_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
-        self._msg_queue.append((channel_id, user_id, message, now))
+        self._msg_queue.append((msg_id, channel_id, user_id, message, now))
         self.start_batch_worker()
 
         if len(self._msg_queue) >= MAX_BATCH_SIZE:
@@ -60,12 +64,16 @@ class ChatRepository(BaseRepository):
 
             try:
                 query = """
-                    INSERT INTO chat_history (channel_id, user_id, message, timestamp)
-                    VALUES ($1, $2, $3, $4)
+                    INSERT INTO chat_history (
+                        id, channel_id, user_id, message, timestamp
+                    )
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (id) DO NOTHING
                 """
+
                 async with self._db.acquire() as conn:
                     await conn.executemany(query, to_insert)
-                LOGGER.info(
+                LOGGER.debug(
                     "DB BATCH INSERT chat_history: %d mensajes guardados",
                     len(to_insert),
                 )
