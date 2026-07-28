@@ -54,21 +54,23 @@ export function ModelSection() {
         <span class="section-icon"><i class="fa-solid fa-brain"></i></span> Modelo IA
       </div>
       <div class="section-body">
-        ${rpm
-          ? html`
-              <div
-                style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center"
-              >
-                <span style="color:var(--text)"
-                  >Activo:
-                  <strong style="color:var(--accent-text)">${rpm.display_name}</strong></span
+        ${
+          rpm
+            ? html`
+                <div
+                  style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center"
                 >
-                <span>·</span>
-                <span>${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
-                ${rpm.is_blocked ? html`<span style="color:var(--danger)">BLOQUEADO</span>` : null}
-              </div>
-            `
-          : null}
+                  <span style="color:var(--text)"
+                    >Activo:
+                    <strong style="color:var(--accent-text)">${rpm.display_name}</strong></span
+                  >
+                  <span>·</span>
+                  <span>${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
+                  ${rpm.is_blocked ? html`<span style="color:var(--danger)">BLOQUEADO</span>` : null}
+                </div>
+              `
+            : null
+        }
 
         <div class="action-row">
           <div class="model-select-wrap">
@@ -93,9 +95,11 @@ export function ModelSection() {
           </button>
         </div>
 
-        ${result
-          ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>`
-          : null}
+        ${
+          result
+            ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>`
+            : null
+        }
       </div>
     </div>
   `;

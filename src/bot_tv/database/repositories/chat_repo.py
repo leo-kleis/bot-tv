@@ -149,6 +149,7 @@ class ChatRepository(BaseRepository):
         since: str | None = None,
         until: str | None = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Devuelve los mensajes de chat aplicando diversos filtros dinámicos."""
         where_clauses = ["c.channel_id = $1"]
@@ -197,11 +198,23 @@ class ChatRepository(BaseRepository):
             LEFT JOIN channel_users cu
                    ON c.user_id = cu.user_id AND c.channel_id = cu.channel_id
             WHERE {" AND ".join(where_clauses)}
-            ORDER BY c.timestamp DESC LIMIT ${len(params) + 1}
+            ORDER BY c.timestamp DESC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """
 
         params.append(limit)
+        params.append(offset)
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
+
+    async def get_user_message_count(self, channel_id: str, user_id: str) -> int:
+        """Devuelve el total de mensajes de un usuario en un canal."""
+        query = """
+            SELECT COUNT(*) AS total
+            FROM chat_history
+            WHERE channel_id = $1 AND user_id = $2
+        """
+        async with self._db.acquire() as conn:
+            row: asyncpg.Record | None = await conn.fetchrow(query, channel_id, user_id)
+        return int(row["total"]) if row else 0

@@ -63,9 +63,9 @@ export function CustomSelect({
 
   return html`
     <div
-      class="custom-select-wrap ${className || ''} ${disabled ? 'disabled' : ''} ${open
-        ? 'open'
-        : ''} ${openUpward ? 'open-up' : ''} ${alignRight ? 'align-right' : ''}"
+      class="custom-select-wrap ${className || ''} ${disabled ? 'disabled' : ''} ${
+        open ? 'open' : ''
+      } ${openUpward ? 'open-up' : ''} ${alignRight ? 'align-right' : ''}"
       ref=${wrapRef}
     >
       <button
@@ -80,23 +80,25 @@ export function CustomSelect({
         >
         <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>
       </button>
-      ${open && options.length > 0
-        ? html`
-            <div class="custom-select-dropdown">
-              ${options.map(
-                opt => html`
-                  <div
-                    key=${opt.value}
-                    class="custom-select-item ${opt.value === value ? 'selected' : ''}"
-                    onMouseDown=${() => handleSelect(opt.value)}
-                  >
-                    ${opt.label}
-                  </div>
-                `
-              )}
-            </div>
-          `
-        : null}
+      ${
+        open && options.length > 0
+          ? html`
+              <div class="custom-select-dropdown">
+                ${options.map(
+                  opt => html`
+                    <div
+                      key=${opt.value}
+                      class="custom-select-item ${opt.value === value ? 'selected' : ''}"
+                      onMouseDown=${() => handleSelect(opt.value)}
+                    >
+                      ${opt.label}
+                    </div>
+                  `
+                )}
+              </div>
+            `
+          : null
+      }
     </div>
   `;
 }

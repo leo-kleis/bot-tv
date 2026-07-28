@@ -96,18 +96,24 @@ export function SettingsTab({ dispatch }) {
               style="width:100px;padding:6px 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;"
             />
             <span style="font-size:12px;color:var(--text-muted);">
-              ${contextLimit === 0
-                ? '0 = Sin Límite (Ilimitado)'
-                : `Conserva los últimos ${contextLimit} turnos`}
+              ${
+                contextLimit === 0
+                  ? '0 = Sin Límite (Ilimitado)'
+                  : `Conserva los últimos ${contextLimit} turnos`
+              }
             </span>
-            ${savingLimit
-              ? html`<span class="spinner" style="border-top-color:var(--accent)"></span>`
-              : null}
-            ${limitSavedMsg
-              ? html`<span style="color:var(--success);font-size:12px;font-weight:600;"
-                  >${limitSavedMsg}</span
-                >`
-              : null}
+            ${
+              savingLimit
+                ? html`<span class="spinner" style="border-top-color:var(--accent)"></span>`
+                : null
+            }
+            ${
+              limitSavedMsg
+                ? html`<span style="color:var(--success);font-size:12px;font-weight:600;"
+                    >${limitSavedMsg}</span
+                  >`
+                : null
+            }
           </div>
         </div>
       </div>

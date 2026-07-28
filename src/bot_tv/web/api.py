@@ -459,6 +459,7 @@ async def endpoint_list_users(request: Request) -> Response:
                 "is_follower": r.get("followed_at") is not None
                 and r.get("unfollowed_at") is None,
                 "is_broadcaster": r.get("user_id") == channel_id,
+                "message_count": r.get("message_count", 0),
             }
             for r in rows
         ]
@@ -520,3 +521,64 @@ async def endpoint_get_ffz_emotes(request: Request) -> Response:
 
     _FFZ_CACHE[channel_id] = {}
     return JSONResponse({})
+
+
+async def endpoint_user_messages(request: Request) -> Response:
+    """Retorna el historial de mensajes de un usuario con paginación."""
+    bot: Bot = request.app.state.bot
+    username = request.path_params.get("username", "").strip()
+    if not username:
+        return _err("username requerido")
+
+    channels = await bot.get_channels()
+    if not channels:
+        return _err("No hay canales configurados.")
+    channel_id = channels[0]["user_id"]
+
+    limit_param = request.query_params.get("limit", "50")
+    offset_param = request.query_params.get("offset", "0")
+    try:
+        limit = max(1, min(100, int(limit_param)))
+        offset = max(0, int(offset_param))
+    except ValueError:
+        limit, offset = 50, 0
+
+    search = request.query_params.get("search", "").strip() or None
+    since = request.query_params.get("since", "").strip() or None
+    until = request.query_params.get("until", "").strip() or None
+
+    if since and len(since) == 10:
+        since = f"{since}T00:00:00Z"
+    if until and len(until) == 10:
+        until = f"{until}T23:59:59Z"
+
+    try:
+        messages = await bot.chat_repo.get_messages_with_filters(
+            channel_id=channel_id,
+            username=username,
+            search_term=search,
+            since=since,
+            until=until,
+            limit=limit + 1,  # pedir uno extra para detectar has_more
+            offset=offset,
+        )
+        has_more = len(messages) > limit
+        if has_more:
+            messages = messages[:limit]
+
+        total = await bot.chat_repo.get_user_message_count(
+            channel_id, await bot.user_repo.get_user_id_by_name(username) or ""
+        )
+
+        return _ok(
+            {
+                "messages": messages,
+                "total": total,
+                "has_more": has_more,
+                "offset": offset,
+                "limit": limit,
+            }
+        )
+    except Exception as e:
+        LOGGER.exception("Error al obtener mensajes del usuario %s: %s", username, e)
+        return _err(f"Error al obtener mensajes: {e}")

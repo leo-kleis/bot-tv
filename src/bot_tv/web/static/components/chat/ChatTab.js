@@ -27,10 +27,12 @@ function ChatMessageGroup({ msg, emotesMap }) {
       <div class="chat-msg-content">
         <div class="chat-msg-header">
           <span class="chat-author" style="color:${color}">
-            ${msg.nickname
-              ? html`<span class="chat-nickname">${msg.nickname}</span
-                  ><span class="chat-display"> ${msg.display_name}</span>`
-              : html`<span class="chat-nickname">${msg.display_name}</span>`}
+            ${
+              msg.nickname
+                ? html`<span class="chat-nickname">${msg.nickname}</span
+                    ><span class="chat-display"> ${msg.display_name}</span>`
+                : html`<span class="chat-nickname">${msg.display_name}</span>`
+            }
           </span>
           ${rLabel ? html`<span class="chat-role">(${rLabel})</span>` : null}
           <span class="chat-time">${fmtTime(msg.timestamp)}</span>
@@ -295,9 +297,11 @@ export function ChatTab({
             disabled=${clipping || !streamOnline}
             title=${!streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'}
           >
-            ${clipping
-              ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
-              : html`<i class="fa-solid fa-scissors"></i>`}
+            ${
+              clipping
+                ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+                : html`<i class="fa-solid fa-scissors"></i>`
+            }
             <span>Clip</span>
           </button>
         </div>
@@ -315,65 +319,71 @@ export function ChatTab({
             aria-live="polite"
             aria-relevant="additions"
           >
-            ${chatMessages.length === 0
-              ? html`
-                  <div class="chat-empty">
-                    <span class="empty-icon"
-                      ><i
-                        class="fa-regular fa-comments fa-3x"
-                        style="color:var(--text-muted);margin-bottom:12px"
-                      ></i
-                    ></span>
-                    <span>Esperando mensajes...</span>
-                  </div>
-                `
-              : chatMessages.map((m, i) => {
-                  if (m.isSystem) {
-                    return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
-                  }
-                  const prev = chatMessages[i - 1];
-                  const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
-                  return isGrouped
-                    ? html`<${ChatMessageCont}
-                        key=${m.timestamp + i}
-                        msg=${m}
-                        emotesMap=${emotesMap}
-                      />`
-                    : html`<${ChatMessageGroup}
-                        key=${m.timestamp + i}
-                        msg=${m}
-                        emotesMap=${emotesMap}
-                      />`;
-                })}
+            ${
+              chatMessages.length === 0
+                ? html`
+                    <div class="chat-empty">
+                      <span class="empty-icon"
+                        ><i
+                          class="fa-regular fa-comments fa-3x"
+                          style="color:var(--text-muted);margin-bottom:12px"
+                        ></i
+                      ></span>
+                      <span>Esperando mensajes...</span>
+                    </div>
+                  `
+                : chatMessages.map((m, i) => {
+                    if (m.isSystem) {
+                      return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
+                    }
+                    const prev = chatMessages[i - 1];
+                    const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
+                    return isGrouped
+                      ? html`<${ChatMessageCont}
+                          key=${m.timestamp + i}
+                          msg=${m}
+                          emotesMap=${emotesMap}
+                        />`
+                      : html`<${ChatMessageGroup}
+                          key=${m.timestamp + i}
+                          msg=${m}
+                          emotesMap=${emotesMap}
+                        />`;
+                  })
+            }
           </div>
 
           <!-- Botón de scroll al final -->
-          ${!isAtBottom && chatMessages.length > 0
-            ? html`
-                <button class="scroll-bottom-btn" onClick=${scrollToBottom}>
-                  <i class="fa-solid fa-arrow-down"></i> Mensajes nuevos
-                </button>
-              `
-            : null}
+          ${
+            !isAtBottom && chatMessages.length > 0
+              ? html`
+                  <button class="scroll-bottom-btn" onClick=${scrollToBottom}>
+                    <i class="fa-solid fa-arrow-down"></i> Mensajes nuevos
+                  </button>
+                `
+              : null
+          }
         </div>
 
         <!-- Caja de Texto para Enviar Mensaje (Bot/Broadcaster) -->
         <div class="chat-input-container">
           <form onSubmit=${handleSend} class="chat-input-form">
-            ${accounts.length > 0
-              ? html`
-                  <${CustomSelect}
-                    className="chat-select-field"
-                    value=${selectedSenderId}
-                    onChange=${setSelectedSenderId}
-                    disabled=${sending}
-                    options=${accounts.map(acc => ({
-                      value: acc.user_id,
-                      label: `${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})`,
-                    }))}
-                  />
-                `
-              : null}
+            ${
+              accounts.length > 0
+                ? html`
+                    <${CustomSelect}
+                      className="chat-select-field"
+                      value=${selectedSenderId}
+                      onChange=${setSelectedSenderId}
+                      disabled=${sending}
+                      options=${accounts.map(acc => ({
+                        value: acc.user_id,
+                        label: `${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})`,
+                      }))}
+                    />
+                  `
+                : null
+            }
             <input
               type="text"
               class="chat-input-field"
@@ -388,51 +398,61 @@ export function ChatTab({
               class="chat-send-btn"
               disabled=${!inputText.trim() || sending || !selectedSenderId}
             >
-              ${sending
-                ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
-                : html`<i class="fa-solid fa-paper-plane"></i>`}
+              ${
+                sending
+                  ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+                  : html`<i class="fa-solid fa-paper-plane"></i>`
+              }
             </button>
           </form>
         </div>
       </div>
 
       <!-- Overlay móvil -->
-      ${showIrcMobile
-        ? html`<div class="irc-overlay-mobile" onClick=${() => onToggleIrc(false)}></div>`
-        : null}
+      ${
+        showIrcMobile
+          ? html`<div class="irc-overlay-mobile" onClick=${() => onToggleIrc(false)}></div>`
+          : null
+      }
 
       <!-- Panel IRC Usuarios (derecha) -->
       <div class="irc-panel">
         <div class="irc-panel-header">
           <span>En canal</span>
-          ${!ircConnected &&
-          html`
-            <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
-              <i class="fa-solid fa-triangle-exclamation"></i>
-            </span>
-          `}
+          ${
+            !ircConnected &&
+            html`
+              <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </span>
+            `
+          }
         </div>
 
         <div class="irc-feed" id="irc-feed">
-          ${!ircConnected &&
-          html`
-            <div class="irc-disconnect-alert">
-              <span class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
-              <span class="alert-title">IRC Desconectado</span>
-              <span class="alert-desc">Intentando reconectar automáticamente...</span>
-            </div>
-          `}
-          ${users.length === 0
-            ? !ircConnected
-              ? null
-              : html`
-                  <div
-                    style="padding:16px 10px;color:var(--text-muted);font-size:11px;text-align:center"
-                  >
-                    Vacío
-                  </div>
-                `
-            : users.map(u => html`<${IrcUser} key=${u.username} user=${u} />`)}
+          ${
+            !ircConnected &&
+            html`
+              <div class="irc-disconnect-alert">
+                <span class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <span class="alert-title">IRC Desconectado</span>
+                <span class="alert-desc">Intentando reconectar automáticamente...</span>
+              </div>
+            `
+          }
+          ${
+            users.length === 0
+              ? !ircConnected
+                ? null
+                : html`
+                    <div
+                      style="padding:16px 10px;color:var(--text-muted);font-size:11px;text-align:center"
+                    >
+                      Vacío
+                    </div>
+                  `
+              : users.map(u => html`<${IrcUser} key=${u.username} user=${u} />`)
+          }
         </div>
       </div>
     </div>

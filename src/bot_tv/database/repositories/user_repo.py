@@ -249,7 +249,7 @@ class UserRepository(BaseRepository):
     ) -> tuple[list[dict[str, Any]], int]:
         """Devuelve usuarios registrados filtrados y el total coincidente."""
         if cache is not None:
-            return cache.list_users_with_filters(
+            users, total = cache.list_users_with_filters(
                 channel_id=channel_id,
                 broadcaster_id=broadcaster_id,
                 role=role,
@@ -264,6 +264,14 @@ class UserRepository(BaseRepository):
                 limit=limit,
                 offset=offset,
             )
+            # El caché no tiene acceso a chat_history; se obtienen los conteos
+            # con un único query batch sobre los user_ids de la página actual.
+            if users:
+                user_ids = [u["user_id"] for u in users if u.get("user_id")]
+                counts = await self._fetch_message_counts_batch(channel_id, user_ids)
+                for u in users:
+                    u["message_count"] = counts.get(u.get("user_id", ""), 0)
+            return users, total
 
         limit = max(1, limit)
         offset = max(0, offset)
@@ -367,7 +375,11 @@ class UserRepository(BaseRepository):
                    COALESCE(cu.is_moderator, FALSE) as is_moderator,
                    COALESCE(cu.is_vip, FALSE) as is_vip,
                    COALESCE(cu.is_subscriber, FALSE) as is_subscriber,
-                   cu.sub_tier, cu.followed_at, cu.unfollowed_at
+                   cu.sub_tier, cu.followed_at, cu.unfollowed_at,
+                   (
+                       SELECT COUNT(*) FROM chat_history ch
+                       WHERE ch.channel_id = $1 AND ch.user_id = u.user_id
+                   ) AS message_count
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
@@ -545,3 +557,19 @@ class UserRepository(BaseRepository):
                 url,
                 user_id,
             )
+
+    async def _fetch_message_counts_batch(
+        self, channel_id: str, user_ids: list[str]
+    ) -> dict[str, int]:
+        """Retorna {user_id: message_count} para un lote de user_ids en un canal."""
+        if not user_ids:
+            return {}
+        query = """
+            SELECT user_id, COUNT(*) AS total
+            FROM chat_history
+            WHERE channel_id = $1 AND user_id = ANY($2)
+            GROUP BY user_id
+        """
+        async with self._db.acquire() as conn:
+            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, user_ids)
+        return {row["user_id"]: int(row["total"]) for row in rows}

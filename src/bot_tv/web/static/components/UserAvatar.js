@@ -22,17 +22,19 @@ export function UserAvatar({ userId, displayName, color, size = 'md' }) {
 
   return html`
     <div class="user-avatar ${sizeClass}" style="background:${color}">
-      ${avatarUrl &&
-      html`
-        <img
-          src=${avatarUrl}
-          alt=""
-          loading="lazy"
-          onError=${e => {
-            e.target.style.display = 'none';
-          }}
-        />
-      `}
+      ${
+        avatarUrl &&
+        html`
+          <img
+            src=${avatarUrl}
+            alt=""
+            loading="lazy"
+            onError=${e => {
+              e.target.style.display = 'none';
+            }}
+          />
+        `
+      }
       <span class="user-avatar-fallback">${getInitial(displayName)}</span>
     </div>
   `;

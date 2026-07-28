@@ -59,9 +59,11 @@ export function App({ state, dispatch, onReconnect }) {
           </span>
           <h2>${isCleanExit ? 'Servidor Apagado' : 'Conexión Perdida'}</h2>
           <p>
-            ${isCleanExit
-              ? 'El bot se ha cerrado de forma limpia y el servidor web ha sido detenido.'
-              : 'La conexión se ha perdido o el bot está apagado. Intentando reconectar...'}
+            ${
+              isCleanExit
+                ? 'El bot se ha cerrado de forma limpia y el servidor web ha sido detenido.'
+                : 'La conexión se ha perdido o el bot está apagado. Intentando reconectar...'
+            }
           </p>
 
           <button class="reconnect-btn" onClick=${onReconnect}>
@@ -69,9 +71,11 @@ export function App({ state, dispatch, onReconnect }) {
           </button>
 
           <span style="font-size:11px;color:var(--text-muted);margin-top:16px;display:block">
-            ${isCleanExit
-              ? 'Esperando a que el bot se encienda de nuevo...'
-              : 'Reconectando automáticamente o al activar la pantalla...'}
+            ${
+              isCleanExit
+                ? 'Esperando a que el bot se encienda de nuevo...'
+                : 'Reconectando automáticamente o al activar la pantalla...'
+            }
           </span>
         </div>
       </div>
@@ -121,22 +125,26 @@ export function App({ state, dispatch, onReconnect }) {
       </nav>
 
       <main class="tab-content" role="main">
-        ${active === 'chat' &&
-        html`
-          <${ChatTab}
-            chatMessages=${state.chatMessages}
-            ircUsers=${state.ircUsers}
-            ircConnected=${state.ircConnected}
-            showIrcMobile=${showIrcMobile}
-            onToggleIrc=${setShowIrcMobile}
-            dispatch=${dispatch}
-            streamOnline=${state.stream.online}
-          />
-        `}
+        ${
+          active === 'chat' &&
+          html`
+            <${ChatTab}
+              chatMessages=${state.chatMessages}
+              ircUsers=${state.ircUsers}
+              ircConnected=${state.ircConnected}
+              showIrcMobile=${showIrcMobile}
+              onToggleIrc=${setShowIrcMobile}
+              dispatch=${dispatch}
+              streamOnline=${state.stream.online}
+            />
+          `
+        }
         ${active === 'stream' && html` <${StreamTab} channel=${state.stream.broadcasterName} /> `}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
-        ${active === 'agent' &&
-        html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`}
+        ${
+          active === 'agent' &&
+          html`<${AgentTab} conversations=${state.agentConversations} dispatch=${dispatch} />`
+        }
         ${active === 'settings' && html`<${SettingsTab} dispatch=${dispatch} />`}
       </main>
       <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />

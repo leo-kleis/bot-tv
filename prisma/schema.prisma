@@ -29,6 +29,7 @@ model ChatHistory {
 
   user User @relation(fields: [user_id], references: [user_id])
 
+  @@index([channel_id, user_id], map: "idx_chat_history_channel_user")
   @@map("chat_history")
 }
 

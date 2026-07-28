@@ -1,0 +1,374 @@
+/* history.css — Drawer de Historial de Mensajes por Usuario */
+
+/* ── Backdrop (solo desktop) ─────────────────────────────────────────────── */
+.history-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: calc(var(--z-overlay) - 1);
+  animation: fade-in 0.2s ease;
+}
+
+/* ── Drawer principal ────────────────────────────────────────────────────── */
+.history-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 100%;
+  background: var(--surface-solid);
+  border-left: 1px solid var(--border);
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.history-drawer.open {
+  transform: translateX(0);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.history-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2-solid);
+  box-shadow: var(--shadow-inset);
+}
+
+.history-header-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.history-header-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.history-header-username {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.history-msg-count {
+  font-size: 11px;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.history-header-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-xs);
+  font-size: 16px;
+  transition:
+    color 0.15s,
+    background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.history-header-close:hover {
+  color: var(--text);
+  background: var(--surface3);
+}
+
+/* ── Barra de búsqueda y filtros ─────────────────────────────────────────── */
+.history-search {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-2);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.history-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.history-search-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 7px 10px 7px 32px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.history-search-input:focus {
+  border-color: var(--accent-dim);
+}
+
+.history-search-dates {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.history-search-dates input[type='date'] {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.history-search-dates input[type='date']:focus {
+  border-color: var(--accent-dim);
+}
+
+.history-search-sep {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.history-search-clear {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: var(--font);
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+  white-space: nowrap;
+}
+
+.history-search-clear:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+/* ── Contenedor de mensajes ──────────────────────────────────────────────── */
+.history-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Indicador "cargar más" (tope) ───────────────────────────────────────── */
+.history-load-more {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ── Lista de mensajes ───────────────────────────────────────────────────── */
+.history-msg-list {
+  flex: 1;
+  padding: 8px 0;
+}
+
+.history-msg {
+  display: flex;
+  gap: 10px;
+  padding: 5px 14px;
+  transition: background 0.1s;
+}
+
+.history-msg:hover {
+  background: var(--surface2);
+}
+
+.history-msg-time {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-top: 1px;
+  min-width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-msg-text {
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.45;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.history-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-muted);
+  padding: 24px;
+  text-align: center;
+}
+
+.history-empty i {
+  font-size: 28px;
+  opacity: 0.4;
+}
+
+.history-empty p {
+  font-size: 13px;
+  max-width: 220px;
+  line-height: 1.5;
+}
+
+/* ── Spinner inline ──────────────────────────────────────────────────────── */
+.history-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: history-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes history-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Breakpoints ─────────────────────────────────────────────────────────── */
+
+/* Mobile portrait: drawer ocupa 100%, sin backdrop */
+@media (max-width: 600px) {
+  .history-drawer {
+    width: 100%;
+  }
+}
+
+/* Landscape: drawer ocupa 100% del ancho, paddings compactos */
+@media (max-height: 480px) {
+  .history-drawer {
+    width: 100%;
+  }
+
+  .history-header {
+    padding: 7px 12px;
+    gap: 8px;
+  }
+
+  .history-header-name {
+    font-size: 13px;
+  }
+
+  .history-header-username,
+  .history-msg-count {
+    font-size: 10px;
+  }
+
+  .history-search {
+    padding: 6px 10px;
+    gap: 5px;
+  }
+
+  .history-search-input {
+    font-size: 12px;
+    padding: 5px 8px 5px 28px;
+  }
+
+  .history-search-dates input[type='date'] {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .history-msg {
+    padding: 3px 10px;
+    gap: 8px;
+  }
+
+  .history-msg-time {
+    font-size: 10px;
+  }
+
+  .history-msg-text {
+    font-size: 12.5px;
+  }
+
+  .history-empty {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .history-empty i {
+    font-size: 20px;
+  }
+
+  .history-empty p {
+    font-size: 12px;
+  }
+}
+
+/* Desktop/Tablet: drawer 65% del ancho desde la derecha, backdrop visible */
+@media (min-width: 601px) and (min-height: 481px) {
+  .history-backdrop {
+    display: block;
+  }
+
+  .history-drawer {
+    width: 65%;
+    max-width: 600px;
+    box-shadow: var(--shadow-lg);
+  }
+}

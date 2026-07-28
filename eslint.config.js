@@ -1,8 +1,8 @@
+import globals from "globals";
+
 export default [
   {
-    ignores: [
-      "src/bot_tv/web/static/vendor/**",
-    ],
+    ignores: ["src/bot_tv/web/static/vendor/**"],
   },
   {
     files: ["**/*.js"],
@@ -10,22 +10,7 @@ export default [
       ecmaVersion: "latest",
       sourceType: "module",
       globals: {
-        window: "readonly",
-        document: "readonly",
-        navigator: "readonly",
-        location: "readonly",
-        localStorage: "readonly",
-        setTimeout: "readonly",
-        clearTimeout: "readonly",
-        setInterval: "readonly",
-        clearInterval: "readonly",
-        WebSocket: "readonly",
-        console: "readonly",
-        Date: "readonly",
-        Math: "readonly",
-        Request: "readonly",
-        fetch: "readonly",
-        URL: "readonly",
+        ...globals.browser,
       },
     },
     rules: {
@@ -44,12 +29,7 @@ export default [
     files: ["src/bot_tv/web/static/sw.js"],
     languageOptions: {
       globals: {
-        self: "readonly",
-        caches: "readonly",
-        fetch: "readonly",
-        Response: "readonly",
-        Request: "readonly",
-        URL: "readonly",
+        ...globals.serviceworker,
       },
     },
   },

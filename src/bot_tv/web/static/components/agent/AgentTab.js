@@ -79,38 +79,42 @@ export function AgentTab({ conversations = [], dispatch }) {
     <div class="agent-tab">
       <!-- Conversación -->
       <div class="agent-convo" ref=${feedRef} id="agent-convo">
-        ${conversations.length === 0
-          ? html`
-              <div class="agent-empty">
-                <span class="empty-icon"
-                  ><i
-                    class="fa-solid fa-robot fa-3x"
-                    style="color:var(--text-muted);margin-bottom:12px"
-                  ></i
-                ></span>
-                <span style="font-size:13px;color:var(--text-muted)"
-                  >Escribe un mensaje para consultar al agente</span
-                >
-              </div>
-            `
-          : conversations.map(
-              c => html`
-                <div class="convo-pair" key=${c.id}>
-                  <div class="convo-q">${c.question}</div>
-                  ${c.response == null
-                    ? html`<div class="convo-a loading">
-                        <span class="spinner" style="border-top-color:var(--accent)"></span>
-                        Pensando...
-                      </div>`
-                    : html`
-                        <div class="convo-a">${c.response}</div>
-                        <div class="convo-meta">
-                          ${fmtTime(c.timestamp)}${c.model ? ` · ${c.model}` : ''}
-                        </div>
-                      `}
+        ${
+          conversations.length === 0
+            ? html`
+                <div class="agent-empty">
+                  <span class="empty-icon"
+                    ><i
+                      class="fa-solid fa-robot fa-3x"
+                      style="color:var(--text-muted);margin-bottom:12px"
+                    ></i
+                  ></span>
+                  <span style="font-size:13px;color:var(--text-muted)"
+                    >Escribe un mensaje para consultar al agente</span
+                  >
                 </div>
               `
-            )}
+            : conversations.map(
+                c => html`
+                  <div class="convo-pair" key=${c.id}>
+                    <div class="convo-q">${c.question}</div>
+                    ${
+                      c.response == null
+                        ? html`<div class="convo-a loading">
+                            <span class="spinner" style="border-top-color:var(--accent)"></span>
+                            Pensando...
+                          </div>`
+                        : html`
+                            <div class="convo-a">${c.response}</div>
+                            <div class="convo-meta">
+                              ${fmtTime(c.timestamp)}${c.model ? ` · ${c.model}` : ''}
+                            </div>
+                          `
+                    }
+                  </div>
+                `
+              )
+        }
       </div>
 
       <!-- Info RPM y Limpiar Chat -->
@@ -119,31 +123,37 @@ export function AgentTab({ conversations = [], dispatch }) {
         style="display:flex;justify-content:space-between;align-items:center;"
       >
         <div style="display:flex;align-items:center;gap:6px;">
-          ${rpm
-            ? html`
-                <span class="rpm-dot ${rpmDotClass}"></span>
-                <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
-                ${rpm.is_blocked
-                  ? html`<span style="color:var(--danger)"
-                      >Bloqueado
-                      ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
-                    >`
-                  : null}
-              `
-            : null}
+          ${
+            rpm
+              ? html`
+                  <span class="rpm-dot ${rpmDotClass}"></span>
+                  <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
+                  ${
+                    rpm.is_blocked
+                      ? html`<span style="color:var(--danger)"
+                          >Bloqueado
+                          ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
+                        >`
+                      : null
+                  }
+                `
+              : null
+          }
         </div>
-        ${conversations.length > 0
-          ? html`
-              <button
-                class="btn btn-secondary"
-                style="padding:4px 10px;font-size:12px;"
-                onClick=${clearChat}
-                title="Borrar conversación y empezar un nuevo chat con el agente"
-              >
-                <i class="fa-solid fa-trash" style="margin-right:4px"></i> Limpiar chat
-              </button>
-            `
-          : null}
+        ${
+          conversations.length > 0
+            ? html`
+                <button
+                  class="btn btn-secondary"
+                  style="padding:4px 10px;font-size:12px;"
+                  onClick=${clearChat}
+                  title="Borrar conversación y empezar un nuevo chat con el agente"
+                >
+                  <i class="fa-solid fa-trash" style="margin-right:4px"></i> Limpiar chat
+                </button>
+              `
+            : null
+        }
       </div>
 
       <!-- Input -->

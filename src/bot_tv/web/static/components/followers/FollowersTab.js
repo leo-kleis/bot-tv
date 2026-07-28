@@ -1,6 +1,7 @@
 import { html, useState, useEffect, useRef } from 'preact-setup';
 import { apiPost, apiGet } from '/static/components/api.js';
 import { CustomSelect } from '/static/components/CustomSelect.js';
+import { UserHistoryDrawer } from '/static/components/followers/UserHistoryDrawer.js';
 
 function formatDate(isoString) {
   if (!isoString) return '';
@@ -101,6 +102,7 @@ export function FollowersTab({ followers }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(null); // trackea acciones rápidas por usuario
   const [selectedUserForRoles, setSelectedUserForRoles] = useState(null);
+  const [historyUser, setHistoryUser] = useState(null);
   const [tempRoles, setTempRoles] = useState({
     is_bot: false,
     is_moderator: false,
@@ -348,20 +350,24 @@ export function FollowersTab({ followers }) {
                 </div>
               </div>
 
-              ${prog
-                ? html`
-                    <div>
-                      <div class="progress-text" style="margin-bottom:6px">
-                        ${prog.total > 0
-                          ? `${prog.count} / ${prog.total} seguidores`
-                          : 'Iniciando sincronización...'}
+              ${
+                prog
+                  ? html`
+                      <div>
+                        <div class="progress-text" style="margin-bottom:6px">
+                          ${
+                            prog.total > 0
+                              ? `${prog.count} / ${prog.total} seguidores`
+                              : 'Iniciando sincronización...'
+                          }
+                        </div>
+                        <div class="progress-bar-wrap">
+                          <div class="progress-bar-fill" style="width:${progPct}%"></div>
+                        </div>
                       </div>
-                      <div class="progress-bar-wrap">
-                        <div class="progress-bar-fill" style="width:${progPct}%"></div>
-                      </div>
-                    </div>
-                  `
-                : null}
+                    `
+                  : null
+              }
 
               <button
                 id="btn-sync-followers"
@@ -370,73 +376,91 @@ export function FollowersTab({ followers }) {
                 onClick=${handleSync}
                 disabled=${syncing || !!prog || !sync}
               >
-                ${syncing || !!prog
-                  ? html`<span class="spinner"></span> Sincronizando...`
-                  : !sync
-                    ? html`<span class="spinner"></span> Inicializando bot...`
-                    : html`<i class="fa-solid fa-rotate"></i> Sincronizar ahora`}
+                ${
+                  syncing || !!prog
+                    ? html`<span class="spinner"></span> Sincronizando...`
+                    : !sync
+                      ? html`<span class="spinner"></span> Inicializando bot...`
+                      : html`<i class="fa-solid fa-rotate"></i> Sincronizar ahora`
+                }
               </button>
 
-              ${result
-                ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>`
-                : null}
+              ${
+                result
+                  ? html`<div class="result-msg ${result.ok ? 'ok' : 'err'}">${result.msg}</div>`
+                  : null
+              }
             </div>
           </div>
 
-          ${!sync
-            ? html`
-                <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">
-                  Sin datos de sync. Presiona "Sincronizar ahora" o espera la sincronización
-                  automática al iniciar.
-                </div>
-              `
-            : null}
+          ${
+            !sync
+              ? html`
+                  <div
+                    style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px"
+                  >
+                    Sin datos de sync. Presiona "Sincronizar ahora" o espera la sincronización
+                    automática al iniciar.
+                  </div>
+                `
+              : null
+          }
         </div>
 
         <!-- Columna Derecha: Nuevos y Perdidos acumulados en la sesion -->
-        ${allNewLabels.length > 0 || allLostLabels.length > 0
-          ? html`
-              <div class="two-col">
-                <!-- Nuevos seguidores -->
-                ${allNewLabels.length > 0
-                  ? html`
-                      <div class="section">
-                        <div class="section-header" style="color:var(--success)">
-                          <span class="section-icon"><i class="fa-solid fa-user-plus"></i></span>
-                          Nuevos (${allNewLabels.length})
-                        </div>
-                        <div class="section-body">
-                          <div class="follower-list">
-                            ${allNewLabels.map(
-                              (l, i) => html`<div key=${i} class="follower-item new">${l}</div>`
-                            )}
+        ${
+          allNewLabels.length > 0 || allLostLabels.length > 0
+            ? html`
+                <div class="two-col">
+                  <!-- Nuevos seguidores -->
+                  ${
+                    allNewLabels.length > 0
+                      ? html`
+                          <div class="section">
+                            <div class="section-header" style="color:var(--success)">
+                              <span class="section-icon"
+                                ><i class="fa-solid fa-user-plus"></i
+                              ></span>
+                              Nuevos (${allNewLabels.length})
+                            </div>
+                            <div class="section-body">
+                              <div class="follower-list">
+                                ${allNewLabels.map(
+                                (l, i) => html`<div key=${i} class="follower-item new">${l}</div>`
+                              )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    `
-                  : null}
+                        `
+                      : null
+                  }
 
-                <!-- Perdidos -->
-                ${allLostLabels.length > 0
-                  ? html`
-                      <div class="section">
-                        <div class="section-header" style="color:var(--danger)">
-                          <span class="section-icon"><i class="fa-solid fa-user-minus"></i></span>
-                          Dejaron de seguir (${allLostLabels.length})
-                        </div>
-                        <div class="section-body">
-                          <div class="follower-list">
-                            ${allLostLabels.map(
-                              (l, i) => html`<div key=${i} class="follower-item lost">${l}</div>`
-                            )}
+                  <!-- Perdidos -->
+                  ${
+                    allLostLabels.length > 0
+                      ? html`
+                          <div class="section">
+                            <div class="section-header" style="color:var(--danger)">
+                              <span class="section-icon"
+                                ><i class="fa-solid fa-user-minus"></i
+                              ></span>
+                              Dejaron de seguir (${allLostLabels.length})
+                            </div>
+                            <div class="section-body">
+                              <div class="follower-list">
+                                ${allLostLabels.map(
+                                (l, i) => html`<div key=${i} class="follower-item lost">${l}</div>`
+                              )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    `
-                  : null}
-              </div>
-            `
-          : null}
+                        `
+                      : null
+                  }
+                </div>
+              `
+            : null
+        }
       </div>
 
       <!-- Sección inferior: Listado de Usuarios con Filtros Avanzados -->
@@ -449,14 +473,17 @@ export function FollowersTab({ followers }) {
             <span class="section-icon"><i class="fa-solid fa-users"></i></span> Buscador de Usuarios
             y Seguidores
           </div>
-          ${!loadingUsers && totalUsers > 0
-            ? html`
-                <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">
-                  Total: <strong style="color: var(--accent-text);">${totalUsers}</strong> usuarios
-                  encontrados
-                </span>
-              `
-            : null}
+          ${
+            !loadingUsers && totalUsers > 0
+              ? html`
+                  <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">
+                    Total:
+                    <strong style="color: var(--accent-text);">${totalUsers}</strong> usuarios
+                    encontrados
+                  </span>
+                `
+              : null
+          }
         </div>
 
         <div class="section-body" style="gap:16px;">
@@ -591,383 +618,453 @@ export function FollowersTab({ followers }) {
               class="users-table-wrapper ${loadingUsers ? 'loading' : ''}"
               style="border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: none; position: relative;"
             >
-              ${loadingUsers &&
-              html`
-                <div class="table-loading-overlay">
-                  <span class="spinner"></span> Cargando usuarios...
-                </div>
-              `}
-              ${users.length === 0
-                ? html`<div class="empty-table" style="border-bottom: 1px solid var(--border-2);">
-                    No se encontraron usuarios con los filtros seleccionados.
-                  </div>`
-                : html`
-                    <table class="users-table">
-                      <thead>
-                        <tr>
-                          <th
-                            class="sortable"
-                            onClick=${() => handleSort('username')}
-                            title="Ordenar por usuario (alfabético)"
-                          >
-                            Usuario
-                            ${sortBy === 'username'
-                              ? html`<i
-                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
-                                ></i>`
-                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
-                          </th>
-                          <th
-                            class="sortable"
-                            onClick=${() => handleSort('role')}
-                            title="Ordenar por rol prioritario (Moderador -> VIP -> Suscriptor -> Bot)"
-                          >
-                            Roles
-                            ${sortBy === 'role'
-                              ? html`<i
-                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
-                                ></i>`
-                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
-                          </th>
-                          <th
-                            class="sortable"
-                            onClick=${() => handleSort('follow_date')}
-                            title="Ordenar por fecha y hora de seguimiento / unfollow"
-                          >
-                            Estado Seguimiento
-                            ${sortBy === 'follow_date'
-                              ? html`<i
-                                  class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
-                                ></i>`
-                              : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`}
-                          </th>
-                          <th style="width: 120px; text-align: center;">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${users.map(u => {
-                          const isActioning = actionInProgress === u.username;
-                          return html`
-                            <tr key=${u.user_id || u.username}>
-                              <!-- Info del Usuario -->
-                              <td data-label="Usuario">
-                                <div class="user-info-cell">
-                                  <div class="user-display-name">
-                                    ${u.display_name || u.username}
+              ${
+                loadingUsers &&
+                html`
+                  <div class="table-loading-overlay">
+                    <span class="spinner"></span> Cargando usuarios...
+                  </div>
+                `
+              }
+              ${
+                users.length === 0
+                  ? html`<div class="empty-table" style="border-bottom: 1px solid var(--border-2);">
+                      No se encontraron usuarios con los filtros seleccionados.
+                    </div>`
+                  : html`
+                      <table class="users-table">
+                        <thead>
+                          <tr>
+                            <th
+                              class="sortable"
+                              onClick=${() => handleSort('username')}
+                              title="Ordenar por usuario (alfabético)"
+                            >
+                              Usuario
+                              ${
+                                sortBy === 'username'
+                                  ? html`<i
+                                      class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                    ></i>`
+                                  : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                              }
+                            </th>
+                            <th
+                              class="sortable"
+                              onClick=${() => handleSort('role')}
+                              title="Ordenar por rol prioritario (Moderador -> VIP -> Suscriptor -> Bot)"
+                            >
+                              Roles
+                              ${
+                                sortBy === 'role'
+                                  ? html`<i
+                                      class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                    ></i>`
+                                  : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                              }
+                            </th>
+                            <th
+                              class="sortable"
+                              onClick=${() => handleSort('follow_date')}
+                              title="Ordenar por fecha y hora de seguimiento / unfollow"
+                            >
+                              Estado Seguimiento
+                              ${
+                                sortBy === 'follow_date'
+                                  ? html`<i
+                                      class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
+                                    ></i>`
+                                  : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                              }
+                            </th>
+                            <th style="width: 120px; text-align: center;">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${users.map(u => {
+                            const isActioning = actionInProgress === u.username;
+                            return html`
+                              <tr key=${u.user_id || u.username}>
+                                <!-- Info del Usuario -->
+                                <td data-label="Usuario">
+                                  <div class="user-info-cell">
+                                    <div class="user-display-name">
+                                      ${u.display_name || u.username}
+                                    </div>
+                                    ${
+                                    u.nickname ||
+                                    (u.display_name &&
+                                      u.display_name.toLowerCase() !== u.username.toLowerCase())
+                                      ? html`
+                                          <div class="user-sub-names">
+                                            ${
+                                              u.nickname
+                                                ? html`<span class="user-nickname-tag"
+                                                    ><i class="fa-solid fa-signature"></i>
+                                                    ${u.nickname}</span
+                                                  >`
+                                                : null
+                                            }
+                                            ${
+                                              u.display_name &&
+                                              u.display_name.toLowerCase() !==
+                                                u.username.toLowerCase()
+                                                ? html`<span>@${u.username}</span>`
+                                                : null
+                                            }
+                                          </div>
+                                        `
+                                      : null
+                                  }
+                                    ${
+                                    u.message_count > 0
+                                      ? html`
+                                          <div class="user-sub-names" style="margin-top:2px;">
+                                            <span style="color:var(--text-muted);font-size:11px;">
+                                              <i
+                                                class="fa-solid fa-message"
+                                                style="font-size:9px;margin-right:3px;"
+                                              ></i>
+                                              ${u.message_count.toLocaleString('es-ES')}
+                                            </span>
+                                          </div>
+                                        `
+                                      : null
+                                  }
                                   </div>
-                                  ${u.nickname ||
-                                  (u.display_name &&
-                                    u.display_name.toLowerCase() !== u.username.toLowerCase())
-                                    ? html`
-                                        <div class="user-sub-names">
-                                          ${u.nickname
-                                            ? html`<span class="user-nickname-tag"
-                                                ><i class="fa-solid fa-signature"></i>
-                                                ${u.nickname}</span
-                                              >`
-                                            : null}
-                                          ${u.display_name &&
-                                          u.display_name.toLowerCase() !== u.username.toLowerCase()
-                                            ? html`<span>@${u.username}</span>`
-                                            : null}
-                                        </div>
-                                      `
-                                    : null}
-                                </div>
-                              </td>
+                                </td>
 
-                              <!-- Roles -->
-                              <td data-label="Roles">
-                                <div class="irc-user-badges">
-                                  ${u.is_moderator
-                                    ? html`<span class="irc-badge badge-moderator">Mod</span>`
-                                    : null}
-                                  ${u.is_vip
-                                    ? html`<span class="irc-badge badge-vip">VIP</span>`
-                                    : null}
-                                  ${u.is_subscriber
-                                    ? html`<span class="irc-badge badge-subscriber"
-                                        >${u.sub_tier === '3000'
-                                          ? 'Sub T3'
-                                          : u.sub_tier === '2000'
-                                            ? 'Sub T2'
-                                            : 'Sub T1'}</span
+                                <!-- Roles -->
+                                <td data-label="Roles">
+                                  <div class="irc-user-badges">
+                                    ${
+                                    u.is_moderator
+                                      ? html`<span class="irc-badge badge-moderator">Mod</span>`
+                                      : null
+                                  }
+                                    ${
+                                    u.is_vip
+                                      ? html`<span class="irc-badge badge-vip">VIP</span>`
+                                      : null
+                                  }
+                                    ${
+                                    u.is_subscriber
+                                      ? html`<span class="irc-badge badge-subscriber"
+                                          >${
+                                            u.sub_tier === '3000'
+                                              ? 'Sub T3'
+                                              : u.sub_tier === '2000'
+                                                ? 'Sub T2'
+                                                : 'Sub T1'
+                                          }</span
+                                        >`
+                                      : null
+                                  }
+                                    ${
+                                    u.is_bot
+                                      ? html`<span class="irc-badge badge-bot">Bot</span>`
+                                      : null
+                                  }
+                                  </div>
+                                </td>
+
+                                <!-- Estado Seguimiento -->
+                                <td data-label="Seguimiento">
+                                  ${
+                                  u.is_broadcaster
+                                    ? html`<span class="irc-badge badge-broadcaster"
+                                        >Broadcaster</span
                                       >`
-                                    : null}
-                                  ${u.is_bot
-                                    ? html`<span class="irc-badge badge-bot">Bot</span>`
-                                    : null}
-                                </div>
-                              </td>
-
-                              <!-- Estado Seguimiento -->
-                              <td data-label="Seguimiento">
-                                ${u.is_broadcaster
-                                  ? html`<span class="irc-badge badge-broadcaster"
-                                      >Broadcaster</span
-                                    >`
-                                  : u.is_follower
-                                    ? html`
-                                        <div class="follow-status-wrap">
-                                          <span class="irc-badge badge-follower">Seguidor</span>
-                                          <span class="follow-date-text"
-                                            >desde ${formatDate(u.followed_at)}</span
-                                          >
-                                        </div>
-                                      `
-                                    : u.unfollowed_at
+                                    : u.is_follower
                                       ? html`
                                           <div class="follow-status-wrap">
-                                            <span class="irc-badge badge-unfollower"
-                                              >Dejó de seguir</span
-                                            >
+                                            <span class="irc-badge badge-follower">Seguidor</span>
                                             <span class="follow-date-text"
-                                              >Seguidor: ${formatDate(u.followed_at)}</span
-                                            >
-                                            <span class="follow-date-text"
-                                              >Unfollow: ${formatDate(u.unfollowed_at)}</span
+                                              >desde ${formatDate(u.followed_at)}</span
                                             >
                                           </div>
                                         `
-                                      : html`<span class="irc-badge badge-never-follower"
-                                          >Nunca ha seguido</span
-                                        >`}
-                              </td>
+                                      : u.unfollowed_at
+                                        ? html`
+                                            <div class="follow-status-wrap">
+                                              <span class="irc-badge badge-unfollower"
+                                                >Dejó de seguir</span
+                                              >
+                                              <span class="follow-date-text"
+                                                >Seguidor: ${formatDate(u.followed_at)}</span
+                                              >
+                                              <span class="follow-date-text"
+                                                >Unfollow: ${formatDate(u.unfollowed_at)}</span
+                                              >
+                                            </div>
+                                          `
+                                        : html`<span class="irc-badge badge-never-follower"
+                                            >Nunca ha seguido</span
+                                          >`
+                                }
+                                </td>
 
-                              <!-- Acciones rápidas -->
-                              <td data-label="Acciones">
-                                <div class="user-table-actions">
-                                  <button
-                                    class="btn btn-secondary btn-sm"
-                                    onClick=${() => openRolesModal(u)}
-                                    title=${u.is_broadcaster
-                                      ? 'No se pueden modificar los roles del broadcaster'
-                                      : 'Gestionar roles'}
-                                    disabled=${isActioning || u.is_broadcaster}
-                                  >
-                                    <i class="fa-solid fa-user-shield"></i>
-                                  </button>
-                                  <button
-                                    class="btn btn-secondary btn-sm"
-                                    onClick=${() => handleSetNickname(u)}
-                                    title="Establecer apodo"
-                                    disabled=${isActioning}
-                                  >
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          `;
-                        })}
-                      </tbody>
-                    </table>
-                  `}
+                                <!-- Acciones rápidas -->
+                                <td data-label="Acciones">
+                                  <div class="user-table-actions">
+                                    <button
+                                      class="btn btn-secondary btn-sm"
+                                      onClick=${() => openRolesModal(u)}
+                                      title=${
+                                      u.is_broadcaster
+                                        ? 'No se pueden modificar los roles del broadcaster'
+                                        : 'Gestionar roles'
+                                    }
+                                      disabled=${isActioning || u.is_broadcaster}
+                                    >
+                                      <i class="fa-solid fa-user-shield"></i>
+                                    </button>
+                                    <button
+                                      class="btn btn-secondary btn-sm"
+                                      onClick=${() => handleSetNickname(u)}
+                                      title="Establecer apodo"
+                                      disabled=${isActioning}
+                                    >
+                                      <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button
+                                      class="btn btn-secondary btn-sm"
+                                      onClick=${() => setHistoryUser(u)}
+                                      title="Ver historial de mensajes"
+                                      disabled=${isActioning}
+                                    >
+                                      <i class="fa-solid fa-clock-rotate-left"></i>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            `;
+                          })}
+                        </tbody>
+                      </table>
+                    `
+              }
             </div>
 
             <!-- Barra de paginación inferior -->
-            ${!loadingUsers && totalPages > 1
-              ? html`
-                  <div class="pagination-bar">
-                    <div class="pagination-info">
-                      Mostrando ${users.length} usuarios de ${totalUsers} encontrados
+            ${
+              !loadingUsers && totalPages > 1
+                ? html`
+                    <div class="pagination-bar">
+                      <div class="pagination-info">
+                        Mostrando ${users.length} usuarios de ${totalUsers} encontrados
+                      </div>
+                      <div class="pagination-buttons">
+                        <button
+                          class="btn btn-secondary btn-sm btn-icon"
+                          onClick=${() => setPage(p => Math.max(1, p - 1))}
+                          disabled=${page === 1}
+                        >
+                          <i class="fa-solid fa-chevron-left"></i> Anterior
+                        </button>
+                        <span class="pagination-pages">
+                          ${getPageNumbers(page, totalPages).map((p, i) => {
+                            if (p === '...') {
+                              return html`<span key=${i} class="pagination-ellipsis">...</span>`;
+                            }
+                            return html`
+                              <button
+                                key=${i}
+                                class="btn btn-sm ${page === p ? 'btn-primary' : 'btn-secondary'}"
+                                style="min-width: 32px; padding: 6px 4px;"
+                                onClick=${() => setPage(p)}
+                              >
+                                ${p}
+                              </button>
+                            `;
+                          })}
+                        </span>
+                        <button
+                          class="btn btn-secondary btn-sm btn-icon"
+                          onClick=${() => setPage(p => Math.min(totalPages, p + 1))}
+                          disabled=${page === totalPages}
+                        >
+                          Siguiente <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                      </div>
                     </div>
-                    <div class="pagination-buttons">
-                      <button
-                        class="btn btn-secondary btn-sm btn-icon"
-                        onClick=${() => setPage(p => Math.max(1, p - 1))}
-                        disabled=${page === 1}
-                      >
-                        <i class="fa-solid fa-chevron-left"></i> Anterior
-                      </button>
-                      <span class="pagination-pages">
-                        ${getPageNumbers(page, totalPages).map((p, i) => {
-                          if (p === '...') {
-                            return html`<span key=${i} class="pagination-ellipsis">...</span>`;
-                          }
-                          return html`
-                            <button
-                              key=${i}
-                              class="btn btn-sm ${page === p ? 'btn-primary' : 'btn-secondary'}"
-                              style="min-width: 32px; padding: 6px 4px;"
-                              onClick=${() => setPage(p)}
-                            >
-                              ${p}
-                            </button>
-                          `;
-                        })}
-                      </span>
-                      <button
-                        class="btn btn-secondary btn-sm btn-icon"
-                        onClick=${() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled=${page === totalPages}
-                      >
-                        Siguiente <i class="fa-solid fa-chevron-right"></i>
-                      </button>
-                    </div>
-                  </div>
-                `
-              : null}
+                  `
+                : null
+            }
           </div>
         </div>
       </div>
 
-      ${selectedUserForRoles &&
-      html`
-        <div class="modal-backdrop" onClick=${() => setSelectedUserForRoles(null)}>
-          <div
-            class="modal-card"
-            style="text-align: left; max-width: 450px;"
-            onClick=${e => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-title"
-          >
+      ${
+        selectedUserForRoles &&
+        html`
+          <div class="modal-backdrop" onClick=${() => setSelectedUserForRoles(null)}>
             <div
-              style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;"
+              class="modal-card"
+              style="text-align: left; max-width: 450px;"
+              onClick=${e => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-title"
             >
-              <h3 id="modal-title" style="margin:0; font-size:18px;">Gestionar Roles</h3>
-              <button
-                class="btn-close"
-                style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px;"
-                onClick=${() => setSelectedUserForRoles(null)}
-              >
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-
-            <!-- Info del Usuario -->
-            <div
-              style="background:var(--surface2); border: 1px solid var(--border-2); border-radius:var(--radius-sm); padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:8px;"
-            >
-              <div>
-                <span
-                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
-                  >Usuario</span
-                >
-                <strong style="color:var(--accent-text); font-size:15px;"
-                  >${selectedUserForRoles.display_name || selectedUserForRoles.username}</strong
-                >
-                ${selectedUserForRoles.display_name &&
-                selectedUserForRoles.display_name.toLowerCase() !==
-                  selectedUserForRoles.username.toLowerCase()
-                  ? html`<span style="color:var(--text-muted); font-size:13px; margin-left:6px;"
-                      >@${selectedUserForRoles.username}</span
-                    >`
-                  : null}
-              </div>
-
-              <div>
-                <span
-                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
-                  >Apodo</span
-                >
-                <span style="font-size:13.5px; color:var(--text-2);"
-                  >${selectedUserForRoles.nickname || 'Sin apodo'}</span
-                >
-              </div>
-
-              <div>
-                <span
-                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
-                  >Estado Seguimiento</span
-                >
-                <span style="font-size:13px;">
-                  ${selectedUserForRoles.is_broadcaster
-                    ? html`<span class="irc-badge badge-broadcaster">Broadcaster</span>`
-                    : selectedUserForRoles.is_follower
-                      ? html`<span class="irc-badge badge-follower" style="margin-right:6px;"
-                            >Seguidor</span
-                          >
-                          <span style="color:var(--text-muted);"
-                            >desde ${formatDate(selectedUserForRoles.followed_at)}</span
-                          >`
-                      : selectedUserForRoles.unfollowed_at
-                        ? html`<span class="irc-badge badge-unfollower" style="margin-right:6px;"
-                              >Dejó de seguir</span
-                            >
-                            <span style="color:var(--text-muted);"
-                              >(${formatDate(selectedUserForRoles.unfollowed_at)})</span
-                            >`
-                        : html`<span class="irc-badge badge-never-follower"
-                            >Nunca ha seguido</span
-                          >`}
-                </span>
-              </div>
-            </div>
-
-            <!-- Listado de Roles (Toggles) -->
-            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
-              <span
-                style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.05em;"
-                >Asignar Roles</span
-              >
-
-              <!-- Fila: Moderador -->
               <div
-                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;"
               >
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="irc-badge badge-moderator" style="width:50px; text-align:center;"
-                    >Mod</span
-                  >
-                  <span style="font-size:13.5px; color:var(--text);">Moderador</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="role-toggle-checkbox"
-                  checked=${tempRoles.is_moderator}
-                  onChange=${e => setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
-                />
+                <h3 id="modal-title" style="margin:0; font-size:18px;">Gestionar Roles</h3>
+                <button
+                  class="btn-close"
+                  style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px;"
+                  onClick=${() => setSelectedUserForRoles(null)}
+                >
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
               </div>
 
-              <!-- Fila: VIP -->
+              <!-- Info del Usuario -->
               <div
-                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+                style="background:var(--surface2); border: 1px solid var(--border-2); border-radius:var(--radius-sm); padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:8px;"
               >
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="irc-badge badge-vip" style="width:50px; text-align:center;"
-                    >VIP</span
+                <div>
+                  <span
+                    style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                    >Usuario</span
                   >
-                  <span style="font-size:13.5px; color:var(--text);">VIP</span>
+                  <strong style="color:var(--accent-text); font-size:15px;"
+                    >${selectedUserForRoles.display_name || selectedUserForRoles.username}</strong
+                  >
+                  ${
+                    selectedUserForRoles.display_name &&
+                    selectedUserForRoles.display_name.toLowerCase() !==
+                      selectedUserForRoles.username.toLowerCase()
+                      ? html`<span style="color:var(--text-muted); font-size:13px; margin-left:6px;"
+                          >@${selectedUserForRoles.username}</span
+                        >`
+                      : null
+                  }
                 </div>
-                <input
-                  type="checkbox"
-                  class="role-toggle-checkbox"
-                  checked=${tempRoles.is_vip}
-                  onChange=${e => setTempRoles({ ...tempRoles, is_vip: e.target.checked })}
-                />
+
+                <div>
+                  <span
+                    style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                    >Apodo</span
+                  >
+                  <span style="font-size:13.5px; color:var(--text-2);"
+                    >${selectedUserForRoles.nickname || 'Sin apodo'}</span
+                  >
+                </div>
+
+                <div>
+                  <span
+                    style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"
+                    >Estado Seguimiento</span
+                  >
+                  <span style="font-size:13px;">
+                    ${
+                      selectedUserForRoles.is_broadcaster
+                        ? html`<span class="irc-badge badge-broadcaster">Broadcaster</span>`
+                        : selectedUserForRoles.is_follower
+                          ? html`<span class="irc-badge badge-follower" style="margin-right:6px;"
+                                >Seguidor</span
+                              >
+                              <span style="color:var(--text-muted);"
+                                >desde ${formatDate(selectedUserForRoles.followed_at)}</span
+                              >`
+                          : selectedUserForRoles.unfollowed_at
+                            ? html`<span
+                                  class="irc-badge badge-unfollower"
+                                  style="margin-right:6px;"
+                                  >Dejó de seguir</span
+                                >
+                                <span style="color:var(--text-muted);"
+                                  >(${formatDate(selectedUserForRoles.unfollowed_at)})</span
+                                >`
+                            : html`<span class="irc-badge badge-never-follower"
+                                >Nunca ha seguido</span
+                              >`
+                    }
+                  </span>
+                </div>
               </div>
 
-              <!-- Fila: Bot -->
-              <div
-                style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
-              >
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="irc-badge badge-bot" style="width:50px; text-align:center;"
-                    >Bot</span
-                  >
-                  <span style="font-size:13.5px; color:var(--text);">Bot de chat</span>
-                </div>
-                <input
-                  type="checkbox"
-                  class="role-toggle-checkbox"
-                  checked=${tempRoles.is_bot}
-                  onChange=${e => setTempRoles({ ...tempRoles, is_bot: e.target.checked })}
-                />
-              </div>
-            </div>
+              <!-- Listado de Roles (Toggles) -->
+              <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+                <span
+                  style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.05em;"
+                  >Asignar Roles</span
+                >
 
-            <!-- Acciones -->
-            <div class="modal-actions">
-              <button class="btn btn-secondary" onClick=${() => setSelectedUserForRoles(null)}>
-                Cancelar
-              </button>
-              <button class="btn btn-primary" onClick=${handleSaveRoles}>Guardar</button>
+                <!-- Fila: Moderador -->
+                <div
+                  style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+                >
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="irc-badge badge-moderator" style="width:50px; text-align:center;"
+                      >Mod</span
+                    >
+                    <span style="font-size:13.5px; color:var(--text);">Moderador</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    class="role-toggle-checkbox"
+                    checked=${tempRoles.is_moderator}
+                    onChange=${e => setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
+                  />
+                </div>
+
+                <!-- Fila: VIP -->
+                <div
+                  style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+                >
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="irc-badge badge-vip" style="width:50px; text-align:center;"
+                      >VIP</span
+                    >
+                    <span style="font-size:13.5px; color:var(--text);">VIP</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    class="role-toggle-checkbox"
+                    checked=${tempRoles.is_vip}
+                    onChange=${e => setTempRoles({ ...tempRoles, is_vip: e.target.checked })}
+                  />
+                </div>
+
+                <!-- Fila: Bot -->
+                <div
+                  style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+                >
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="irc-badge badge-bot" style="width:50px; text-align:center;"
+                      >Bot</span
+                    >
+                    <span style="font-size:13.5px; color:var(--text);">Bot de chat</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    class="role-toggle-checkbox"
+                    checked=${tempRoles.is_bot}
+                    onChange=${e => setTempRoles({ ...tempRoles, is_bot: e.target.checked })}
+                  />
+                </div>
+              </div>
+
+              <!-- Acciones -->
+              <div class="modal-actions">
+                <button class="btn btn-secondary" onClick=${() => setSelectedUserForRoles(null)}>
+                  Cancelar
+                </button>
+                <button class="btn btn-primary" onClick=${handleSaveRoles}>Guardar</button>
+              </div>
             </div>
           </div>
-        </div>
-      `}
+        `
+      }
     </div>
+
+    ${
+      historyUser
+        ? html`<${UserHistoryDrawer} user=${historyUser} onClose=${() => setHistoryUser(null)} />`
+        : null
+    }
   `;
 }
