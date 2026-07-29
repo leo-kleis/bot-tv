@@ -426,8 +426,8 @@ export function FollowersTab({ followers }) {
                             <div class="section-body">
                               <div class="follower-list">
                                 ${allNewLabels.map(
-                                (l, i) => html`<div key=${i} class="follower-item new">${l}</div>`
-                              )}
+                                  (l, i) => html`<div key=${i} class="follower-item new">${l}</div>`
+                                )}
                               </div>
                             </div>
                           </div>
@@ -449,8 +449,9 @@ export function FollowersTab({ followers }) {
                             <div class="section-body">
                               <div class="follower-list">
                                 ${allLostLabels.map(
-                                (l, i) => html`<div key=${i} class="follower-item lost">${l}</div>`
-                              )}
+                                  (l, i) =>
+                                    html`<div key=${i} class="follower-item lost">${l}</div>`
+                                )}
                               </div>
                             </div>
                           </div>
@@ -692,45 +693,45 @@ export function FollowersTab({ followers }) {
                                       ${u.display_name || u.username}
                                     </div>
                                     ${
-                                    u.nickname ||
-                                    (u.display_name &&
-                                      u.display_name.toLowerCase() !== u.username.toLowerCase())
-                                      ? html`
-                                          <div class="user-sub-names">
-                                            ${
-                                              u.nickname
-                                                ? html`<span class="user-nickname-tag"
-                                                    ><i class="fa-solid fa-signature"></i>
-                                                    ${u.nickname}</span
-                                                  >`
-                                                : null
-                                            }
-                                            ${
-                                              u.display_name &&
-                                              u.display_name.toLowerCase() !==
-                                                u.username.toLowerCase()
-                                                ? html`<span>@${u.username}</span>`
-                                                : null
-                                            }
-                                          </div>
-                                        `
-                                      : null
-                                  }
+                                      u.nickname ||
+                                      (u.display_name &&
+                                        u.display_name.toLowerCase() !== u.username.toLowerCase())
+                                        ? html`
+                                            <div class="user-sub-names">
+                                              ${
+                                                u.nickname
+                                                  ? html`<span class="user-nickname-tag"
+                                                      ><i class="fa-solid fa-signature"></i>
+                                                      ${u.nickname}</span
+                                                    >`
+                                                  : null
+                                              }
+                                              ${
+                                                u.display_name &&
+                                                u.display_name.toLowerCase() !==
+                                                  u.username.toLowerCase()
+                                                  ? html`<span>@${u.username}</span>`
+                                                  : null
+                                              }
+                                            </div>
+                                          `
+                                        : null
+                                    }
                                     ${
-                                    u.message_count > 0
-                                      ? html`
-                                          <div class="user-sub-names" style="margin-top:2px;">
-                                            <span style="color:var(--text-muted);font-size:11px;">
-                                              <i
-                                                class="fa-solid fa-message"
-                                                style="font-size:9px;margin-right:3px;"
-                                              ></i>
-                                              ${u.message_count.toLocaleString('es-ES')}
-                                            </span>
-                                          </div>
-                                        `
-                                      : null
-                                  }
+                                      u.message_count > 0
+                                        ? html`
+                                            <div class="user-sub-names" style="margin-top:2px;">
+                                              <span style="color:var(--text-muted);font-size:11px;">
+                                                <i
+                                                  class="fa-solid fa-message"
+                                                  style="font-size:9px;margin-right:3px;"
+                                                ></i>
+                                                ${u.message_count.toLocaleString('es-ES')}
+                                              </span>
+                                            </div>
+                                          `
+                                        : null
+                                    }
                                   </div>
                                 </td>
 
@@ -738,70 +739,70 @@ export function FollowersTab({ followers }) {
                                 <td data-label="Roles">
                                   <div class="irc-user-badges">
                                     ${
-                                    u.is_moderator
-                                      ? html`<span class="irc-badge badge-moderator">Mod</span>`
-                                      : null
-                                  }
+                                      u.is_moderator
+                                        ? html`<span class="irc-badge badge-moderator">Mod</span>`
+                                        : null
+                                    }
                                     ${
-                                    u.is_vip
-                                      ? html`<span class="irc-badge badge-vip">VIP</span>`
-                                      : null
-                                  }
+                                      u.is_vip
+                                        ? html`<span class="irc-badge badge-vip">VIP</span>`
+                                        : null
+                                    }
                                     ${
-                                    u.is_subscriber
-                                      ? html`<span class="irc-badge badge-subscriber"
-                                          >${
-                                            u.sub_tier === '3000'
-                                              ? 'Sub T3'
-                                              : u.sub_tier === '2000'
-                                                ? 'Sub T2'
-                                                : 'Sub T1'
-                                          }</span
-                                        >`
-                                      : null
-                                  }
+                                      u.is_subscriber
+                                        ? html`<span class="irc-badge badge-subscriber"
+                                            >${
+                                              u.sub_tier === '3000'
+                                                ? 'Sub T3'
+                                                : u.sub_tier === '2000'
+                                                  ? 'Sub T2'
+                                                  : 'Sub T1'
+                                            }</span
+                                          >`
+                                        : null
+                                    }
                                     ${
-                                    u.is_bot
-                                      ? html`<span class="irc-badge badge-bot">Bot</span>`
-                                      : null
-                                  }
+                                      u.is_bot
+                                        ? html`<span class="irc-badge badge-bot">Bot</span>`
+                                        : null
+                                    }
                                   </div>
                                 </td>
 
                                 <!-- Estado Seguimiento -->
                                 <td data-label="Seguimiento">
                                   ${
-                                  u.is_broadcaster
-                                    ? html`<span class="irc-badge badge-broadcaster"
-                                        >Broadcaster</span
-                                      >`
-                                    : u.is_follower
-                                      ? html`
-                                          <div class="follow-status-wrap">
-                                            <span class="irc-badge badge-follower">Seguidor</span>
-                                            <span class="follow-date-text"
-                                              >desde ${formatDate(u.followed_at)}</span
-                                            >
-                                          </div>
-                                        `
-                                      : u.unfollowed_at
+                                    u.is_broadcaster
+                                      ? html`<span class="irc-badge badge-broadcaster"
+                                          >Broadcaster</span
+                                        >`
+                                      : u.is_follower
                                         ? html`
                                             <div class="follow-status-wrap">
-                                              <span class="irc-badge badge-unfollower"
-                                                >Dejó de seguir</span
-                                              >
+                                              <span class="irc-badge badge-follower">Seguidor</span>
                                               <span class="follow-date-text"
-                                                >Seguidor: ${formatDate(u.followed_at)}</span
-                                              >
-                                              <span class="follow-date-text"
-                                                >Unfollow: ${formatDate(u.unfollowed_at)}</span
+                                                >desde ${formatDate(u.followed_at)}</span
                                               >
                                             </div>
                                           `
-                                        : html`<span class="irc-badge badge-never-follower"
-                                            >Nunca ha seguido</span
-                                          >`
-                                }
+                                        : u.unfollowed_at
+                                          ? html`
+                                              <div class="follow-status-wrap">
+                                                <span class="irc-badge badge-unfollower"
+                                                  >Dejó de seguir</span
+                                                >
+                                                <span class="follow-date-text"
+                                                  >Seguidor: ${formatDate(u.followed_at)}</span
+                                                >
+                                                <span class="follow-date-text"
+                                                  >Unfollow: ${formatDate(u.unfollowed_at)}</span
+                                                >
+                                              </div>
+                                            `
+                                          : html`<span class="irc-badge badge-never-follower"
+                                              >Nunca ha seguido</span
+                                            >`
+                                  }
                                 </td>
 
                                 <!-- Acciones rápidas -->
@@ -811,10 +812,10 @@ export function FollowersTab({ followers }) {
                                       class="btn btn-secondary btn-sm"
                                       onClick=${() => openRolesModal(u)}
                                       title=${
-                                      u.is_broadcaster
-                                        ? 'No se pueden modificar los roles del broadcaster'
-                                        : 'Gestionar roles'
-                                    }
+                                        u.is_broadcaster
+                                          ? 'No se pueden modificar los roles del broadcaster'
+                                          : 'Gestionar roles'
+                                      }
                                       disabled=${isActioning || u.is_broadcaster}
                                     >
                                       <i class="fa-solid fa-user-shield"></i>

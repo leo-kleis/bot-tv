@@ -292,10 +292,9 @@
     min-height: auto;
     gap: 4px;
   }
-  .conn-badge,
-  .stream-status-dot {
-    width: 6px;
-    height: 6px;
+  .conn-indicator-dot {
+    width: 7px;
+    height: 7px;
   }
 
   .tab-btn {

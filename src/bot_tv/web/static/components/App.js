@@ -15,72 +15,15 @@ const TABS = [
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
 ];
 
-export function App({ state, dispatch, onReconnect }) {
+export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
-  const [showOffline, setShowOffline] = useState(false);
 
-  useEffect(() => {
-    if (state.connected || state.initialLoad) {
-      setShowOffline(false);
-    } else {
-      const timer = setTimeout(() => {
-        setShowOffline(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [state.connected, state.initialLoad]);
-
-  // Si el stream se apaga estando en la pestaña de stream, redirigir a chat
   useEffect(() => {
     if (!state.stream.online && active === 'stream') {
       setActive('chat');
     }
   }, [state.stream.online, active]);
-
-  if (state.initialLoad || (!state.connected && !showOffline && !state.exited)) {
-    return html`
-      <div class="loading-screen">
-        <div class="loading-spinner"></div>
-        <span style="font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px; opacity: 0.8;"
-          >Iniciando conexión...</span
-        >
-      </div>
-    `;
-  }
-
-  if (state.exited || !state.connected) {
-    const isCleanExit = state.exited;
-    return html`
-      <div class="offline-screen">
-        <div class="offline-card">
-          <span class="offline-icon ${!isCleanExit ? 'connecting' : ''}">
-            <i class="fa-solid ${isCleanExit ? 'fa-power-off' : 'fa-circle-notch fa-spin'}"></i>
-          </span>
-          <h2>${isCleanExit ? 'Servidor Apagado' : 'Conexión Perdida'}</h2>
-          <p>
-            ${
-              isCleanExit
-                ? 'El bot se ha cerrado de forma limpia y el servidor web ha sido detenido.'
-                : 'La conexión se ha perdido o el bot está apagado. Intentando reconectar...'
-            }
-          </p>
-
-          <button class="reconnect-btn" onClick=${onReconnect}>
-            <i class="fa-solid fa-rotate"></i> Reconectar ahora
-          </button>
-
-          <span style="font-size:11px;color:var(--text-muted);margin-top:16px;display:block">
-            ${
-              isCleanExit
-                ? 'Esperando a que el bot se encienda de nuevo...'
-                : 'Reconectando automáticamente o al activar la pantalla...'
-            }
-          </span>
-        </div>
-      </div>
-    `;
-  }
 
   const filteredIrcCount = [...state.ircUsers.values()].filter(
     u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
@@ -93,6 +36,7 @@ export function App({ state, dispatch, onReconnect }) {
           stream=${state.stream}
           connected=${state.connected}
           ircConnected=${state.ircConnected}
+          exited=${state.exited}
           ircCount=${filteredIrcCount}
           showIrcMobile=${showIrcMobile}
           onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}

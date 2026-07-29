@@ -45,6 +45,19 @@ class StreamComponent(commands.Component):
         """Inicia el monitoreo cuando el bot está completamente conectado."""
         channels = await self.bot.get_channels()
         self._channel_ids = [channel["user_id"] for channel in channels]
+        self._channel_map = {}
+        for c in channels:
+            cid = c["user_id"]
+            name = c["username"]
+            with contextlib.suppress(Exception):
+                cached = self.bot.user_cache.get_user(cid)
+                if cached and cached.get("display_name"):
+                    name = cached["display_name"]
+                else:
+                    users = await self.bot.fetch_users(ids=[int(cid)])
+                    if users and users[0].display_name:
+                        name = users[0].display_name
+            self._channel_map[cid] = name
 
         if not self._channel_ids:
             LOGGER.warning("StreamComponent: no hay canales para monitorear.")
@@ -154,7 +167,7 @@ class StreamComponent(commands.Component):
                     await self.bot.event_bus.emit(
                         StreamOfflineEvent(
                             timestamp=datetime.now().isoformat(),
-                            broadcaster_name="",
+                            broadcaster_name=self._channel_map.get(channel_id, ""),
                         )
                     )
             except Exception as e:
@@ -229,7 +242,9 @@ class StreamComponent(commands.Component):
                             await self.bot.event_bus.emit(
                                 StreamOfflineEvent(
                                     timestamp=datetime.now().isoformat(),
-                                    broadcaster_name="",
+                                    broadcaster_name=self._channel_map.get(
+                                        channel_id, ""
+                                    ),
                                 )
                             )
                 except Exception as e:

@@ -64,9 +64,9 @@ export function ClipSection({ clips = [], streamOnline = false }) {
                         >
                           <span style="font-size:11px;color:var(--text-muted)"
                             >${new Date(c.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}</span
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}</span
                           >
                           <a
                             href=${c.url}

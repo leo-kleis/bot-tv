@@ -23,6 +23,17 @@ export function SettingsTab({ dispatch }) {
   const [savingLimit, setSavingLimit] = useState(false);
   const [limitSavedMsg, setLimitSavedMsg] = useState('');
 
+  const [hideBots, setHideBots] = useState(
+    () => localStorage.getItem('hide-bot-messages') === 'true'
+  );
+
+  const handleHideBotsChange = e => {
+    const val = e.target.checked;
+    setHideBots(val);
+    localStorage.setItem('hide-bot-messages', String(val));
+    window.dispatchEvent(new Event('storage-settings-changed'));
+  };
+
   useEffect(() => {
     apiGet('/api/rpm').then(d => {
       if (d.ok && d.data) {
@@ -118,14 +129,14 @@ export function SettingsTab({ dispatch }) {
         </div>
       </div>
 
-      <!-- Sección Estilo -->
+      <!-- Sección Chat -->
       <div class="settings-section">
         <h3 class="settings-section-title">
-          <i class="fa-solid fa-sliders"></i> Personalización de Estilo
+          <i class="fa-solid fa-comments"></i> Personalización de Chat
         </h3>
 
         <div class="settings-control-group">
-          <span class="settings-label">Tamaño de la Fuente</span>
+          <span class="settings-label">Tamaño de la Fuente del Chat</span>
 
           <div class="font-size-controls">
             <button
@@ -169,6 +180,26 @@ export function SettingsTab({ dispatch }) {
             >
               ${getLabel(fontSize)}
             </span>
+          </div>
+
+          <div
+            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;"
+          >
+            <div>
+              <span class="settings-label" style="display: block;"
+                >Ocultar mensajes de usuarios BOT</span
+              >
+              <span style="font-size: 12px; color: var(--text-muted);"
+                >No muestra los mensajes de usuarios etiquetados como Bot en el chat</span
+              >
+            </div>
+            <input
+              type="checkbox"
+              class="role-toggle-checkbox"
+              checked=${hideBots}
+              onChange=${handleHideBotsChange}
+              aria-label="Ocultar mensajes de usuarios BOT en el chat"
+            />
           </div>
         </div>
 

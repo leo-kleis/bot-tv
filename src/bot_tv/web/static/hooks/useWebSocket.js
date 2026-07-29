@@ -108,16 +108,4 @@ export function useWebSocket(dispatch) {
       wsRef.current?.close();
     };
   }, [dispatch]);
-
-  const triggerReconnect = () => {
-    reconnectRef.current = 1000;
-    if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch {}
-    }
-    connectFnRef.current?.();
-  };
-
-  return { triggerReconnect };
 }

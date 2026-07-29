@@ -1,0 +1,186 @@
+/* connection-indicator.css — Indicador de estado de conexiones + popover */
+
+/* ── Contenedor del indicador ── */
+.conn-indicator-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Dot indicador ── */
+.conn-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  border: none;
+  padding: 0;
+  /* Área de toque ampliada para mobile */
+  position: relative;
+}
+
+.conn-indicator-dot::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+
+.conn-indicator-dot:focus-visible {
+  box-shadow: 0 0 0 3px rgba(155, 92, 255, 0.4);
+}
+
+/* ── Estados de color ── */
+.conn-indicator-dot.status-ok {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.conn-indicator-dot.status-warn {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  animation: conn-pulse-warn 2s infinite ease-in-out;
+}
+
+.conn-indicator-dot.status-error {
+  background: var(--danger);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+  animation: conn-pulse-error 2s infinite ease-in-out;
+}
+
+@keyframes conn-pulse-warn {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes conn-pulse-error {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.15);
+  }
+}
+
+/* ── Popover (position:fixed para escapar el stacking context del header) ── */
+.conn-popover {
+  position: fixed;
+  z-index: var(--z-overlay);
+  background: var(--surface-solid, #1a1823);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  min-width: 220px;
+  box-shadow: var(--shadow-lg, 0 12px 40px rgba(0, 0, 0, 0.5));
+  animation: conn-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top left;
+}
+
+@keyframes conn-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.conn-popover-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* ── Fila de cada estado ── */
+.conn-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+}
+
+.conn-popover-row + .conn-popover-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.conn-popover-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.conn-popover-dot.ok {
+  background: var(--success);
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.4);
+}
+.conn-popover-dot.err {
+  background: var(--danger);
+  box-shadow: 0 0 5px rgba(244, 63, 94, 0.4);
+}
+
+.conn-popover-label {
+  font-size: 12px;
+  color: var(--text-2);
+  flex: 1;
+}
+
+.conn-popover-status {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.conn-popover-status.ok {
+  color: var(--success);
+}
+.conn-popover-status.err {
+  color: var(--danger);
+}
+
+/* ── Nota de reconexión ── */
+.conn-popover-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Responsive: en landscape y mobile corregir posición ── */
+@media (max-height: 480px) {
+  .conn-popover {
+    padding: 10px 12px;
+    min-width: 190px;
+  }
+
+  .conn-popover-title {
+    margin-bottom: 6px;
+  }
+
+  .conn-popover-row {
+    padding: 3px 0;
+  }
+}

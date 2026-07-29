@@ -9,7 +9,7 @@
   height: var(--header-h);
   display: flex;
   align-items: center;
-  z-index: 100;
+  z-index: 1050;
 }
 
 .stream-widget {
@@ -18,47 +18,6 @@
   gap: 12px;
   width: 100%;
   min-height: 36px;
-}
-
-.conn-badge {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--danger);
-  transition:
-    background 0.3s,
-    box-shadow 0.3s;
-}
-.conn-badge.connected {
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-}
-
-.stream-status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--danger);
-  transition: background 0.4s;
-}
-.stream-status-dot.online {
-  background: var(--online);
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
-  animation: pulse-online 2s infinite;
-}
-
-@keyframes pulse-online {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
 }
 
 .stream-info {

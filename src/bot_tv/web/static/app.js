@@ -113,6 +113,7 @@ function reducer(state, action) {
         stream: {
           ...state.stream,
           online: false,
+          broadcasterName: action.data.broadcaster_name || state.stream.broadcasterName,
           viewerCount: null,
           viewerDiff: null,
           startedAt: null,
@@ -374,9 +375,9 @@ function reducer(state, action) {
 // ── Root Component ────────────────────────────────────────────────────────────
 function Root() {
   const [state, dispatch] = useReducer(reducer, null, makeInitialState);
-  const { triggerReconnect } = useWebSocket(dispatch);
+  useWebSocket(dispatch);
 
-  return html`<${App} state=${state} dispatch=${dispatch} onReconnect=${triggerReconnect} />`;
+  return html`<${App} state=${state} dispatch=${dispatch} />`;
 }
 
 // ── Mount ─────────────────────────────────────────────────────────────────────

@@ -75,6 +75,7 @@
   overflow-y: auto;
   padding: 12px 0;
   scroll-behavior: smooth;
+  font-size: var(--font-size);
 }
 
 /* === Grupo de mensajes (primer mensaje de un usuario) === */

@@ -138,6 +138,22 @@ export function ChatTab({
   const [sending, setSending] = useState(false);
   const [clipping, setClipping] = useState(false);
   const [emotesMap, setEmotesMap] = useState({});
+  const [hideBots, setHideBots] = useState(
+    () => localStorage.getItem('hide-bot-messages') === 'true'
+  );
+
+  useEffect(() => {
+    function handleStorageUpdate() {
+      setHideBots(localStorage.getItem('hide-bot-messages') === 'true');
+    }
+    window.addEventListener('storage-settings-changed', handleStorageUpdate);
+    return () => window.removeEventListener('storage-settings-changed', handleStorageUpdate);
+  }, []);
+
+  const displayMessages = useMemo(() => {
+    if (!hideBots) return chatMessages;
+    return chatMessages.filter(m => m.isSystem || (!m.is_bot && m.role !== 'Bot'));
+  }, [chatMessages, hideBots]);
 
   async function handleCreateClip() {
     if (clipping || !streamOnline) return;
@@ -195,7 +211,7 @@ export function ChatTab({
     const el = feedRef.current;
     if (!el || !autoScrollRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [chatMessages]);
+  }, [displayMessages]);
 
   function onScroll() {
     const el = feedRef.current;
@@ -320,7 +336,7 @@ export function ChatTab({
             aria-relevant="additions"
           >
             ${
-              chatMessages.length === 0
+              displayMessages.length === 0
                 ? html`
                     <div class="chat-empty">
                       <span class="empty-icon"
@@ -332,11 +348,11 @@ export function ChatTab({
                       <span>Esperando mensajes...</span>
                     </div>
                   `
-                : chatMessages.map((m, i) => {
+                : displayMessages.map((m, i) => {
                     if (m.isSystem) {
                       return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
                     }
-                    const prev = chatMessages[i - 1];
+                    const prev = displayMessages[i - 1];
                     const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
                     return isGrouped
                       ? html`<${ChatMessageCont}
@@ -355,7 +371,7 @@ export function ChatTab({
 
           <!-- Botón de scroll al final -->
           ${
-            !isAtBottom && chatMessages.length > 0
+            !isAtBottom && displayMessages.length > 0
               ? html`
                   <button class="scroll-bottom-btn" onClick=${scrollToBottom}>
                     <i class="fa-solid fa-arrow-down"></i> Mensajes nuevos

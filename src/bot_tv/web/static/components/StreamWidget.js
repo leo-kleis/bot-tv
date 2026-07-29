@@ -1,4 +1,5 @@
 import { html, useState, useEffect } from 'preact-setup';
+import { ConnectionIndicator } from '/static/components/ConnectionIndicator.js';
 
 function fmtViewers(n) {
   if (n == null) return '—';
@@ -10,6 +11,7 @@ export function StreamWidget({
   stream,
   connected,
   ircConnected,
+  exited,
   ircCount = 0,
   showIrcMobile,
   onToggleIrc,
@@ -46,16 +48,15 @@ export function StreamWidget({
 
   return html`
     <div class="stream-widget">
-      <span
-        class="conn-badge ${connected ? 'connected' : ''}"
-        title=${connected ? 'WebSocket conectado' : 'Reconectando...'}
-      ></span>
-
-      <span class="stream-status-dot ${online ? 'online' : ''}"></span>
+      <${ConnectionIndicator}
+        connected=${connected}
+        ircConnected=${ircConnected}
+        exited=${exited}
+      />
 
       <div class="stream-info">
         <div class="stream-name">
-          ${broadcasterName || 'bot-tv'}
+          ${broadcasterName}
           ${
             online
               ? html`
@@ -95,34 +96,26 @@ export function StreamWidget({
                 <span>${fmtViewers(viewerCount)}</span>
               </div>
               <button
-                class="viewers-badge clickable ${showIrcMobile ? 'active' : ''} ${
-                  !ircConnected ? 'irc-disconnected' : ''
-                }"
+                class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}"
                 onClick=${onToggleIrc}
-                title=${
-                  ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'
-                }
+                title="Ver usuarios en el chat"
                 aria-label="Ver usuarios en el chat"
               >
                 <span class="users-icon">
-                  <i class="fa-solid ${ircConnected ? 'fa-users' : 'fa-triangle-exclamation'}"></i>
+                  <i class="fa-solid fa-users"></i>
                 </span>
                 <span>${ircCount}</span>
               </button>
             `
           : html`
               <button
-                class="viewers-badge clickable offline-irc-btn ${
-                  showIrcMobile ? 'active' : ''
-                } ${!ircConnected ? 'irc-disconnected' : ''}"
+                class="viewers-badge clickable ${showIrcMobile ? 'active' : ''}"
                 onClick=${onToggleIrc}
-                title=${
-                  ircConnected ? 'Ver usuarios en el chat' : 'IRC Desconectado (Reintentando...)'
-                }
+                title="Ver usuarios en el chat"
                 aria-label="Ver usuarios en el chat"
               >
                 <span class="users-icon">
-                  <i class="fa-solid ${ircConnected ? 'fa-users' : 'fa-triangle-exclamation'}"></i>
+                  <i class="fa-solid fa-users"></i>
                 </span>
                 <span>${ircCount}</span>
               </button>
