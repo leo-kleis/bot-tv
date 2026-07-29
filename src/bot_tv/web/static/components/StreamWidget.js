@@ -10,6 +10,7 @@ function fmtViewers(n) {
 export function StreamWidget({
   stream,
   connected,
+  historyLoaded,
   ircConnected,
   exited,
   ircCount = 0,
@@ -50,6 +51,7 @@ export function StreamWidget({
     <div class="stream-widget">
       <${ConnectionIndicator}
         connected=${connected}
+        historyLoaded=${historyLoaded}
         ircConnected=${ircConnected}
         exited=${exited}
       />

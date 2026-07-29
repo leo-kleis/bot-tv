@@ -6,9 +6,9 @@ import { html, useState, useEffect, useRef } from 'preact-setup';
  * @param {boolean} ircConnected
  * @returns {'ok'|'warn'|'error'}
  */
-function getOverallStatus(connected, ircConnected) {
-  if (!connected) return 'error';
-  if (!ircConnected) return 'warn';
+function getOverallStatus(connected, historyLoaded, ircConnected, exited) {
+  if (exited || !connected) return 'error';
+  if (!historyLoaded || !ircConnected) return 'warn';
   return 'ok';
 }
 
@@ -18,16 +18,17 @@ function getOverallStatus(connected, ircConnected) {
  * (que tiene backdrop-filter, lo que crea un contexto de apilamiento propio).
  *
  * @param {Object} props
- * @param {boolean} props.connected    - WebSocket al servidor
- * @param {boolean} props.ircConnected - IRC de Twitch
- * @param {boolean} props.exited       - Bot apagado limpiamente
+ * @param {boolean} props.connected     - WebSocket al servidor
+ * @param {boolean} props.historyLoaded - Carga e historial de la sesión completada
+ * @param {boolean} props.ircConnected  - IRC de Twitch
+ * @param {boolean} props.exited        - Bot apagado limpiamente
  */
-export function ConnectionIndicator({ connected, ircConnected, exited }) {
+export function ConnectionIndicator({ connected, historyLoaded, ircConnected, exited }) {
   const [open, setOpen] = useState(false);
   const [popoverPos, setPopoverPos] = useState({ top: 0, left: 0 });
   const dotRef = useRef(null);
 
-  const status = getOverallStatus(connected, ircConnected);
+  const status = getOverallStatus(connected, historyLoaded, ircConnected, exited);
 
   // Calcular la posición del popover relativa a la ventana (fixed positioning)
   function updatePosition() {
@@ -81,12 +82,32 @@ export function ConnectionIndicator({ connected, ircConnected, exited }) {
     return () => window.removeEventListener('resize', updatePosition);
   }, [open]);
 
-  const serverLabel = exited ? 'Apagado' : connected ? 'Conectado' : 'Desconectado';
-  const serverStatus = connected ? 'ok' : 'err';
-  const ircLabel = ircConnected ? 'Conectado' : 'Reconectando...';
-  const ircStatus = ircConnected ? 'ok' : 'err';
-  const showNote = exited;
-  const noteText = exited ? 'El bot fue apagado. Esperando reconexión...' : '';
+  let serverLabel = 'Desconectado';
+  let serverStatus = 'err';
+  if (exited) {
+    serverLabel = 'Apagado';
+    serverStatus = 'err';
+  } else if (connected) {
+    if (historyLoaded) {
+      serverLabel = 'Conectado';
+      serverStatus = 'ok';
+    } else {
+      serverLabel = 'Reconectando...';
+      serverStatus = 'warn';
+    }
+  }
+
+  // Si el servidor está desconectado o apagado, IRC automáticamente figura desconectado (err)
+  const realIrcConnected = connected && historyLoaded && ircConnected;
+  let ircLabel = 'Desconectado';
+  let ircStatus = 'err';
+  if (realIrcConnected) {
+    ircLabel = 'Conectado';
+    ircStatus = 'ok';
+  } else if (connected && historyLoaded && !ircConnected) {
+    ircLabel = 'Reconectando...';
+    ircStatus = 'err';
+  }
 
   return html`
     <div class="conn-indicator-wrap">
@@ -122,8 +143,6 @@ export function ConnectionIndicator({ connected, ircConnected, exited }) {
               <span class="conn-popover-label">IRC</span>
               <span class="conn-popover-status ${ircStatus}">${ircLabel}</span>
             </div>
-
-            ${showNote && html` <div class="conn-popover-note">${noteText}</div> `}
           </div>
         `
       }

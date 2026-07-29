@@ -7,23 +7,23 @@
   --surface2: rgba(26, 22, 36, 0.8);
   --surface2-solid: #1a1624;
   --surface3: #251d33;
-  --accent: #9b5cff;
-  --accent-dim: #753bc7;
-  --accent-glow: rgba(155, 92, 255, 0.15);
-  --accent-text: #cbb0ff;
-  --text: #f3f2f7;
-  --text-2: #d5d2db;
-  --text-muted: #7f7b8d;
-  --online: #10b981;
-  --offline: #6b7280;
-  --danger: #f43f5e;
+  --accent: #a970ff;
+  --accent-dim: #8c4eeb;
+  --accent-glow: rgba(169, 112, 255, 0.15);
+  --accent-text: #d8c4ff;
+  --text: #f5f4f8;
+  --text-2: #cfcbd8;
+  --text-muted: #938ea5;
+  --online: #34d399;
+  --offline: #9ca3af;
+  --danger: #f87171;
   --warning: #fbbf24;
   --success: #34d399;
 
   /* Bordes semi-translúcidos para efecto vidrio */
-  --border: rgba(155, 92, 255, 0.16);
-  --border-light: rgba(255, 255, 255, 0.06);
-  --border-2: rgba(255, 255, 255, 0.03);
+  --border: rgba(169, 112, 255, 0.18);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-2: rgba(255, 255, 255, 0.04);
 
   /* Sombras tridimensionales */
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -42,18 +42,18 @@
   --header-h: 60px;
 
   /* Colores de Alertas (usados en chat.css y toasts.css) */
-  --alert-raid: #d53f8c;
-  --alert-raid-icon: #f687b3;
-  --alert-sub: #38a169;
-  --alert-sub-icon: #48bb78;
-  --alert-cheer: #ecc94b;
-  --alert-cheer-icon: #f6e05e;
-  --alert-points: #00b5d8;
-  --alert-points-icon: #9decf9;
-  --alert-prediction: #805ad5;
-  --alert-prediction-icon: #b794f4;
-  --alert-mod: #e53e3e;
-  --alert-mod-icon: #feb2b2;
+  --alert-raid: #e879f9;
+  --alert-raid-icon: #f0abfc;
+  --alert-sub: #4ade80;
+  --alert-sub-icon: #86efac;
+  --alert-cheer: #facc15;
+  --alert-cheer-icon: #fde047;
+  --alert-points: #38bdf8;
+  --alert-points-icon: #7dd3fc;
+  --alert-prediction: #c084fc;
+  --alert-prediction-icon: #d8b4fe;
+  --alert-mod: #f87171;
+  --alert-mod-icon: #fca5a5;
 
   /* Z-index scale */
   --z-dropdown: 200;

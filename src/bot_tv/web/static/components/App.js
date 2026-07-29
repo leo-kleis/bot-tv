@@ -35,6 +35,7 @@ export function App({ state, dispatch }) {
         <${StreamWidget}
           stream=${state.stream}
           connected=${state.connected}
+          historyLoaded=${state.historyLoaded}
           ircConnected=${state.ircConnected}
           exited=${state.exited}
           ircCount=${filteredIrcCount}

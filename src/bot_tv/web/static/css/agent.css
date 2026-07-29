@@ -44,7 +44,7 @@
   border-radius: 16px 16px 4px 16px;
   padding: 10px 14px;
   max-width: 85%;
-  font-size: 0.93rem;
+  font-size: inherit;
   word-break: break-word;
   box-shadow: var(--shadow-sm);
 }
@@ -56,7 +56,7 @@
   border-radius: 4px 16px 16px 16px;
   padding: 10px 14px;
   max-width: 90%;
-  font-size: 0.93rem;
+  font-size: inherit;
   color: var(--text-2);
   word-break: break-word;
   white-space: pre-wrap;

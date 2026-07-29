@@ -598,9 +598,17 @@
   border: 1px solid var(--border-2);
   border-radius: 12px;
   position: relative;
-  outline: none;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
   cursor: pointer;
   transition: all 0.25s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.role-toggle-checkbox:focus,
+.role-toggle-checkbox:focus-visible,
+.role-toggle-checkbox:active {
+  outline: none !important;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 .role-toggle-checkbox:checked {

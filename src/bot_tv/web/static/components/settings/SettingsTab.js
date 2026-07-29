@@ -182,17 +182,58 @@ export function SettingsTab({ dispatch }) {
             </span>
           </div>
 
-          <div
-            style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between;"
-          >
-            <div>
-              <span class="settings-label" style="display: block;"
-                >Ocultar mensajes de usuarios BOT</span
-              >
-              <span style="font-size: 12px; color: var(--text-muted);"
-                >No muestra los mensajes de usuarios etiquetados como Bot en el chat</span
-              >
+          <div class="font-preview-box">
+            <span class="font-preview-label">Previsualización del Chat</span>
+
+            <div
+              class="chat-feed"
+              style="background: transparent; padding: 0; pointer-events: none;"
+            >
+              <div class="chat-msg-group">
+                <div
+                  class="user-avatar user-avatar--md"
+                  style="background: rgba(130, 87, 229, 0.2); color: var(--accent-text);"
+                >
+                  S
+                </div>
+                <div class="chat-msg-content">
+                  <div class="chat-msg-header">
+                    <span class="chat-author" style="color: var(--accent-text)">
+                      <span class="chat-nickname">Streamer</span>
+                    </span>
+                    <span class="chat-role">(Broadcaster)</span>
+                    <span class="chat-time">18:48</span>
+                  </div>
+                  <div class="chat-msg-body">
+                    Este es un mensaje de prueba para ver el tamaño de la fuente. ¿Qué tal se ve?
+                  </div>
+                </div>
+              </div>
+
+              <div class="chat-msg-group is-bot">
+                <div
+                  class="user-avatar user-avatar--md"
+                  style="background: rgba(245, 158, 11, 0.2); color: var(--warning);"
+                >
+                  A
+                </div>
+                <div class="chat-msg-content">
+                  <div class="chat-msg-header">
+                    <span class="chat-author" style="color: var(--warning)">
+                      <span class="chat-nickname">Agente</span>
+                    </span>
+                    <span class="chat-role">(Bot)</span>
+                    <span class="chat-time">18:48</span>
+                  </div>
+                  <div class="chat-msg-body">
+                    Respondiendo a tu consulta con el tamaño de letra dinámico configurado.
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div class="settings-toggle-row">
             <input
               type="checkbox"
               class="role-toggle-checkbox"
@@ -200,24 +241,12 @@ export function SettingsTab({ dispatch }) {
               onChange=${handleHideBotsChange}
               aria-label="Ocultar mensajes de usuarios BOT en el chat"
             />
-          </div>
-        </div>
-
-        <div class="font-preview-box">
-          <span class="font-preview-label">Previsualización</span>
-
-          <div class="font-preview-chat">
-            <span class="user">Streamer:</span>
-            <span class="font-preview-text"
-              >Este es un mensaje de prueba para ver el tamaño de la fuente. ¿Qué tal se ve?</span
-            >
-          </div>
-
-          <div class="font-preview-chat" style="background: var(--surface2)">
-            <span class="user" style="color: var(--warning)">Agente:</span>
-            <span class="font-preview-text"
-              >Respondiendo a tu consulta con tamaño de letra dinámico.</span
-            >
+            <div class="settings-toggle-info">
+              <span class="settings-label">Ocultar mensajes de usuarios BOT</span>
+              <span class="settings-subtext"
+                >No muestra los mensajes de usuarios etiquetados como Bot en el chat</span
+              >
+            </div>
           </div>
         </div>
       </div>
