@@ -13,18 +13,22 @@ import twitchio
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
-from bot_tv.actions import (
+from bot_tv.actions.agent import (
     action_clear_agent_chat,
-    action_create_clip,
-    action_exit,
     action_get_models,
     action_get_rpm_status,
     action_set_context_limit,
-    action_set_nickname,
     action_switch_model,
-    action_sync_followers,
-    action_sync_user_roles,
     action_talk,
+)
+from bot_tv.actions.followers import action_sync_followers
+from bot_tv.actions.system import (
+    action_create_clip,
+    action_exit,
+)
+from bot_tv.actions.users import (
+    action_set_nickname,
+    action_sync_user_roles,
     action_update_user_roles,
 )
 from bot_tv.events import AgentResponseEvent

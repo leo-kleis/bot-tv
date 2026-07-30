@@ -1,111 +1,31 @@
-"""Acciones compartidas del bot.
-
-Lógica pura sin presentación. Usada tanto por el REPL de terminal
-(console/commands.py) como por la REST API de bot-web (web/api.py).
-Cada función retorna datos tipados que cada consumer formatea a su modo.
-"""
+"""Acciones de gestión de usuarios y roles del bot."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
 from typing import TYPE_CHECKING
 
 import twitchio
 
-from bot_tv.agent.models import AVAILABLE_MODELS
-from bot_tv.agent.rate_limiter import RateLimitStatus
+from bot_tv.actions.models import (
+    BotToggleResult,
+    NicknameResult,
+    UserResolveResult,
+    UserRolesResult,
+)
 from bot_tv.events import (
-    ClipCreatedEvent,
     UserNicknameUpdatedEvent,
     UserRoleUpdatedEvent,
 )
 
 if TYPE_CHECKING:
-    from bot_tv.agent import TalkAgent
     from bot_tv.bot import Bot
 
-
-# ── Tipos de retorno ─────────────────────────────────────────────────────────
-
-
-@dataclass
-class UserResolveResult:
-    """Resultado de la resolución de un usuario."""
-
-    user_id: str | None
-    found_locally: bool
-    found_on_twitch: bool
-    error: str | None = None
-
-
-@dataclass
-class BotToggleResult:
-    """Resultado de marcar/desmarcar un usuario como bot."""
-
-    username: str
-    is_bot: bool  # estado NUEVO (después del toggle)
-    user_id: str
-
-
-@dataclass
-class NicknameResult:
-    """Resultado de asignar/eliminar un apodo."""
-
-    username: str
-    nickname: str | None  # None = eliminado
-
-
-@dataclass
-class UserRolesResult:
-    """Resultado de actualizar los roles de un usuario."""
-
-    username: str
-    user_id: str
-    is_bot: bool
-    is_moderator: bool
-    is_vip: bool
-    is_subscriber: bool
-    sub_tier: str | None = None  # "1000" | "2000" | "3000"
-    gifter_id: str | None = None  # user_id de quien regaló la sub
-
-
-@dataclass
-class SyncFollowersResult:
-    """Resultado de una sincronización de seguidores."""
-
-    channel: str
-    ok: bool
-    error: str | None = None
-
-
-@dataclass
-class ModelInfo:
-    """Info de un modelo disponible."""
-
-    name: str
-    display_name: str
-    enabled: bool
-    rpm_limit: int
-    rpd_limit: int
-
-
-@dataclass
-class AgentTalkResult:
-    """Resultado de una consulta al agente."""
-
-    response: str
-    model: str
-
-
-# ── Resolución de usuarios ───────────────────────────────────────────────────
+LOGGER = logging.getLogger(__name__)
 
 
 async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
     """Busca user_id en DB local; si no está, consulta la API de Twitch."""
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     user_id = await bot.user_repo.get_user_id_by_name(username)
     if user_id:
         return UserResolveResult(
@@ -132,16 +52,13 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
             user_id=user_id, found_locally=False, found_on_twitch=True
         )
     except Exception as e:
-        logger.exception("Error al buscar usuario en Twitch.")
+        LOGGER.exception("Error al buscar usuario en Twitch.")
         return UserResolveResult(
             user_id=None,
             found_locally=False,
             found_on_twitch=False,
             error=str(e),
         )
-
-
-# ── Acciones de usuario ──────────────────────────────────────────────────────
 
 
 async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
@@ -155,7 +72,6 @@ async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
     nuevo_es_bot = not es_bot
     await bot.user_repo.set_user_bot(user_id, nuevo_es_bot, cache=cache)
 
-    # Actualizar bot.irc.connected_users si el usuario está en IRC
     if bot.irc and user_id in bot.irc.connected_users:
         from dataclasses import replace as dataclass_replace
 
@@ -164,7 +80,6 @@ async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
         bot.irc.connected_users[user_id] = updated_u
         await bot.event_bus.emit(updated_u)
 
-    # Notificar la actualización de roles
     display_name = username
     if cache is not None:
         cached_user = cache.get_user(user_id)
@@ -208,7 +123,6 @@ async def action_set_nickname(
 
     await bot.user_repo.set_nickname(user_id, nickname, cache=cache)
 
-    # Actualizar bot.irc.connected_users si el usuario está en IRC
     if bot.irc and user_id in bot.irc.connected_users:
         from dataclasses import replace as dataclass_replace
 
@@ -217,7 +131,6 @@ async def action_set_nickname(
         bot.irc.connected_users[user_id] = updated_u
         await bot.event_bus.emit(updated_u)
 
-    # Notificar la actualización a la web
     display_name = username
     if cache is not None:
         cached_user = cache.get_user(user_id)
@@ -245,14 +158,9 @@ async def action_update_user_roles(
     channel_id: str | None = None,
 ) -> UserRolesResult | str:
     """Actualiza los roles de un usuario en Twitch y en la DB."""
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     cache = bot.user_cache
     user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
     if not user_id:
-        # Intentar buscarlo en Twitch si no está en la base de datos local
         try:
             twitch_user = await bot.fetch_user(login=username)
             if not twitch_user:
@@ -268,10 +176,9 @@ async def action_update_user_roles(
                 cache=cache,
             )
         except Exception as e:
-            logger.exception("Error al buscar usuario en Twitch: %s", e)
+            LOGGER.exception("Error al buscar usuario en Twitch: %s", e)
             return f"Error al buscar al usuario '{username}' en Twitch: {e}"
 
-    # Evitar cambiar roles al broadcaster
     channels = await bot.get_channels()
     if not channels:
         return "No hay canales configurados."
@@ -280,7 +187,6 @@ async def action_update_user_roles(
     if user_id == broadcaster_id:
         return "No se pueden modificar los roles del broadcaster."
 
-    # Obtener roles actuales
     current_roles = await bot.user_repo.get_user_roles(
         user_id, broadcaster_id, cache=cache
     )
@@ -288,16 +194,13 @@ async def action_update_user_roles(
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
 
-    # Actualizar en Twitch Helix a nombre del broadcaster
     broadcaster = twitchio.PartialUser(id=broadcaster_id, http=bot._http)
 
-    # 1. Ejecutar las remociones primero para evitar conflictos de exclusión mutua
-    # Remoción de Moderador
     if not is_moderator and current_mod:
         try:
             await broadcaster.remove_moderator(user=user_id)
         except twitchio.HTTPException as e:
-            logger.error("Error al quitar moderador para %s en Twitch: %s", username, e)
+            LOGGER.error("Error al quitar moderador para %s en Twitch: %s", username, e)
             if e.status in (401, 403):
                 return (
                     "Error de permisos en Twitch. Asegúrate de tener los tokens "
@@ -306,12 +209,11 @@ async def action_update_user_roles(
             msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
             return f"Error de Twitch al quitar moderación: {msg_twitch}"
 
-    # Remoción de VIP
     if not is_vip and current_vip:
         try:
             await broadcaster.remove_vip(user=user_id)
         except twitchio.HTTPException as e:
-            logger.error("Error al quitar VIP para %s en Twitch: %s", username, e)
+            LOGGER.error("Error al quitar VIP para %s en Twitch: %s", username, e)
             if e.status in (401, 403):
                 return (
                     "Error de permisos en Twitch. Asegúrate de tener los tokens "
@@ -320,13 +222,11 @@ async def action_update_user_roles(
             msg_twitch = e.extra.get("message") if isinstance(e.extra, dict) else str(e)
             return f"Error de Twitch al quitar VIP: {msg_twitch}"
 
-    # 2. Ejecutar las adiciones después
-    # Adición de Moderador
     if is_moderator and not current_mod:
         try:
             await broadcaster.add_moderator(user=user_id)
         except twitchio.HTTPException as e:
-            logger.error(
+            LOGGER.error(
                 "Error al agregar moderador para %s en Twitch: %s", username, e
             )
             if e.status in (401, 403):
@@ -342,12 +242,11 @@ async def action_update_user_roles(
                 )
             return f"Error de Twitch al agregar moderador: {msg_twitch}"
 
-    # Adición de VIP
     if is_vip and not current_vip:
         try:
             await broadcaster.add_vip(user=user_id)
         except twitchio.HTTPException as e:
-            logger.error("Error al agregar VIP para %s en Twitch: %s", username, e)
+            LOGGER.error("Error al agregar VIP para %s en Twitch: %s", username, e)
             if e.status in (401, 403):
                 return (
                     "Error de permisos en Twitch. Asegúrate de tener los tokens "
@@ -361,7 +260,6 @@ async def action_update_user_roles(
                 )
             return f"Error de Twitch al agregar VIP: {msg_twitch}"
 
-    # Actualizar en la base de datos local y en memoria
     await bot.user_repo.update_user_roles(
         user_id=user_id,
         channel_id=broadcaster_id,
@@ -371,7 +269,6 @@ async def action_update_user_roles(
         cache=cache,
     )
 
-    # Actualizar bot.irc.connected_users si el usuario está activo en IRC
     if bot.irc and user_id in bot.irc.connected_users:
         from dataclasses import replace as dataclass_replace
 
@@ -382,7 +279,6 @@ async def action_update_user_roles(
         bot.irc.connected_users[user_id] = updated_u
         await bot.event_bus.emit(updated_u)
 
-    # Notificar la actualización de roles a todos los clientes web (WebSocket)
     display_name = username
     if cache is not None:
         cached_user = cache.get_user(user_id)
@@ -417,15 +313,8 @@ async def action_sync_user_roles(
     channel_id: str | None = None,
 ) -> UserRolesResult | str:
     """Consulta Twitch para sincronizar los roles actuales de un usuario."""
-    import logging
-
-    import twitchio
-
-    logger = logging.getLogger(__name__)
-
     user_id = await bot.user_repo.get_user_id_by_name(username.lower())
     if not user_id:
-        # Intentar resolver en Twitch
         try:
             twitch_user = await bot.fetch_user(login=username)
             if not twitch_user:
@@ -437,16 +326,14 @@ async def action_sync_user_roles(
                 twitch_user.display_name,
             )
         except Exception as e:
-            logger.exception("Error al buscar usuario en Twitch: %s", e)
+            LOGGER.exception("Error al buscar usuario en Twitch: %s", e)
             return f"Error al buscar al usuario '{username}' en Twitch: {e}"
 
-    # Obtener el broadcaster actual
     channels = await bot.get_channels()
     if not channels:
         return "No hay canales configurados."
     broadcaster_id = channel_id or channels[0]["user_id"]
 
-    # Si es el broadcaster, tiene todos los roles excepto bot y sub por defecto
     if user_id == broadcaster_id:
         await bot.user_repo.update_user_roles(
             user_id=user_id,
@@ -467,46 +354,39 @@ async def action_sync_user_roles(
             is_subscriber=False,
         )
 
-    # Obtener roles locales actuales por si falla la sincronización de algún rol
     current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
     current_mod = current_roles.get("is_moderator", False) if current_roles else False
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
 
-    # Inicializar estado con los valores locales por defecto
     is_moderator = current_mod
     is_vip = current_vip
     is_subscriber = current_sub
 
     broadcaster = twitchio.PartialUser(id=broadcaster_id, http=bot._http)
 
-    # 1. Comprobar Moderador
     try:
-        # fetch_moderators devuelve la lista completa
         moderators = await broadcaster.fetch_moderators()
         is_moderator = any(m.id == user_id for m in moderators)
     except twitchio.HTTPException as e:
-        logger.warning(
+        LOGGER.warning(
             "No se pudieron sincronizar moderadores de Twitch para %s (HTTP %s): %s",
             username,
             e.status,
             e,
         )
 
-    # 2. Comprobar VIP
     try:
-        # fetch_vips acepta user_ids como filtro
         vips = await broadcaster.fetch_vips(user_ids=[user_id])
         is_vip = any(v.id == user_id for v in vips)
     except twitchio.HTTPException as e:
-        logger.warning(
+        LOGGER.warning(
             "No se pudieron sincronizar VIPs de Twitch para %s (HTTP %s): %s",
             username,
             e.status,
             e,
         )
 
-    # 3. Comprobar Suscriptor
     is_subscriber = False
     sub_tier = None
     gifter_id = None
@@ -522,7 +402,6 @@ async def action_sync_user_roles(
             if sub.gift and sub.gifter and sub.gifter.name:
                 gifter_id = sub.gifter.id
                 gifter_name = sub.gifter.name
-                # Asegurar que el gifter existe en la DB
                 existing = await bot.user_repo.get_user_id_by_name(gifter_name.lower())
                 if not existing:
                     try:
@@ -534,13 +413,12 @@ async def action_sync_user_roles(
                                 gifter_user.display_name,
                             )
                     except Exception as eg:
-                        logger.warning(
+                        LOGGER.warning(
                             "No se pudo upsert el gifter %s: %s", gifter_id, eg
                         )
             break
     except twitchio.HTTPException as e:
         if e.status == 404:
-            # 404 = el usuario no está suscrito (respuesta normal de la API)
             is_subscriber = False
         elif e.status in (401, 403):
             is_subscriber = False
@@ -549,7 +427,7 @@ async def action_sync_user_roles(
                 twitch_msg = f": {e.extra['message']}"
             elif isinstance(e.extra, str):
                 twitch_msg = f": {e.extra}"
-            logger.warning(
+            LOGGER.warning(
                 "No se pudo comprobar la suscripción para %s (HTTP %s)%s",
                 username,
                 e.status,
@@ -561,24 +439,22 @@ async def action_sync_user_roles(
                 twitch_msg = f": {e.extra['message']}"
             elif isinstance(e.extra, str):
                 twitch_msg = f": {e.extra}"
-            logger.warning(
+            LOGGER.warning(
                 "Error al obtener suscripción de Twitch para %s (HTTP %s)%s",
                 username,
                 e.status,
                 twitch_msg,
             )
     except Exception as e:
-        logger.warning(
+        LOGGER.warning(
             "Error inesperado al comprobar suscripción para %s: %s",
             username,
             e,
         )
 
-    # Mantener el rol de bot actual en base de datos
     current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
     is_bot = current_roles.get("is_bot", False) if current_roles else False
 
-    # Actualizar en base de datos local
     await bot.user_repo.update_user_roles(
         user_id=user_id,
         channel_id=broadcaster_id,
@@ -590,7 +466,6 @@ async def action_sync_user_roles(
         gifter_id=gifter_id,
     )
 
-    # Actualizar bot.irc.connected_users si está presente
     if bot.irc and user_id in bot.irc.connected_users:
         from dataclasses import replace as dataclass_replace
 
@@ -606,7 +481,6 @@ async def action_sync_user_roles(
         bot.irc.connected_users[user_id] = updated_u
         await bot.event_bus.emit(updated_u)
 
-    # Notificar la actualización a la web
     display_name = username
     cache = bot.user_cache
     if cache is not None:
@@ -636,142 +510,3 @@ async def action_sync_user_roles(
         sub_tier=sub_tier,
         gifter_id=gifter_id,
     )
-
-
-# ── Acciones de seguidores ───────────────────────────────────────────────────
-
-
-async def action_sync_followers(bot: Bot) -> list[SyncFollowersResult]:
-    """Sincroniza seguidores de todos los canales. Retorna un resultado por canal."""
-    import logging
-
-    from bot_tv.components.followers_component import FollowersComponent
-
-    logger = logging.getLogger(__name__)
-    channels = await bot.get_channels()
-    # pyrefly: ignore [missing-attribute]
-    component = bot._components.get("FollowersComponent")
-
-    results: list[SyncFollowersResult] = []
-
-    if not isinstance(component, FollowersComponent):
-        logger.error("Componente FollowersComponent no encontrado.")
-        for channel in channels:
-            results.append(
-                SyncFollowersResult(
-                    channel=channel["username"],
-                    ok=False,
-                    error="Componente no disponible.",
-                )
-            )
-        return results
-
-    for channel in channels:
-        try:
-            await component.check_and_sync(channel["user_id"])
-            results.append(SyncFollowersResult(channel=channel["username"], ok=True))
-        except Exception as e:
-            logger.exception(
-                "Error al sincronizar seguidores de %s", channel["username"]
-            )
-            results.append(
-                SyncFollowersResult(channel=channel["username"], ok=False, error=str(e))
-            )
-
-    return results
-
-
-# ── Acciones del agente ──────────────────────────────────────────────────────
-
-
-def action_get_rpm_status(
-    agent: TalkAgent, show_all: bool = False
-) -> list[RateLimitStatus]:
-    """Retorna el estado RPM del modelo activo o de todos los modelos."""
-    if show_all:
-        return agent.get_all_rpm_status()
-    return [agent.get_rpm_status()]
-
-
-def action_get_models() -> list[ModelInfo]:
-    """Lista todos los modelos con sus límites y disponibilidad."""
-    return [
-        ModelInfo(
-            name=name,
-            display_name=cfg.display_name,
-            enabled=cfg.enabled,
-            rpm_limit=cfg.rpm_limit,
-            rpd_limit=cfg.rpd_limit,
-        )
-        for name, cfg in AVAILABLE_MODELS.items()
-    ]
-
-
-def action_switch_model(agent: TalkAgent, model: str) -> str:
-    """Cambia el modelo activo. Retorna mensaje descriptivo del resultado."""
-    return agent.switch_model(model)
-
-
-async def action_talk(agent: TalkAgent, message: str) -> AgentTalkResult:
-    """Envía un mensaje al agente y retorna la respuesta y el modelo usado."""
-    raw = await agent.chat(message)
-    return AgentTalkResult(response=raw.strip(), model=agent.current_model)
-
-
-def action_clear_agent_chat(agent: TalkAgent) -> None:
-    """Limpia el historial conversacional del agente."""
-    agent.clear_history()
-
-
-async def action_set_context_limit(agent: TalkAgent, limit: int) -> None:
-    """Establece y persiste el límite de contexto del agente."""
-    await agent.set_context_limit(limit)
-
-
-# ── Ciclo de vida ────────────────────────────────────────────────────────────
-
-
-async def action_exit(bot: Bot) -> None:
-    """Cierra el bot limpiamente."""
-    await bot.close()
-
-
-async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
-    """Dispara la creación de un clip vía el ClipComponent y espera el resultado."""
-    import asyncio
-    import logging
-
-    from bot_tv.components.clip_component import ClipComponent
-    from bot_tv.events import ClipCreatedEvent as _ClipEvent
-
-    logger = logging.getLogger(__name__)
-
-    # pyrefly: ignore [missing-attribute]
-    component = bot._components.get("ClipComponent")
-    if not isinstance(component, ClipComponent):
-        logger.error("ClipComponent no encontrado.")
-        return "Componente ClipComponent no disponible."
-
-    future: asyncio.Future[_ClipEvent | str] = asyncio.get_event_loop().create_future()
-
-    original_emit = bot.event_bus.emit
-
-    async def capture_and_restore(event: object) -> None:
-        if isinstance(event, _ClipEvent) and not future.done():
-            future.set_result(event)
-        await original_emit(event)
-
-    bot.event_bus.emit = capture_and_restore  # type: ignore[assignment]
-
-    try:
-        await component.hacer_clip(raise_on_error=True)
-        result = await asyncio.wait_for(future, timeout=15)
-    except TimeoutError:
-        result = "Timeout: el clip tardó demasiado."
-    except Exception as e:
-        msg = str(e) or "Fallo al crear el clip en Twitch"
-        result = f"Error al crear el clip: {msg}"
-    finally:
-        bot.event_bus.emit = original_emit  # type: ignore[assignment]
-
-    return result

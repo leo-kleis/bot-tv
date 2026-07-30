@@ -3,13 +3,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from bot_tv.actions import (
-    action_exit,
+from bot_tv.actions.agent import (
     action_get_models,
     action_get_rpm_status,
-    action_set_nickname,
     action_switch_model,
-    action_sync_followers,
+)
+from bot_tv.actions.followers import action_sync_followers
+from bot_tv.actions.system import action_exit
+from bot_tv.actions.users import (
+    action_set_nickname,
     action_toggle_bot,
 )
 from bot_tv.utils.colors import (
