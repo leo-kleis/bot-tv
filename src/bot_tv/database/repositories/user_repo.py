@@ -235,6 +235,7 @@ class UserRepository(BaseRepository):
         broadcaster_id: str | None = None,
         role: str | None = None,
         has_nickname: bool | None = None,
+        has_chat_history: bool | None = None,
         username_search: str | None = None,
         followed_after: str | None = None,
         followed_before: str | None = None,
@@ -248,7 +249,7 @@ class UserRepository(BaseRepository):
         cache: UserMemoryCache | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Devuelve usuarios registrados filtrados y el total coincidente."""
-        if cache is not None:
+        if cache is not None and has_chat_history is None:
             users, total = cache.list_users_with_filters(
                 channel_id=channel_id,
                 broadcaster_id=broadcaster_id,
@@ -304,6 +305,18 @@ class UserRepository(BaseRepository):
                 where_clauses.append("u.nickname IS NOT NULL AND u.nickname != ''")
             else:
                 where_clauses.append("(u.nickname IS NULL OR u.nickname = '')")
+
+        if has_chat_history is not None:
+            if has_chat_history:
+                where_clauses.append(
+                    "EXISTS (SELECT 1 FROM chat_history ch "
+                    "WHERE ch.channel_id = $1 AND ch.user_id = u.user_id)"
+                )
+            else:
+                where_clauses.append(
+                    "NOT EXISTS (SELECT 1 FROM chat_history ch "
+                    "WHERE ch.channel_id = $1 AND ch.user_id = u.user_id)"
+                )
 
         if username_search:
             like_pattern = f"%{username_search}%"

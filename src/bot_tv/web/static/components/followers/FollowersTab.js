@@ -75,6 +75,12 @@ const ROLE_OPTIONS = [
   { value: 'bot', label: 'Bot' },
 ];
 
+const HISTORY_OPTIONS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'with_history', label: 'Con historial' },
+  { value: 'no_history', label: 'Sin historial' },
+];
+
 export function FollowersTab({ followers }) {
   const allNewLabels = followers.allNewLabels || [];
   const allLostLabels = followers.allLostLabels || [];
@@ -86,6 +92,7 @@ export function FollowersTab({ followers }) {
   const [nameSearch, setNameSearch] = useState('');
   const [isFollower, setIsFollower] = useState('all'); // 'all', 'true', 'false'
   const [role, setRole] = useState('all');
+  const [hasHistory, setHasHistory] = useState('all');
   const [followedAfter, setFollowedAfter] = useState('');
   const [followedBefore, setFollowedBefore] = useState('');
   const [unfollowedAfter, setUnfollowedAfter] = useState('');
@@ -119,6 +126,7 @@ export function FollowersTab({ followers }) {
     nameSearch,
     isFollower,
     role,
+    hasHistory,
     followedAfter,
     followedBefore,
     unfollowedAfter,
@@ -141,6 +149,7 @@ export function FollowersTab({ followers }) {
       prevFilters.current.nameSearch !== nameSearch ||
       prevFilters.current.isFollower !== isFollower ||
       prevFilters.current.role !== role ||
+      prevFilters.current.hasHistory !== hasHistory ||
       prevFilters.current.followedAfter !== followedAfter ||
       prevFilters.current.followedBefore !== followedBefore ||
       prevFilters.current.unfollowedAfter !== unfollowedAfter ||
@@ -152,6 +161,7 @@ export function FollowersTab({ followers }) {
       nameSearch,
       isFollower,
       role,
+      hasHistory,
       followedAfter,
       followedBefore,
       unfollowedAfter,
@@ -170,6 +180,7 @@ export function FollowersTab({ followers }) {
     nameSearch,
     isFollower,
     role,
+    hasHistory,
     followedAfter,
     followedBefore,
     unfollowedAfter,
@@ -200,6 +211,7 @@ export function FollowersTab({ followers }) {
     if (nameSearch.trim()) params.append('name', nameSearch.trim());
     if (isFollower !== 'all') params.append('is_follower', isFollower);
     if (role !== 'all') params.append('role', role);
+    if (hasHistory !== 'all') params.append('has_history', hasHistory);
     if (followedAfter) params.append('followed_after', followedAfter);
     if (followedBefore) params.append('followed_before', followedBefore);
     if (unfollowedAfter) params.append('unfollowed_after', unfollowedAfter);
@@ -309,6 +321,7 @@ export function FollowersTab({ followers }) {
     setNameSearch('');
     setIsFollower('all');
     setRole('all');
+    setHasHistory('all');
     setFollowedAfter('');
     setFollowedBefore('');
     setUnfollowedAfter('');
@@ -515,6 +528,16 @@ export function FollowersTab({ followers }) {
             <div class="filter-group">
               <label class="filter-label">Rol</label>
               <${CustomSelect} value=${role} onChange=${setRole} options=${ROLE_OPTIONS} />
+            </div>
+
+            <!-- Historial de Chat -->
+            <div class="filter-group">
+              <label class="filter-label">Historial Chat</label>
+              <${CustomSelect}
+                value=${hasHistory}
+                onChange=${setHasHistory}
+                options=${HISTORY_OPTIONS}
+              />
             </div>
 
             <!-- Rango Fecha Seguimiento -->

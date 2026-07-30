@@ -381,6 +381,13 @@ async def endpoint_list_users(request: Request) -> Response:
     name = request.query_params.get("name", "").strip() or None
     role = request.query_params.get("role", "").strip() or None
 
+    has_history_param = request.query_params.get("has_history", "").strip().lower()
+    has_chat_history: bool | None = None
+    if has_history_param in ("true", "1", "with_history"):
+        has_chat_history = True
+    elif has_history_param in ("false", "0", "no_history"):
+        has_chat_history = False
+
     is_follower_param = request.query_params.get("is_follower", "").lower()
     is_follower: str | None = None
     if is_follower_param in ("follower", "not_follower", "unfollower"):
@@ -430,6 +437,7 @@ async def endpoint_list_users(request: Request) -> Response:
             channel_id=channel_id,
             broadcaster_id=bot.owner_id,
             role=role,
+            has_chat_history=has_chat_history,
             username_search=name,
             followed_after=followed_after,
             followed_before=followed_before,

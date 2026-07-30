@@ -34,9 +34,10 @@ export function ConnectionIndicator({ connected, historyLoaded, ircConnected, ex
   function updatePosition() {
     if (!dotRef.current) return;
     const rect = dotRef.current.getBoundingClientRect();
+    const maxLeft = Math.max(8, window.innerWidth - 235);
     setPopoverPos({
-      top: rect.bottom + 10,
-      left: rect.left,
+      top: Math.round(rect.bottom + 8),
+      left: Math.round(Math.max(8, Math.min(rect.left, maxLeft))),
     });
   }
 

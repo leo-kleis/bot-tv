@@ -24,15 +24,13 @@ export function useWebSocket(dispatch) {
         timeoutIdRef.current = null;
       }
 
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Si ya hay un socket abierto o en proceso de conexión, no crear otro ni abortar el actual
+      if (
+        wsRef.current &&
+        (wsRef.current.readyState === WebSocket.OPEN ||
+          wsRef.current.readyState === WebSocket.CONNECTING)
+      ) {
         return;
-      }
-
-      // Si había una conexión en progreso pegada (CONNECTING), cerrarla antes de reintentar
-      if (wsRef.current && wsRef.current.readyState === WebSocket.CONNECTING) {
-        try {
-          wsRef.current.close();
-        } catch {}
       }
 
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -59,6 +57,7 @@ export function useWebSocket(dispatch) {
 
       ws.onclose = () => {
         if (destroyed) return;
+        wsRef.current = null;
         dispatch({ type: 'WS_DISCONNECTED' });
 
         if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
@@ -71,9 +70,8 @@ export function useWebSocket(dispatch) {
       };
 
       ws.onerror = () => {
-        try {
-          ws.close();
-        } catch {}
+        // En navegadores como Firefox, el evento onerror es seguido automáticamente por onclose.
+        // Evitamos forzar close() aquí para prevenir logs de conexión interrumpida.
       };
     }
 
@@ -105,7 +103,17 @@ export function useWebSocket(dispatch) {
       window.removeEventListener('focus', handleWakeup);
       document.removeEventListener('visibilitychange', handleWakeup);
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
-      wsRef.current?.close();
+      if (wsRef.current) {
+        const socket = wsRef.current;
+        wsRef.current = null;
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onclose = null;
+        socket.onerror = null;
+        try {
+          socket.close();
+        } catch {}
+      }
     };
   }, [dispatch]);
 }
