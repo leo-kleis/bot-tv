@@ -1,63 +1,25 @@
-"""REST API: endpoints para ejecutar acciones del bot desde la web."""
+"""Endpoints de la API REST relativos a la gestión de usuarios y seguidores."""
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
-import json
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-import twitchio
 from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.responses import RedirectResponse, Response
 
-from bot_tv.actions.agent import (
-    action_clear_agent_chat,
-    action_get_models,
-    action_get_rpm_status,
-    action_set_context_limit,
-    action_switch_model,
-    action_talk,
-)
 from bot_tv.actions.followers import action_sync_followers
-from bot_tv.actions.system import (
-    action_create_clip,
-    action_exit,
-)
 from bot_tv.actions.users import (
     action_set_nickname,
     action_sync_user_roles,
     action_update_user_roles,
 )
-from bot_tv.events import AgentResponseEvent
+from bot_tv.web.api.helpers import _err, _ok, _parse_body
 
 if TYPE_CHECKING:
-    from bot_tv.agent import TalkAgent
     from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
-
-
-def _ok(data: object = None) -> JSONResponse:
-    return JSONResponse({"ok": True, "data": data})
-
-
-def _err(message: str, status: int = 400) -> JSONResponse:
-    return JSONResponse({"ok": False, "error": message}, status_code=status)
-
-
-async def _parse_body(request: Request) -> dict:
-    """Parsea el body JSON de la request. Retorna dict vacío si no hay body."""
-    with contextlib.suppress(json.JSONDecodeError, UnicodeDecodeError):
-        body = await request.body()
-        if body:
-            return json.loads(body)  # type: ignore[return-value]
-    return {}
-
-
-# ── Endpoints ────────────────────────────────────────────────────────────────
 
 
 async def endpoint_sync_followers(request: Request) -> Response:
@@ -150,133 +112,6 @@ async def endpoint_sync_user_roles(request: Request) -> Response:
     )
 
 
-async def endpoint_switch_model(request: Request) -> Response:
-    agent: TalkAgent = request.app.state.agent
-    body = await _parse_body(request)
-    model = body.get("model", "").strip()
-    if not model:
-        return _err("Campo 'model' requerido.")
-
-    message = action_switch_model(agent, model)
-    return _ok({"message": message, "current_model": agent.current_model})
-
-
-async def endpoint_talk(request: Request) -> Response:
-    agent: TalkAgent = request.app.state.agent
-    bot: Bot = request.app.state.bot
-    event_bus = bot.event_bus
-
-    body = await _parse_body(request)
-    message = body.get("message", "").strip()
-    if not message:
-        return _err("Campo 'message' requerido.")
-
-    result = await action_talk(agent, message)
-
-    await event_bus.emit(
-        AgentResponseEvent(
-            timestamp=datetime.now().isoformat(),
-            question=message,
-            response=result.response,
-            model=result.model,
-        )
-    )
-
-    return _ok({"response": result.response, "model": result.model})
-
-
-async def endpoint_clear_agent_chat(request: Request) -> Response:
-    """Limpia la memoria conversacional del agente."""
-    agent: TalkAgent = request.app.state.agent
-    action_clear_agent_chat(agent)
-    return _ok({"message": "Historial de conversación limpiado."})
-
-
-async def endpoint_set_context_limit(request: Request) -> Response:
-    """Actualiza y persiste el límite de contexto del agente."""
-    agent: TalkAgent = request.app.state.agent
-    body = await _parse_body(request)
-    limit_val = body.get("limit", 0)
-    try:
-        limit = max(0, int(limit_val))
-    except ValueError, TypeError:
-        return _err("El campo 'limit' debe ser un número entero >= 0.")
-
-    await action_set_context_limit(agent, limit)
-    return _ok(
-        {
-            "message": f"Límite de contexto actualizado a {limit}.",
-            "context_limit": agent.context_limit,
-        }
-    )
-
-
-async def endpoint_get_rpm(request: Request) -> Response:
-    agent: TalkAgent = request.app.state.agent
-    show_all = request.query_params.get("all", "").lower() in ("1", "true", "yes")
-    statuses = action_get_rpm_status(agent, show_all)
-    return _ok(
-        {
-            "context_limit": agent.context_limit,
-            "statuses": [
-                {
-                    "model": s.model,
-                    "display_name": s.display_name,
-                    "rpm_used": s.rpm_used,
-                    "rpm_limit": s.rpm_limit,
-                    "rpd_used": s.rpd_used,
-                    "rpd_limit": s.rpd_limit,
-                    "is_blocked": s.is_blocked,
-                    "blocked_reason": s.blocked_reason,
-                    "next_slot_in": s.next_slot_in,
-                }
-                for s in statuses
-            ],
-        }
-    )
-
-
-async def endpoint_get_models(request: Request) -> Response:
-    infos = action_get_models()
-    return _ok(
-        [
-            {
-                "name": m.name,
-                "display_name": m.display_name,
-                "enabled": m.enabled,
-                "rpm_limit": m.rpm_limit,
-                "rpd_limit": m.rpd_limit,
-            }
-            for m in infos
-        ]
-    )
-
-
-async def endpoint_exit(request: Request) -> Response:
-    bot: Bot = request.app.state.bot
-    LOGGER.info("Apagando bot via API web...")
-    response = _ok({"message": "Apagando bot..."})
-
-    async def shutdown_task() -> None:
-        await asyncio.sleep(0.5)
-        server = getattr(request.app.state, "server", None)
-        if server:
-            server.should_exit = True
-        await action_exit(bot)
-
-    task = asyncio.create_task(shutdown_task())
-    task.add_done_callback(lambda _: None)
-    return response
-
-
-async def endpoint_create_clip(request: Request) -> Response:
-    bot: Bot = request.app.state.bot
-    result = await action_create_clip(bot)
-    if isinstance(result, str):
-        return _err(result)
-    return _ok({"url": result.url, "broadcaster_name": result.broadcaster_name})
-
-
 async def endpoint_search_users(request: Request) -> Response:
     """Busca usuarios en la DB local para autocompletar campos de usuario."""
     bot: Bot = request.app.state.bot
@@ -302,75 +137,6 @@ async def endpoint_search_users(request: Request) -> Response:
             for r in rows
         ]
     )
-
-
-async def endpoint_get_chat_accounts(request: Request) -> Response:
-    """Retorna las cuentas autenticadas (Bot o Broadcaster) para usar en el chat."""
-    bot: Bot = request.app.state.bot
-    try:
-        tokens_metadata = await bot.token_repo.get_all_tokens_metadata()
-        accounts = []
-        for row in tokens_metadata:
-            user_id = row["user_id"]
-            username = row["username"]
-            role_type = "bot" if user_id == bot.bot_id else "broadcaster"
-            accounts.append(
-                {"user_id": user_id, "username": username, "type": role_type}
-            )
-        return _ok(accounts)
-    except Exception as e:
-        LOGGER.exception("Error al obtener las cuentas de chat: %s", e)
-        return _err(f"No se pudieron obtener las cuentas: {e}")
-
-
-async def endpoint_send_chat_message(request: Request) -> Response:
-    """Envía un mensaje de chat desde la cuenta especificada (Bot o Broadcaster)."""
-    bot: Bot = request.app.state.bot
-    body = await _parse_body(request)
-    sender_id = body.get("sender_id", "").strip()
-    message = body.get("message", "").strip()
-
-    if not sender_id:
-        return _err("Campo 'sender_id' requerido.")
-    if not message:
-        return _err("Campo 'message' requerido.")
-
-    try:
-        # 1. Obtener la información del canal destino (broadcaster)
-        # El canal es aquel cuyo user_id != bot_id en tokens
-        async with bot.database.acquire() as connection:
-            row = await connection.fetchrow(
-                "SELECT user_id, username FROM tokens WHERE user_id != $1",
-                bot.bot_id,
-            )
-
-        if not row:
-            return _err("No se encontró el canal (broadcaster) de destino.")
-
-        broadcaster_id = row["user_id"]
-        broadcaster_name = row["username"]
-
-        canal_user = twitchio.PartialUser(
-            id=broadcaster_id,
-            name=broadcaster_name,
-            http=bot._http,
-        )
-
-        # 2. Enviar el mensaje usando el token del sender_id correspondiente
-        # Si sender_id es el del bot, usa el token del bot.
-        # Si es el del broadcaster, usa el del broadcaster.
-        await canal_user.send_message(
-            message=message,
-            sender=sender_id,
-            token_for=sender_id,
-        )
-        return _ok({"message": "Mensaje enviado con éxito"})
-    except twitchio.HTTPException as e:
-        LOGGER.error("Fallo al enviar el mensaje de chat en Twitch: %s", e)
-        return _err(f"Error de Twitch (HTTP {e.status}): {e}")
-    except Exception as e:
-        LOGGER.exception("Error inesperado al enviar mensaje de chat: %s", e)
-        return _err(f"Error inesperado: {e}")
 
 
 async def endpoint_list_users(request: Request) -> Response:
@@ -504,35 +270,6 @@ async def endpoint_get_avatar(request: Request) -> Response:
         return _err("Avatar no encontrado", 404)
 
     return RedirectResponse(url=url, status_code=302)
-
-
-_FFZ_CACHE: dict[str, dict] = {}
-
-
-async def endpoint_get_ffz_emotes(request: Request) -> Response:
-    """Proxy para emotes de FFZ que responde 200 {} si la sala no existe."""
-    channel_id = request.path_params.get("channel_id", "")
-    if not channel_id:
-        return JSONResponse({})
-
-    if channel_id in _FFZ_CACHE:
-        return JSONResponse(_FFZ_CACHE[channel_id])
-
-    url = f"https://api.frankerfacez.com/v1/room/id/{channel_id}"
-    try:
-        import httpx
-
-        async with httpx.AsyncClient(timeout=4.0) as client:
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                data = resp.json()
-                _FFZ_CACHE[channel_id] = data
-                return JSONResponse(data)
-    except Exception as e:
-        LOGGER.debug("FFZ channel %s no encontrado o fallo conexión: %s", channel_id, e)
-
-    _FFZ_CACHE[channel_id] = {}
-    return JSONResponse({})
 
 
 async def endpoint_user_messages(request: Request) -> Response:
