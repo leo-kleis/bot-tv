@@ -1,4 +1,10 @@
-/* followers.css — Pestaña de Seguidores */
+/* ==========================================================================
+   followers.css — Estilos de la Pestaña de Seguidores y Usuarios
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Componente: FollowersSummary (Tarjetas de Estadísticas y Sincronización)
+   -------------------------------------------------------------------------- */
 .followers-stat {
   display: flex;
   gap: 12px;
@@ -16,6 +22,7 @@
     background-color 0.2s;
   user-select: none;
 }
+
 .stat-card:hover {
   border-color: var(--border);
   background-color: var(--surface3);
@@ -35,9 +42,11 @@
   letter-spacing: 0.06em;
   margin-top: 4px;
 }
+
 .stat-card.new .stat-value {
   color: var(--success);
 }
+
 .stat-card.lost .stat-value {
   color: var(--danger);
 }
@@ -68,9 +77,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .follower-item:last-child {
   border-bottom: none;
 }
+
 .follower-item:hover {
   background: rgba(255, 255, 255, 0.01) !important;
   color: var(--text);
@@ -82,10 +93,12 @@
   margin-right: 6px;
   flex-shrink: 0;
 }
+
 .follower-item.new::before {
   color: var(--success);
   text-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
 }
+
 .follower-item.lost::before {
   color: var(--danger);
   text-shadow: 0 0 6px rgba(244, 63, 94, 0.4);
@@ -99,6 +112,7 @@
   border: 1px solid var(--border-2);
   margin-top: 8px;
 }
+
 .progress-bar-fill {
   height: 100%;
   border-radius: 99px;
@@ -112,7 +126,9 @@
   text-align: center;
 }
 
-/* Barra de filtros */
+/* --------------------------------------------------------------------------
+   2. Componente: FollowersFilterBar (Barra de Filtros y Rangos de Fechas)
+   -------------------------------------------------------------------------- */
 .filters-bar {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr 1fr 1.8fr 1.8fr auto;
@@ -177,7 +193,13 @@
   font-size: 12px;
 }
 
-/* Tabla moderna de usuarios */
+.filter-group-actions button {
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   3. Componente: FollowersTable (Tabla de Usuarios, Badges y Acciones)
+   -------------------------------------------------------------------------- */
 .users-table-wrapper {
   background: var(--surface);
   border: 1px solid var(--border-2);
@@ -328,7 +350,14 @@
   justify-content: center;
 }
 
-/* Badges adicionales */
+.irc-user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-start;
+}
+
+/* Badges específicos */
 .irc-badge.badge-bot {
   background: rgba(155, 89, 182, 0.15);
   color: #c39bd3;
@@ -368,7 +397,20 @@
   border-radius: 3px;
 }
 
-/* Paginación */
+.irc-badge.badge-broadcaster {
+  background: rgba(130, 87, 229, 0.15);
+  color: var(--accent-text);
+  border: 1px solid rgba(130, 87, 229, 0.35);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   4. Componente: FollowersPagination (Paginación de Usuarios)
+   -------------------------------------------------------------------------- */
 .pagination-bar {
   display: flex;
   justify-content: space-between;
@@ -406,34 +448,80 @@
   user-select: none;
 }
 
-.filter-group-actions button {
-  width: 100%;
+/* --------------------------------------------------------------------------
+   5. Componente: UserRolesModal (Modal de Asignación de Roles)
+   -------------------------------------------------------------------------- */
+.role-toggle-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 42px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  position: relative;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-.irc-user-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-start;
+.role-toggle-checkbox:focus,
+.role-toggle-checkbox:focus-visible,
+.role-toggle-checkbox:active {
+  outline: none !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
-/* <=1400px: 3 columnas, 2 filas (los date inputs necesitan ~150px min cada uno,
-   con 6 columnas a <1400px los grupos de fecha solo obtienen ~145px por input) */
+.role-toggle-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.role-toggle-checkbox::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-2);
+  top: 2px;
+  left: 2px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.role-toggle-checkbox:checked::before {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.role-toggle-checkbox:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.role-toggle-checkbox:disabled::before {
+  background: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   6. Media Queries & Diseño Responsivo
+   -------------------------------------------------------------------------- */
 @media (max-width: 1400px) {
   .filters-bar {
     grid-template-columns: 1fr 1fr 1fr;
   }
 }
 
-/* <=1050px: 2 columnas, 3 filas (a <1050px con 3 columnas los date inputs
-   caen a ~134px, por debajo del minimo confortable del navegador) */
 @media (max-width: 1050px) {
   .filters-bar {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-/* <=768px: columna unica con flexbox */
 @media (max-width: 768px) {
   .filters-bar {
     display: flex;
@@ -522,7 +610,6 @@
     align-self: center;
   }
 
-  /* Ajustes de alineación interna en móviles */
   .user-info-cell,
   .follow-status-wrap {
     align-items: flex-start !important;
@@ -568,66 +655,4 @@
   .stat-label {
     font-size: 9px !important;
   }
-}
-
-.irc-badge.badge-broadcaster {
-  background: rgba(130, 87, 229, 0.15);
-  color: var(--accent-text);
-  border: 1px solid rgba(130, 87, 229, 0.35);
-  font-size: 0.65em;
-  font-weight: 800;
-  text-transform: uppercase;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-/* Switch deslizante para toggles de roles en el modal */
-.role-toggle-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 42px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-2);
-  border-radius: 12px;
-  position: relative;
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-.role-toggle-checkbox:focus,
-.role-toggle-checkbox:focus-visible,
-.role-toggle-checkbox:active {
-  outline: none !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-.role-toggle-checkbox:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.role-toggle-checkbox::before {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--text-2);
-  top: 2px;
-  left: 2px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-}
-.role-toggle-checkbox:checked::before {
-  transform: translateX(18px);
-  background: #fff;
-}
-.role-toggle-checkbox:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.role-toggle-checkbox:disabled::before {
-  background: var(--text-muted);
 }

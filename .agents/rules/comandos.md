@@ -1,69 +1,190 @@
 # Comandos
 
 ## Proyecto (Ejecución)
-- `uv run bot-tv` (Inicia el bot)
-- `uv run bot-setup` (Ejecuta el script de configuración de Tokens)
+
+- Inicia el bot:
+  ```bash
+  uv run bot-tv
+  ```
+- Ejecuta el script de configuración de Tokens:
+  ```bash
+  uv run bot-setup
+  ```
 
 ## Consola Interactiva (durante la ejecución del bot)
-- `sync_followers` (Sincroniza seguidores de todos los canales)
-- `is_bot <usuario>` (Marca/desmarca un usuario como bot)
-- `apodo <usuario> [apodo]` (Asigna o elimina un apodo; sin apodo lo elimina)
-- `help` (Muestra los comandos disponibles)
-- `exit` (Apaga el bot de forma limpia)
+
+- Sincroniza seguidores de todos los canales:
+  ```bash
+  sync_followers
+  ```
+- Marca/desmarca un usuario como bot:
+  ```bash
+  is_bot <usuario>
+  ```
+- Asigna o elimina un apodo (sin apodo lo elimina):
+  ```bash
+  apodo <usuario> [apodo]
+  ```
+- Muestra los comandos disponibles:
+  ```bash
+  help
+  ```
+- Apaga el bot de forma limpia:
+  ```bash
+  exit
+  ```
 
 ## Mise
-- `mise install`
-- `mise use python@3.14`
-- `mise exec -- uv sync`
-- `mise exec -- uv run <comando>`
+
+```bash
+mise install
+mise use python@3.14
+mise exec -- uv sync
+mise exec -- uv run <comando>
+```
 
 ## Uv (Gestor de dependencias)
-- `uv sync` (Instala dependencias)
-- `uv add <paquete>` (Añade una dependencia)
-- `uv add --dev <paquete>` (Añade una dependencia de desarrollo)
-- `uv remove <paquete>` (Elimina un paquete)
-- `uv run <comando>` (Ejecuta un comando en el entorno virtual)
+
+- Instala dependencias:
+  ```bash
+  uv sync
+  ```
+- Añade una dependencia:
+  ```bash
+  uv add <paquete>
+  ```
+- Añade una dependencia de desarrollo:
+  ```bash
+  uv add --dev <paquete>
+  ```
+- Elimina un paquete:
+  ```bash
+  uv remove <paquete>
+  ```
+- Ejecuta un comando en el entorno virtual:
+  ```bash
+  uv run <comando>
+  ```
 
 ## Ruff (Linter & Formatter)
-- `uv run ruff check .` (Revisa problemas)
-- `uv run ruff check --fix .` (Autocorrige problemas)
-- `uv run ruff format .` (Formatea el código)
+
+- Revisa problemas:
+  ```bash
+  uv run ruff check .
+  ```
+- Autocorrige problemas:
+  ```bash
+  uv run ruff check --fix .
+  ```
+- Formatea el código:
+  ```bash
+  uv run ruff format .
+  ```
 
 ## Pyrefly (Type Checker)
-- `uv run pyrefly check` (Revisa tipos de forma estricta)
-- `uv run pyrefly check --min-severity warn` (Revisa tipos y muestra advertencias)
+
+- Revisa tipos de forma estricta:
+  ```bash
+  uv run pyrefly check
+  ```
+- Revisa tipos y muestra advertencias:
+  ```bash
+  uv run pyrefly check --min-severity warn
+  ```
 
 ## Prettier (Formatter)
-- `pnpm run format` (Formatea archivos de frontend)
-- `pnpm run format:check` (Verifica el formato de archivos de frontend)
-- `pnpm exec prettier --write <ruta>` (Formatea una ruta específica)
+
+- Formatea archivos de frontend:
+  ```bash
+  pnpm run format
+  ```
+- Verifica el formato de archivos de frontend:
+  ```bash
+  pnpm run format:check
+  ```
+- Formatea una ruta específica:
+  ```bash
+  pnpm exec prettier --write <ruta>
+  ```
 
 ## Oxlint (Linter rápido)
-- `pnpm exec oxlint <ruta>` (Analiza problemas en una ruta específica)
-- `pnpm exec oxlint --fix <ruta>` (Corrige problemas automáticamente en una ruta específica)
+
+- Analiza problemas en una ruta específica:
+  ```bash
+  pnpm exec oxlint <ruta>
+  ```
+- Corrige problemas automáticamente en una ruta específica:
+  ```bash
+  pnpm exec oxlint --fix <ruta>
+  ```
 
 ## Eslint (Linter detallado)
-- `pnpm exec eslint <ruta>` (Analiza problemas en una ruta específica)
-- `pnpm exec eslint --fix <ruta>` (Corrige problemas automáticamente en una ruta específica)
+
+- Analiza problemas en una ruta específica:
+  ```bash
+  pnpm exec eslint <ruta>
+  ```
+- Corrige problemas automáticamente en una ruta específica:
+  ```bash
+  pnpm exec eslint --fix <ruta>
+  ```
 
 ## Scripts de Frontend (Linter & Formatter combinados)
-- `pnpm run lint` (Ejecuta oxlint y eslint en el directorio static)
-- `pnpm run lint:fix` (Ejecuta oxlint y eslint con corrección automática en el directorio static)
+
+- Ejecuta oxlint y eslint en el directorio static:
+  ```bash
+  pnpm run lint
+  ```
+- Ejecuta oxlint y eslint con corrección automática en el directorio static:
+  ```bash
+  pnpm run lint:fix
+  ```
 
 ## Prisma (Gestión de Base de Datos)
-- `pnpm run prisma:migrate -- --name <nombre>` (Crea y aplica una nueva migración en PostgreSQL basándose en los cambios de schema.prisma)
-- `pnpm run prisma:push` (Sincroniza directamente el esquema schema.prisma con la base de datos en la nube sin crear historial de migraciones)
-- `pnpm run prisma:status` (Comprueba el estado del historial de migraciones de la base de datos)
+
+- Crea y aplica una nueva migración en PostgreSQL basándose en los cambios de schema.prisma:
+  ```bash
+  pnpm run prisma:migrate -- --name <nombre>
+  ```
+- Sincroniza directamente el esquema schema.prisma con la base de datos en la nube sin crear historial de migraciones:
+  ```bash
+  pnpm run prisma:push
+  ```
+- Comprueba el estado del historial de migraciones de la base de datos:
+  ```bash
+  pnpm run prisma:status
+  ```
 
 ## Lefthook (Git Hooks)
-- `lefthook install` (Instala y activa los Git hooks locales en el repositorio mediante la versión gestionada por mise)
-- `lefthook run pre-commit` (Ejecuta manualmente las verificaciones de pre-commit en los archivos locales)
-- `lefthook uninstall` (Desactiva y remueve los Git hooks locales del repositorio)
+
+- Instala y activa los Git hooks locales en el repositorio mediante la versión gestionada por mise:
+  ```bash
+  lefthook install
+  ```
+- Ejecuta manualmente las verificaciones de pre-commit en los archivos locales:
+  ```bash
+  lefthook run pre-commit
+  ```
+- Desactiva y remueve los Git hooks locales del repositorio:
+  ```bash
+  lefthook uninstall
+  ```
 
 ## Release-it (Gestión de Versiones)
-- `pnpm run release patch` (Incrementa la versión parche, ej. 0.6.1 a 0.6.2, crea el commit, tag de Git y sube todo a GitHub)
-- `pnpm run release minor` (Incrementa la versión menor, ej. 0.6.1 a 0.7.0, crea commit, tag y push)
-- `pnpm run release major` (Incrementa la versión mayor, ej. 0.6.1 a 1.0.0, crea commit, tag y push)
-- `pnpm run release -- --dry-run` (Simula el proceso de lanzamiento mostrando el diff y los comandos a ejecutar sin aplicarlos)
 
-
+- Incrementa la versión parche, ej. 0.6.1 a 0.6.2, crea el commit, tag de Git y sube todo a GitHub:
+  ```bash
+  pnpm run release patch
+  ```
+- Incrementa la versión menor, ej. 0.6.1 a 0.7.0, crea commit, tag y push:
+  ```bash
+  pnpm run release minor
+  ```
+- Incrementa la versión mayor, ej. 0.6.1 a 1.0.0, crea commit, tag y push:
+  ```bash
+  pnpm run release major
+  ```
+- Simula el proceso de lanzamiento mostrando el diff y los comandos a ejecutar sin aplicarlos:
+  ```bash
+  pnpm run release -- --dry-run
+  ```
