@@ -21,8 +21,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from bot_tv.database.migrations import run_pg_migrations  # noqa: E402
-
 from bot_tv.database.connection import create_pg_pool  # noqa: E402
 from bot_tv.utils.env import DIRECT_URL  # noqa: E402
 
@@ -190,8 +188,6 @@ async def main() -> None:
     LOGGER.info("Conectando a PostgreSQL...")
     pool = await create_pg_pool(direct=True)
     try:
-        await run_pg_migrations(pool)
-
         async with pool.acquire() as conn, conn.transaction():
             n_users = await migrate_users(conn, users)
             LOGGER.info("users migrados: %d", n_users)

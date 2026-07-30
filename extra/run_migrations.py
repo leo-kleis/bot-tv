@@ -5,13 +5,12 @@ import sys
 
 sys.path.insert(0, "src")
 
-from bot_tv.database import create_pg_pool, run_pg_migrations
+from bot_tv.database import create_pg_pool
 
 
 async def main() -> None:
-    print("Creando tablas en PostgreSQL...")
+    print("Verificando tablas en PostgreSQL...")
     pool = await create_pg_pool()
-    await run_pg_migrations(pool)
     async with pool.acquire() as conn:
         query = (
             "SELECT tablename FROM pg_tables"
