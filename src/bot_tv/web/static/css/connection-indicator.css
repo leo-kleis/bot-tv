@@ -82,7 +82,7 @@
 /* ── Popover (position:fixed para escapar el stacking context del header) ── */
 .conn-popover {
   position: fixed;
-  z-index: var(--z-overlay);
+  z-index: var(--z-popover);
   background: var(--surface-solid, #1a1823);
   border: 1px solid var(--border);
   border-radius: var(--radius);

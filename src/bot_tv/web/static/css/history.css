@@ -8,7 +8,7 @@
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: calc(var(--z-history-drawer, 2050) - 1);
+  z-index: calc(var(--z-history-drawer) - 1);
   animation: fade-in 0.2s ease;
 }
 
@@ -21,7 +21,7 @@
   width: 100%;
   background: var(--surface-solid);
   border-left: 1px solid var(--border);
-  z-index: var(--z-history-drawer, 2050);
+  z-index: var(--z-history-drawer);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -7,7 +7,7 @@
   border-bottom: 1px solid var(--border);
   height: var(--tab-h);
   flex-shrink: 0;
-  z-index: 100;
+  z-index: var(--z-tab-bar);
 }
 
 .tab-btn {

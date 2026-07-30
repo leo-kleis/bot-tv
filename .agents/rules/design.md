@@ -1,10 +1,10 @@
 ---
 trigger: always_on
 glob: src/bot_tv/web/static/**
-description: Reglas de diseño responsivo y layout para la interfaz web. Previene conflictos de media queries, desbordamientos de grid y problemas de altura en pestañas.
+description: Reglas de diseño responsivo, layout y profundidad (z-index) para la interfaz web.
 ---
 
-# Diseño Responsivo — Reglas Obligatorias
+# Diseño Responsivo y Profundidad — Reglas Obligatorias
 
 ## Media Queries: Exclusividad Mutua
 
@@ -79,4 +79,36 @@ En landscape el espacio vertical es critico (~374px disponibles despues del head
 - Reducir gaps entre elementos.
 - Compactar font-sizes de elementos secundarios (labels, metas, timestamps).
 - El textarea o input de envio debe usar padding minimo.
-- Los empty states deben ser compactos (iconos pequenos, sin padding excesivo).
+- Los empty states deben ser compactos (iconos pequenos, sin padding excessive).
+
+## Sistema de Profundidad Visual y Z-Index
+
+### Reglas Prohibitivas
+1. **PROHIBIDO usar valores numéricos mágicos directos** para capas flotantes/elevadas (`z-index: 9999`, `z-index: 2050`, `z-index: 1000`, etc.).
+2. **PROHIBIDO inventar nuevas variables `--z-*`** sin actualizar la tabla oficial de capas en `variables.css` y en este documento.
+3. **PROHIBIDO usar `z-index` en elementos estáticos** (`position: static`). El atributo solo aplica en elementos posicionados (`relative`, `absolute`, `fixed`, `sticky`) o flex/grid items.
+
+### Tabla Oficial de Capas (Stacking Layers)
+
+Todos los componentes deben acoplarse estrictamente a las variables CSS de la tabla:
+
+| Capa | Variable CSS | Valor | Uso permitido |
+|---|---|---|---|
+| In-card local | (numérico `1` al `5`) | `1` - `5` | Iconos de input, elementos internos de tarjetas, overlays de carga integrados en tablas. |
+| Floating Controls | `--z-floating` | `20` | Botones flotantes dentro de contenedores (`.scroll-bottom-btn`). |
+| Dropdown Wrapper | `--z-dropdown-wrap` | `30` | Contenedor o card padre que alberga un dropdown activo (`.custom-select-wrap.open`). |
+| Dropdowns | `--z-dropdown` | `40` | Listas desplegables de selectores (`.custom-select-dropdown`). |
+| Tab Bar | `--z-tab-bar` | `100` | Barra de pestañas principal (`.tab-bar`). |
+| Header | `--z-header` | `110` | Cabecera superior fija (`.app-header`). |
+| IRC Drawer | `--z-irc-drawer` | `300` | Panel lateral deslizable de chat/usuarios (`.irc-panel`). |
+| Overlays / Backdrops | `--z-overlay` | `500` | Telón de fondo oscuro/difuminado de modales o drawers (`.history-backdrop`). |
+| Modales | `--z-modal` | `510` | Diálogos modales de confirmación (`.modal-backdrop`). |
+| Popovers | `--z-popover` | `520` | Popovers contextuales fixed (`.conn-popover`). |
+| History Drawer | `--z-history-drawer` | `530` | Panel lateral principal de historial (`.history-drawer`). |
+| Toasts | `--z-toast` | `700` | Contenedor global de notificaciones toast (`.toast-container`). |
+
+### Principios de Contexto de Apilamiento (Stacking Context)
+- Si un componente contiene un `--z-dropdown`, su contenedor padre DEBE elevar su orden visual mediante `z-index: var(--z-dropdown-wrap)` o usar `isolation: isolate` para evitar que quede recortado por `overflow: hidden` de contenedores hermanos.
+- `z-index` se mantiene compacto (< 1000). Nunca usar escalamiento arbitrario.
+- Los Toasts (`700`) siempre se posicionan en la capa superior absoluta para garantizar visibilidad ante errores críticos.
+

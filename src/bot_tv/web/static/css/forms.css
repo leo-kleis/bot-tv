@@ -123,7 +123,7 @@ select option {
   width: 100%;
 }
 .custom-select-wrap.open {
-  z-index: 100;
+  z-index: var(--z-dropdown-wrap);
 }
 
 .custom-select-trigger {

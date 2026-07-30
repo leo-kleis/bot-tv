@@ -9,7 +9,7 @@
   height: var(--header-h);
   display: flex;
   align-items: center;
-  z-index: var(--z-header, 100);
+  z-index: var(--z-header);
 }
 
 .stream-widget {
