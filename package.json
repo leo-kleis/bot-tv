@@ -11,7 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "prisma:status": "prisma migrate status",
-    "release": "release-it"
+    "release": "release-it --only-version"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

@@ -263,7 +263,6 @@
   background: rgba(255, 255, 255, 0.015);
 }
 
-.loading-table,
 .empty-table {
   padding: 40px;
   text-align: center;
@@ -367,12 +366,6 @@
   text-transform: uppercase;
   padding: 1px 4px;
   border-radius: 3px;
-}
-
-.active-bot-btn {
-  background: rgba(155, 89, 182, 0.2) !important;
-  color: #c39bd3 !important;
-  border-color: rgba(155, 89, 182, 0.4) !important;
 }
 
 /* Paginación */

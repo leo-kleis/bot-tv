@@ -118,10 +118,17 @@ export function UserHistoryDrawer({ user, onClose }) {
   const messagesRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
 
-  // Activar animación de entrada
+  // Activar animación de entrada y atajo de teclado Escape
   useEffect(() => {
     const id = requestAnimationFrame(() => setOpen(true));
-    return () => cancelAnimationFrame(id);
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') handleClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   // Debounce del buscador

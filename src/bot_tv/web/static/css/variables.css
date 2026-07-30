@@ -56,9 +56,11 @@
   --alert-mod-icon: #fca5a5;
 
   /* Z-index scale */
+  --z-header: 100;
   --z-dropdown: 200;
-  --z-overlay: 1005;
-  --z-modal: 1000;
+  --z-modal: 2000;
+  --z-overlay: 2000;
+  --z-history-drawer: 2050;
   --z-irc-drawer: 1010;
   --z-toast: 9999;
 }

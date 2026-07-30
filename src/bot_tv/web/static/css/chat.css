@@ -263,16 +263,6 @@
   flex-shrink: 0;
 }
 
-.irc-count {
-  background: var(--surface3);
-  border: 1px solid var(--border);
-  border-radius: 99px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--accent-text);
-}
-
 .irc-feed {
   flex: 1;
   overflow-y: auto;
@@ -385,17 +375,6 @@
   color: var(--text-muted);
   flex-shrink: 0;
   opacity: 0.85;
-}
-
-.irc-nickname {
-  font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100px;
-}
-.irc-follow-status {
-  white-space: nowrap;
 }
 
 /* Botón flotante para scroll al final */
@@ -760,14 +739,6 @@
 }
 
 /* ── Estilos de desconexión del IRC ── */
-.viewers-badge.irc-disconnected {
-  background: rgba(239, 68, 68, 0.15) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
-  color: #f87171 !important;
-}
-.viewers-badge.irc-disconnected:hover {
-  background: rgba(239, 68, 68, 0.25) !important;
-}
 
 .irc-status-warning {
   color: #f87171;

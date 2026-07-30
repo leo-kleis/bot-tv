@@ -2,10 +2,7 @@
   "git": {
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
-    "push": true,
-    "requireCommit": false,
-    "requireTag": false,
-    "requirePush": false
+    "push": true
   },
   "npm": {
     "publish": false

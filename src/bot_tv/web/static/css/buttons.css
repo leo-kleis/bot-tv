@@ -92,22 +92,6 @@
   background: rgba(244, 63, 94, 0.15);
 }
 
-.btn-success {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.08) 100%);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: var(--success);
-  box-shadow:
-    var(--shadow-inset),
-    0 2px 8px rgba(16, 185, 129, 0.05);
-}
-.btn-success:hover {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.15) 100%);
-  border-color: var(--online);
-  box-shadow:
-    var(--shadow-inset),
-    0 4px 12px rgba(16, 185, 129, 0.15);
-}
-
 .btn-sm {
   padding: 6px 10px;
   min-height: 28px;

@@ -1,12 +1,14 @@
 /* history.css — Drawer de Historial de Mensajes por Usuario */
 
-/* ── Backdrop (solo desktop) ─────────────────────────────────────────────── */
+/* ── Backdrop (todas las vistas) ─────────────────────────────────────────── */
 .history-backdrop {
-  display: none;
+  display: block;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: calc(var(--z-overlay) - 1);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: calc(var(--z-history-drawer, 2050) - 1);
   animation: fade-in 0.2s ease;
 }
 
@@ -19,7 +21,7 @@
   width: 100%;
   background: var(--surface-solid);
   border-left: 1px solid var(--border);
-  z-index: var(--z-overlay);
+  z-index: var(--z-history-drawer, 2050);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -84,9 +86,12 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
+  padding: 8px 12px;
   border-radius: var(--radius-xs);
-  font-size: 16px;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition:
     color 0.15s,
     background 0.15s;
@@ -113,17 +118,21 @@
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 
 .history-search-icon {
   position: absolute;
-  left: 10px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-muted);
   font-size: 13px;
   pointer-events: none;
+  z-index: 1;
 }
 
-.history-search-input {
+.history-search-input-wrap .history-search-input {
   width: 100%;
   background: var(--surface2);
   border: 1px solid var(--border);
@@ -131,7 +140,7 @@
   color: var(--text);
   font-family: var(--font);
   font-size: 13px;
-  padding: 7px 10px 7px 32px;
+  padding: 8px 12px 8px 36px;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -323,9 +332,14 @@
     gap: 5px;
   }
 
-  .history-search-input {
+  .history-search-input-wrap .history-search-input {
     font-size: 12px;
-    padding: 5px 8px 5px 28px;
+    padding: 6px 10px 6px 32px;
+  }
+
+  .history-search-icon {
+    left: 10px;
+    font-size: 12px;
   }
 
   .history-search-dates input[type='date'] {
@@ -360,12 +374,8 @@
   }
 }
 
-/* Desktop/Tablet: drawer 65% del ancho desde la derecha, backdrop visible */
+/* Desktop/Tablet: drawer 65% del ancho desde la derecha */
 @media (min-width: 601px) and (min-height: 481px) {
-  .history-backdrop {
-    display: block;
-  }
-
   .history-drawer {
     width: 65%;
     max-width: 600px;
