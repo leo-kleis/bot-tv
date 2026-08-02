@@ -1,9 +1,9 @@
-![python](https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)
-![node.js](https://img.shields.io/badge/node.js-v24.12.0-339933?style=flat-square&logo=nodedotjs&logoColor=white)
-![uv](https://img.shields.io/badge/uv-0.6.5-DE5D43?style=flat-square)
-![pnpm](https://img.shields.io/badge/pnpm-v11.15.0-F69220?style=flat-square&logo=pnpm&logoColor=white)
-![prisma](https://img.shields.io/badge/prisma-v7.9.1-2D3748?style=flat-square&logo=prisma&logoColor=white)
-![license](https://img.shields.io/badge/license-MIT-4ba51c?style=flat-square)
+[![Python](https://img.shields.io/badge/python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Node.js](https://img.shields.io/badge/node.js-v24.12.0-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![uv](https://img.shields.io/badge/uv-0.6.5-DE5D43?style=flat-square)](https://docs.astral.sh/uv/)
+[![pnpm](https://img.shields.io/badge/pnpm-v11.15.0-F69220?style=flat-square&logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![Prisma](https://img.shields.io/badge/prisma-v7.9.1-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![License](https://img.shields.io/badge/license-MIT-4ba51c?style=flat-square)](LICENSE)
 
 Bot interactivo de Twitch con integración de Inteligencia Artificial (Google Gemini), arquitectura event-driven, persistencia en PostgreSQL con Prisma y un Dashboard Web en tiempo real.
 
