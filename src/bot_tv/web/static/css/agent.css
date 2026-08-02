@@ -73,7 +73,7 @@
 }
 
 .convo-meta {
-  font-size: 10px;
+  font-size: 0.75em;
   color: var(--text-muted);
   padding: 0 6px;
   margin-top: -2px;
@@ -129,10 +129,10 @@
   .convo-q,
   .convo-a {
     padding: 6px 10px;
-    font-size: 0.86rem;
+    font-size: inherit;
   }
   .convo-meta {
-    font-size: 9px;
+    font-size: 0.65em;
   }
   .agent-model-info {
     padding: 4px 12px 2px;

@@ -14,8 +14,6 @@ from bot_tv.agent.prompts import SYSTEM_INSTRUCTIONS
 from bot_tv.agent.rate_limiter import RateLimiter, RateLimitStatus
 from bot_tv.agent.tools import build_agent_tools
 
-# Sin imports directos de base de datos obsoletos
-
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 

@@ -7,7 +7,9 @@ __pycache__/
 *.egg
 dist/
 build/
-.env
+# Entorno y Secretos
+.env*
+!.env.example
 
 # Virtual environments
 .venv/
@@ -34,14 +36,18 @@ htmlcov/
 
 # Base de datos local
 db/
-
-.fake
-ignore/
+*.sqlite
+*.sqlite3
+*.db
 
 # Certificados locales
 certs/
 *.pem
 *.key
+*.crt
+*.pfx
+*.p12
+*.cer
 
 # RAG
 .lancedb/

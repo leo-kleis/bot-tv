@@ -53,7 +53,7 @@ function ChatMessageCont({ msg, emotesMap }) {
   `;
 }
 
-// Mensaje de sistema (sin cambios en lógica, mismo render que antes)
+// Mensaje de sistema
 function ChatMessageSystem({ msg }) {
   const details = getEventDetails(msg.type);
   const textHtml = details.chatHtml(msg.data, html);

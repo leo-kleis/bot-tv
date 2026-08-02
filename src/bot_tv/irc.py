@@ -144,7 +144,6 @@ class TwitchIRCClient:
         broadcaster: twitchio.PartialUser | None,
     ) -> str:
         """Determina el rol del usuario como string limpio (sin markup Rich)."""
-        #! Teoricamente, nunca sucedera
         if usuario is None or broadcaster is None:
             return "Desconocido"
 
