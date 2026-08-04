@@ -48,10 +48,34 @@ def main() -> None:
 
                 LOGGER.info("Tokens cargados: %d", len(tokens))
 
-                from bot_tv.utils.network import check_twitch_connection
+                from bot_tv.utils.network import (
+                    check_twitch_connection,
+                    get_port_process_info,
+                    is_port_in_use,
+                )
+
+                if is_port_in_use(WEB_PORT):
+                    info = get_port_process_info(WEB_PORT)
+                    if info:
+                        pid, process_name = info
+                        LOGGER.critical(
+                            "El puerto %d está ocupado por el proceso '%s' (PID: %d). "
+                            "Cerrá ese proceso antes de ejecutar bot-web.",
+                            WEB_PORT,
+                            process_name,
+                            pid,
+                        )
+                    else:
+                        LOGGER.critical(
+                            "El puerto %d ya está en uso por otro proceso o instancia. "
+                            "Cerrá la instancia anterior o libera el puerto antes "
+                            "de ejecutar bot-web.",
+                            WEB_PORT,
+                        )
+                    sys.exit(1)
 
                 LOGGER.info("Verificando conexión con la API de Twitch...")
-                if not check_twitch_connection(timeout=4.0):
+                if not check_twitch_connection():
                     LOGGER.critical(
                         "No se pudo establecer conexión con Twitch (id.twitch.tv). "
                         "Por favor, verifica tu conexión a internet o la "
