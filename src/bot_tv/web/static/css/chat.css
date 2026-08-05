@@ -73,6 +73,7 @@
 .chat-feed {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 12px 0;
   scroll-behavior: smooth;
   font-size: var(--font-size);
@@ -428,7 +429,7 @@
   gap: 12px;
   font-size: 0.95em;
   line-height: 1.5;
-  align-items: center;
+  align-items: flex-start;
   animation: msg-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   border-left: 3px solid var(--border);
   padding: 6px 20px 6px 17px; /* 20px padding original - 3px del borde */
@@ -439,6 +440,14 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.chat-msg.is-system .chat-time {
+  font-size: 0.75em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 .chat-msg.is-system .sys-icon {
   font-size: 0.9em;
   flex-shrink: 0;
@@ -447,16 +456,34 @@
   justify-content: center;
   width: 20px;
   height: 20px;
+  margin-top: 1px;
 }
 
 .chat-msg.is-system .sys-text {
   font-size: 0.93em;
   color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-msg.is-system .sys-text strong {
   font-weight: 700;
   color: #fff;
+}
+
+.chat-msg.is-system .sys-text a {
+  color: var(--accent-light, #a970ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  transition: color 0.15s ease;
+}
+
+.chat-msg.is-system .sys-text a:hover {
+  color: #ffffff;
 }
 
 /* Colores de Alertas en Chat */
