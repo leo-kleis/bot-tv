@@ -435,6 +435,7 @@
   padding: 6px 20px 6px 17px; /* 20px padding original - 3px del borde */
   margin: 4px 0;
   background: rgba(255, 255, 255, 0.015);
+  min-width: 0;
 }
 .chat-msg.is-system:hover {
   background: rgba(255, 255, 255, 0.02);
@@ -568,6 +569,7 @@
   display: flex;
   gap: 10px;
   width: 100%;
+  min-width: 0;
 }
 
 .chat-select-field {

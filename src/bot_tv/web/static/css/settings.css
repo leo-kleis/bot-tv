@@ -137,6 +137,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .settings-toggle-row .role-toggle-checkbox {

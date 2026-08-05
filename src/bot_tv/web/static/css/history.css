@@ -225,6 +225,7 @@
 .history-msg-list {
   flex: 1;
   padding: 8px 0;
+  min-width: 0;
 }
 
 .history-msg {
@@ -232,6 +233,7 @@
   gap: 10px;
   padding: 5px 14px;
   transition: background 0.1s;
+  min-width: 0;
 }
 
 .history-msg:hover {
@@ -255,6 +257,7 @@
   word-break: break-word;
   -webkit-user-select: text;
   user-select: text;
+  min-width: 0;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */
