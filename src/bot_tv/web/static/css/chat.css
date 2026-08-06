@@ -40,6 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
@@ -827,4 +828,85 @@
   margin: -2px 2px 0 2px;
   object-fit: contain;
   display: inline-block;
+}
+
+/* ── Componente Reusable: ChatHeaderButton ── */
+.chat-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  outline: none;
+}
+
+.chat-header-btn:hover:not(:disabled) {
+  background: var(--surface3);
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.chat-header-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Menú Contextual Flotante (ContextMenu) ── */
+.context-menu {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  min-width: 190px;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 20px rgba(0, 0, 0, 0.5);
+  animation: fade-in 0.15s ease-out;
+  overflow-wrap: break-word;
+}
+
+.context-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.context-menu-item:hover {
+  background: var(--surface2);
+  color: var(--accent-text);
+}
+
+.context-menu-item.is-danger {
+  color: var(--danger);
+}
+
+.context-menu-item.is-danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
 }

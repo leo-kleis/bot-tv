@@ -7,30 +7,30 @@ const SEARCH_DEBOUNCE_MS = 500;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatTimestamp(iso) {
+export function formatTimestamp(iso) {
   if (!iso) return '';
   try {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return iso;
-    return d.toLocaleString('es-ES', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear()).slice(-2);
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year}, ${hours}:${minutes}`;
   } catch {
     return iso;
   }
 }
 
-function formatCount(n) {
+export function formatCount(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
 }
 
 // ── Hook de datos ─────────────────────────────────────────────────────────────
 
-function useMessageHistory(username, search, since, until) {
+export function useMessageHistory(username, search, since, until) {
   const [messages, setMessages] = useState([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);

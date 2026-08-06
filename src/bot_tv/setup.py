@@ -43,7 +43,8 @@ BOT_SCOPES: list[str] = [
     "clips:edit",
     # Otros
     "user:read:email",
-    # Gestión de mensajes del chat (borrar mensajes)
+    # Gestión de bans y mensajes del chat
+    "moderator:manage:banned_users",
     "moderator:manage:chat_messages",
 ]
 
@@ -55,6 +56,9 @@ CHANNEL_SCOPES: list[str] = [
     "user:read:chat",
     "user:write:chat",
     "channel:moderate",
+    # Moderación (el dueño concede permisos de moderación)
+    "moderator:manage:banned_users",
+    "moderator:manage:chat_messages",
     # Anuncios y ads
     "channel:manage:ads",
     "channel:read:ads",

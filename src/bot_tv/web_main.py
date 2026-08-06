@@ -33,9 +33,23 @@ def main() -> None:
     setup_logging(level=logging.INFO)
 
     async def runner() -> None:
+        LOGGER.info("Iniciando servidor bot-web...")
         try:
-            pool = await create_pg_pool()
+            LOGGER.info("Conectando a la base de datos PostgreSQL...")
             try:
+                pool = await create_pg_pool()
+            except Exception as exc:
+                LOGGER.critical(
+                    "No se pudo conectar a la base de datos PostgreSQL: %s. "
+                    "Verifica que la base de datos esté activa y que "
+                    "la variable DATABASE_URL sea correcta.",
+                    exc,
+                )
+                sys.exit(1)
+            LOGGER.info("Conexión con PostgreSQL establecida.")
+
+            try:
+                LOGGER.info("Cargando tokens de autenticación y suscripciones...")
                 token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
 
@@ -54,6 +68,7 @@ def main() -> None:
                     is_port_in_use,
                 )
 
+                LOGGER.info("Verificando disponibilidad del puerto web %d...", WEB_PORT)
                 if is_port_in_use(WEB_PORT):
                     info = get_port_process_info(WEB_PORT)
                     if info:
@@ -85,6 +100,7 @@ def main() -> None:
                     )
                     sys.exit(1)
 
+                LOGGER.info("Inicializando cliente de Twitch y agente de IA...")
                 event_bus = EventBus()
 
                 async with Bot(

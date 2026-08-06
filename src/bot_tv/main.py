@@ -22,9 +22,23 @@ def main() -> None:
     setup_logging(level=logging.INFO)
 
     async def runner() -> None:
+        LOGGER.info("Iniciando bot-tv...")
         try:
-            pool = await create_pg_pool()
+            LOGGER.info("Conectando a la base de datos PostgreSQL...")
             try:
+                pool = await create_pg_pool()
+            except Exception as exc:
+                LOGGER.critical(
+                    "No se pudo conectar a la base de datos PostgreSQL: %s. "
+                    "Verifica que la base de datos esté activa y que "
+                    "la variable DATABASE_URL sea correcta.",
+                    exc,
+                )
+                sys.exit(1)
+            LOGGER.info("Conexión con PostgreSQL establecida.")
+
+            try:
+                LOGGER.info("Cargando tokens de autenticación y suscripciones...")
                 token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
 

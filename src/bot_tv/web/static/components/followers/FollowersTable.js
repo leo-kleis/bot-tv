@@ -6,11 +6,8 @@ export function FollowersTable({
   loadingUsers,
   sortBy,
   sortOrder,
-  actionInProgress,
   onSort,
-  onOpenRoles,
-  onSetNickname,
-  onOpenHistory,
+  onOpenProfile,
 }) {
   return html`
     <div
@@ -76,16 +73,19 @@ export function FollowersTable({
                           : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
                       }
                     </th>
-                    <th style="width: 120px; text-align: center;">Acciones</th>
+                    <th style="width: 100px; text-align: center;">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${users.map(u => {
-                    const isActioning = actionInProgress === u.username;
                     return html`
                       <tr key=${u.user_id || u.username}>
                         <!-- Info del Usuario -->
-                        <td data-label="Usuario">
+                        <td
+                          data-label="Usuario"
+                          onClick=${() => onOpenProfile(u)}
+                          style="cursor:pointer;"
+                        >
                           <div class="user-info-cell">
                             <div class="user-display-name">${u.display_name || u.username}</div>
                             ${
@@ -131,7 +131,11 @@ export function FollowersTable({
                         </td>
 
                         <!-- Roles -->
-                        <td data-label="Roles">
+                        <td
+                          data-label="Roles"
+                          onClick=${() => onOpenProfile(u)}
+                          style="cursor:pointer;"
+                        >
                           <div class="irc-user-badges">
                             ${
                               u.is_moderator
@@ -157,7 +161,11 @@ export function FollowersTable({
                         </td>
 
                         <!-- Estado Seguimiento -->
-                        <td data-label="Seguimiento">
+                        <td
+                          data-label="Seguimiento"
+                          onClick=${() => onOpenProfile(u)}
+                          style="cursor:pointer;"
+                        >
                           ${
                             u.is_broadcaster
                               ? html`<span class="irc-badge badge-broadcaster">Broadcaster</span>`
@@ -190,36 +198,15 @@ export function FollowersTable({
                           }
                         </td>
 
-                        <!-- Acciones rápidas -->
-                        <td data-label="Acciones">
+                        <!-- Acciones unificadas -->
+                        <td data-label="Acción">
                           <div class="user-table-actions">
                             <button
                               class="btn btn-secondary btn-sm"
-                              onClick=${() => onOpenRoles(u)}
-                              title=${
-                                u.is_broadcaster
-                                  ? 'No se pueden modificar los roles del broadcaster'
-                                  : 'Gestionar roles'
-                              }
-                              disabled=${isActioning || u.is_broadcaster}
+                              onClick=${() => onOpenProfile(u)}
+                              title="Ver perfil y gestionar usuario"
                             >
-                              <i class="fa-solid fa-user-shield"></i>
-                            </button>
-                            <button
-                              class="btn btn-secondary btn-sm"
-                              onClick=${() => onSetNickname(u)}
-                              title="Establecer apodo"
-                              disabled=${isActioning}
-                            >
-                              <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            <button
-                              class="btn btn-secondary btn-sm"
-                              onClick=${() => onOpenHistory(u)}
-                              title="Ver historial de mensajes"
-                              disabled=${isActioning}
-                            >
-                              <i class="fa-solid fa-clock-rotate-left"></i>
+                              <i class="fa-solid fa-user-gear"></i> Ver Perfil
                             </button>
                           </div>
                         </td>

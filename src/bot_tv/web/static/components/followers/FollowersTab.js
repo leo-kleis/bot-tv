@@ -4,8 +4,7 @@ import { FollowersSummary } from './FollowersSummary.js';
 import { FollowersFilterBar } from './FollowersFilterBar.js';
 import { FollowersTable } from './FollowersTable.js';
 import { FollowersPagination } from './FollowersPagination.js';
-import { UserRolesModal } from './UserRolesModal.js';
-import { UserHistoryDrawer } from '/static/components/followers/UserHistoryDrawer.js';
+import { UserProfileDrawer } from '/static/components/user/UserProfileDrawer.js';
 
 export function FollowersTab({ followers }) {
   const allNewLabels = followers.allNewLabels || [];
@@ -28,20 +27,12 @@ export function FollowersTab({ followers }) {
   const [sortBy, setSortBy] = useState('username');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  // Estados de paginación y carga
+  // Estados de paginación, carga y perfil de usuario
   const [users, setUsers] = useState([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [page, setPage] = useState(1);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [actionInProgress, setActionInProgress] = useState(null);
-  const [selectedUserForRoles, setSelectedUserForRoles] = useState(null);
-  const [historyUser, setHistoryUser] = useState(null);
-  const [tempRoles, setTempRoles] = useState({
-    is_bot: false,
-    is_moderator: false,
-    is_vip: false,
-    is_subscriber: false,
-  });
+  const [selectedUserForProfile, setSelectedUserForProfile] = useState(null);
 
   const limit = 50;
   const sync = followers.lastSync;
@@ -69,7 +60,6 @@ export function FollowersTab({ followers }) {
     return () => clearTimeout(timer);
   }, [nameInput]);
 
-  // Control de carga al cambiar filtros o paginar
   useEffect(() => {
     const filtersChanged =
       prevFilters.current.nameSearch !== nameSearch ||
@@ -115,7 +105,6 @@ export function FollowersTab({ followers }) {
     sortOrder,
   ]);
 
-  // Limpiar campos de fecha del filtro opuesto al cambiar el combo de estado
   useEffect(() => {
     if (isFollower === 'follower') {
       setUnfollowedAfter('');
@@ -180,64 +169,6 @@ export function FollowersTab({ followers }) {
       }, 5000);
     } else {
       setResult({ ok: false, msg: data.error || 'Error al sincronizar.' });
-    }
-  }
-
-  async function openRolesModal(u) {
-    setActionInProgress(u.username);
-    const res = await apiPost('/api/sync_user_roles', {
-      username: u.username,
-    });
-    setActionInProgress(null);
-    if (res && res.ok && res.data) {
-      setSelectedUserForRoles(u);
-      setTempRoles({
-        is_bot: !!res.data.is_bot,
-        is_moderator: !!res.data.is_moderator,
-        is_vip: !!res.data.is_vip,
-        is_subscriber: !!res.data.is_subscriber,
-      });
-      fetchUsers();
-    } else {
-      window.alert(
-        res
-          ? res.error || 'Error al sincronizar roles con Twitch.'
-          : 'Error al sincronizar roles con Twitch.'
-      );
-    }
-  }
-
-  async function handleSaveRoles() {
-    if (!selectedUserForRoles) return;
-    setActionInProgress(selectedUserForRoles.username);
-    const res = await apiPost('/api/update_user_roles', {
-      username: selectedUserForRoles.username,
-      is_bot: tempRoles.is_bot,
-      is_moderator: tempRoles.is_moderator,
-      is_vip: tempRoles.is_vip,
-    });
-    setActionInProgress(null);
-    setSelectedUserForRoles(null);
-    if (res && res.ok) {
-      fetchUsers();
-    } else {
-      window.alert(res.error || 'Error al actualizar los roles.');
-    }
-  }
-
-  async function handleSetNickname(u) {
-    const msg = `Introduce el apodo para ${u.display_name || u.username} (deja en blanco para eliminarlo):`;
-    const newNick = window.prompt(msg, u.nickname || '');
-    if (newNick === null) return;
-
-    setActionInProgress(u.username);
-    const res = await apiPost('/api/set_nickname', {
-      username: u.username,
-      nickname: newNick.trim() || null,
-    });
-    setActionInProgress(null);
-    if (res && res.ok) {
-      fetchUsers();
     }
   }
 
@@ -323,11 +254,8 @@ export function FollowersTab({ followers }) {
               loadingUsers=${loadingUsers}
               sortBy=${sortBy}
               sortOrder=${sortOrder}
-              actionInProgress=${actionInProgress}
               onSort=${handleSort}
-              onOpenRoles=${openRolesModal}
-              onSetNickname=${handleSetNickname}
-              onOpenHistory=${u => setHistoryUser(u)}
+              onOpenProfile=${u => setSelectedUserForProfile(u)}
             />
 
             <${FollowersPagination}
@@ -340,21 +268,20 @@ export function FollowersTab({ followers }) {
           </div>
         </div>
       </div>
-
-      <!-- Modal de Roles -->
-      <${UserRolesModal}
-        user=${selectedUserForRoles}
-        tempRoles=${tempRoles}
-        setTempRoles=${setTempRoles}
-        onClose=${() => setSelectedUserForRoles(null)}
-        onSave=${handleSaveRoles}
-      />
     </div>
 
-    <!-- Drawer de Historial -->
+    <!-- Drawer Unificado de Perfil de Usuario -->
     ${
-      historyUser
-        ? html`<${UserHistoryDrawer} user=${historyUser} onClose=${() => setHistoryUser(null)} />`
+      selectedUserForProfile
+        ? html`
+            <${UserProfileDrawer}
+              user=${selectedUserForProfile}
+              onClose=${() => {
+                setSelectedUserForProfile(null);
+                fetchUsers();
+              }}
+            />
+          `
         : null
     }
   `;

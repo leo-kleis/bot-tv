@@ -76,6 +76,16 @@ async def main():
                 else:
                     print("   [X] [channel:read:subscriptions] NO LO TIENE.")
 
+                if "moderator:manage:banned_users" in scopes:
+                    print("   [Mod] [moderator:manage:banned_users] [SI] lo tiene.")
+                else:
+                    print("   [X] [moderator:manage:banned_users] NO LO TIENE.")
+
+                if "moderator:manage:chat_messages" in scopes:
+                    print("   [Mod] [moderator:manage:chat_messages] [SI] lo tiene.")
+                else:
+                    print("   [X] [moderator:manage:chat_messages] NO LO TIENE.")
+
                 print(f"   [Info] Listado de Scopes ({len(scopes)}):")
                 for s in scopes:
                     print(f"        - {s}")

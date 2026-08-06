@@ -101,10 +101,72 @@ class UserRolesMixin(BaseRepository):
         sub_tier: str | None = None,
         gifter_id: str | None = None,
         cache: UserMemoryCache | None = None,
-    ) -> None:
+    ) -> bool:
         """Actualiza los roles de un usuario en la base de datos
-        a nivel global y de canal.
+        a level global y de canal solo si han cambiado. Retorna True si hubo cambios.
         """
+        current_is_bot: bool | None = None
+        current_mod: bool | None = None
+        current_vip: bool | None = None
+        current_sub: bool | None = None
+        current_sub_tier: str | None = None
+        current_gifter_id: str | None = None
+
+        if cache is not None:
+            user_data = cache.get_user(user_id)
+            if user_data is not None:
+                current_is_bot = bool(user_data.get("is_bot", False))
+            roles_data = cache.get_user_roles(user_id, channel_id)
+            if roles_data is not None:
+                current_mod = bool(roles_data.get("is_moderator", False))
+                current_vip = bool(roles_data.get("is_vip", False))
+                current_sub = bool(roles_data.get("is_subscriber", False))
+                current_sub_tier = roles_data.get("sub_tier")
+                current_gifter_id = roles_data.get("gifter_id")
+
+        if current_is_bot is None or current_mod is None:
+            async with self._db.acquire() as conn:
+                if current_is_bot is None:
+                    user_row = await conn.fetchrow(
+                        "SELECT is_bot FROM users WHERE user_id = $1", user_id
+                    )
+                    current_is_bot = bool(user_row["is_bot"]) if user_row else False
+                if current_mod is None:
+                    ch_row = await conn.fetchrow(
+                        "SELECT is_moderator, is_vip, is_subscriber, "
+                        "sub_tier, gifter_id "
+                        "FROM channel_users WHERE channel_id = $1 AND user_id = $2",
+                        channel_id,
+                        user_id,
+                    )
+                    if ch_row:
+                        current_mod = bool(ch_row["is_moderator"])
+                        current_vip = bool(ch_row["is_vip"])
+                        current_sub = bool(ch_row["is_subscriber"])
+                        current_sub_tier = ch_row["sub_tier"]
+                        current_gifter_id = ch_row["gifter_id"]
+                    else:
+                        current_mod = False
+                        current_vip = False
+                        current_sub = False
+                        current_sub_tier = None
+                        current_gifter_id = None
+
+        bot_changed = current_is_bot != is_bot
+        if is_subscriber is not None:
+            roles_changed = (
+                current_mod != is_moderator
+                or current_vip != is_vip
+                or current_sub != is_subscriber
+                or current_sub_tier != sub_tier
+                or current_gifter_id != gifter_id
+            )
+        else:
+            roles_changed = current_mod != is_moderator or current_vip != is_vip
+
+        if not bot_changed and not roles_changed:
+            return False
+
         if cache is not None:
             cache.set_user_bot(user_id, is_bot)
             cache.update_roles(
@@ -112,8 +174,9 @@ class UserRolesMixin(BaseRepository):
                 user_id,
                 is_moderator,
                 is_vip,
-                is_subscriber if is_subscriber is not None else False,
-                sub_tier,
+                is_subscriber if is_subscriber is not None else (current_sub or False),
+                sub_tier if is_subscriber is not None else current_sub_tier,
+                gifter_id if is_subscriber is not None else current_gifter_id,
             )
 
         LOGGER.info(
@@ -124,44 +187,47 @@ class UserRolesMixin(BaseRepository):
             is_subscriber,
         )
         async with self._db.acquire() as conn:
-            # 1. Actualizar is_bot global en users
-            await conn.execute(
-                "UPDATE users SET is_bot = $1 WHERE user_id = $2", is_bot, user_id
-            )
-
-            # 2. Upsert de roles a nivel de canal en channel_users
-            if is_subscriber is not None:
-                query = """
-                    INSERT INTO channel_users (
-                        channel_id, user_id, is_moderator, is_vip,
-                        is_subscriber, sub_tier, gifter_id
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (channel_id, user_id)
-                    DO UPDATE SET is_moderator  = EXCLUDED.is_moderator,
-                                  is_vip        = EXCLUDED.is_vip,
-                                  is_subscriber = EXCLUDED.is_subscriber,
-                                  sub_tier      = EXCLUDED.sub_tier,
-                                  gifter_id     = EXCLUDED.gifter_id
-                """
+            # 1. Actualizar is_bot global en users solo si ha cambiado
+            if bot_changed:
                 await conn.execute(
-                    query,
-                    channel_id,
-                    user_id,
-                    is_moderator,
-                    is_vip,
-                    is_subscriber,
-                    sub_tier,
-                    gifter_id,
+                    "UPDATE users SET is_bot = $1 WHERE user_id = $2", is_bot, user_id
                 )
-            else:
-                query = """
-                    INSERT INTO channel_users (
-                        channel_id, user_id, is_moderator, is_vip
+
+            # 2. Upsert de roles a nivel de canal en channel_users solo si han cambiado
+            if roles_changed:
+                if is_subscriber is not None:
+                    query = """
+                        INSERT INTO channel_users (
+                            channel_id, user_id, is_moderator, is_vip,
+                            is_subscriber, sub_tier, gifter_id
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        ON CONFLICT (channel_id, user_id)
+                        DO UPDATE SET is_moderator  = EXCLUDED.is_moderator,
+                                      is_vip        = EXCLUDED.is_vip,
+                                      is_subscriber = EXCLUDED.is_subscriber,
+                                      sub_tier      = EXCLUDED.sub_tier,
+                                      gifter_id     = EXCLUDED.gifter_id
+                    """
+                    await conn.execute(
+                        query,
+                        channel_id,
+                        user_id,
+                        is_moderator,
+                        is_vip,
+                        is_subscriber,
+                        sub_tier,
+                        gifter_id,
                     )
-                    VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (channel_id, user_id)
-                    DO UPDATE SET is_moderator = EXCLUDED.is_moderator,
-                                  is_vip       = EXCLUDED.is_vip
-                """
-                await conn.execute(query, channel_id, user_id, is_moderator, is_vip)
+                else:
+                    query = """
+                        INSERT INTO channel_users (
+                            channel_id, user_id, is_moderator, is_vip
+                        )
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (channel_id, user_id)
+                        DO UPDATE SET is_moderator = EXCLUDED.is_moderator,
+                                      is_vip       = EXCLUDED.is_vip
+                    """
+                    await conn.execute(query, channel_id, user_id, is_moderator, is_vip)
+        return True

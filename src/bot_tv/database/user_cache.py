@@ -120,15 +120,19 @@ class UserMemoryCache:
         is_moderator: bool,
         is_vip: bool,
         is_subscriber: bool,
+        sub_tier: str | None = None,
+        gifter_id: str | None = None,
     ) -> bool:
         """Determina si se requieren escrituras SQL en la tabla channel_users."""
         roles = self._channel_roles.get((channel_id, user_id))
         if not roles:
             return True
         return (
-            roles["is_moderator"] != is_moderator
-            or roles["is_vip"] != is_vip
-            or roles["is_subscriber"] != is_subscriber
+            roles.get("is_moderator") != is_moderator
+            or roles.get("is_vip") != is_vip
+            or roles.get("is_subscriber") != is_subscriber
+            or roles.get("sub_tier") != sub_tier
+            or roles.get("gifter_id") != gifter_id
         )
 
     def update_user(
@@ -173,6 +177,7 @@ class UserMemoryCache:
         is_vip: bool,
         is_subscriber: bool,
         sub_tier: str | None = None,
+        gifter_id: str | None = None,
     ) -> None:
         """Actualiza los roles de un usuario para un canal en la caché."""
         roles = self._channel_roles.get((channel_id, user_id))
@@ -189,6 +194,7 @@ class UserMemoryCache:
         roles["is_vip"] = is_vip
         roles["is_subscriber"] = is_subscriber
         roles["sub_tier"] = sub_tier
+        roles["gifter_id"] = gifter_id
 
     def set_nickname(self, user_id: str, nickname: str | None) -> None:
         """Establece o elimina el apodo en la caché."""

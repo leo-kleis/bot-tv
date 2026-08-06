@@ -452,10 +452,10 @@ async def action_sync_user_roles(
             e,
         )
 
-    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
-    is_bot = current_roles.get("is_bot", False) if current_roles else False
+    cache = bot.user_cache
+    is_bot = cache.is_user_bot(user_id) if cache is not None else False
 
-    await bot.user_repo.update_user_roles(
+    updated = await bot.user_repo.update_user_roles(
         user_id=user_id,
         channel_id=broadcaster_id,
         is_bot=is_bot,
@@ -464,41 +464,42 @@ async def action_sync_user_roles(
         is_subscriber=is_subscriber,
         sub_tier=sub_tier,
         gifter_id=gifter_id,
+        cache=cache,
     )
 
-    if bot.irc and user_id in bot.irc.connected_users:
-        from dataclasses import replace as dataclass_replace
+    if updated:
+        if bot.irc and user_id in bot.irc.connected_users:
+            from dataclasses import replace as dataclass_replace
 
-        u = bot.irc.connected_users[user_id]
-        updated_u = dataclass_replace(
-            u,
-            is_moderator=is_moderator,
-            is_vip=is_vip,
-            is_bot=is_bot,
-            is_subscriber=is_subscriber,
-            sub_tier=sub_tier,
+            u = bot.irc.connected_users[user_id]
+            updated_u = dataclass_replace(
+                u,
+                is_moderator=is_moderator,
+                is_vip=is_vip,
+                is_bot=is_bot,
+                is_subscriber=is_subscriber,
+                sub_tier=sub_tier,
+            )
+            bot.irc.connected_users[user_id] = updated_u
+            await bot.event_bus.emit(updated_u)
+
+        display_name = username
+        if cache is not None:
+            cached_user = cache.get_user(user_id)
+            if cached_user and cached_user.get("display_name"):
+                display_name = cached_user["display_name"]
+
+        await bot.event_bus.emit(
+            UserRoleUpdatedEvent(
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                is_bot=is_bot,
+                is_moderator=is_moderator,
+                is_vip=is_vip,
+                is_subscriber=is_subscriber,
+            )
         )
-        bot.irc.connected_users[user_id] = updated_u
-        await bot.event_bus.emit(updated_u)
-
-    display_name = username
-    cache = bot.user_cache
-    if cache is not None:
-        cached_user = cache.get_user(user_id)
-        if cached_user and cached_user.get("display_name"):
-            display_name = cached_user["display_name"]
-
-    await bot.event_bus.emit(
-        UserRoleUpdatedEvent(
-            user_id=user_id,
-            username=username,
-            display_name=display_name,
-            is_bot=is_bot,
-            is_moderator=is_moderator,
-            is_vip=is_vip,
-            is_subscriber=is_subscriber,
-        )
-    )
 
     return UserRolesResult(
         username=username,

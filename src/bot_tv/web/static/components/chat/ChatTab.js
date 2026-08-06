@@ -4,6 +4,10 @@ import { toRgb, fmtTime } from 'lib/utils';
 import { apiGet, apiPost } from '../api.js';
 import { CustomSelect } from '../CustomSelect.js';
 import { UserAvatar } from '../UserAvatar.js';
+import { ChatHeaderButton } from './ChatHeaderButton.js';
+import { ContextMenu } from '../ContextMenu.js';
+import { ConfirmModal } from '../ConfirmModal.js';
+import { UserProfileDrawer } from '../user/UserProfileDrawer.js';
 import { fetchEmotes, parseEmotes } from '/static/lib/emotes.js';
 
 function roleDisplay(role) {
@@ -12,21 +16,30 @@ function roleDisplay(role) {
 }
 
 // Encabezado de grupo: avatar + nombre + rol + hora + texto del primer mensaje
-function ChatMessageGroup({ msg, emotesMap }) {
+function ChatMessageGroup({ msg, emotesMap, onUserClick, onMsgContext }) {
   const color = toRgb(msg.color_rgb);
   const rLabel = roleDisplay(msg.role);
 
   return html`
-    <div class="chat-msg-group ${msg.is_bot ? 'is-bot' : ''}">
-      <${UserAvatar}
-        userId=${msg.user_id}
-        displayName=${msg.display_name}
-        color=${color}
-        size="md"
-      />
+    <div
+      class="chat-msg-group ${msg.is_bot ? 'is-bot' : ''}"
+      onContextMenu=${e => onMsgContext(e, msg)}
+    >
+      <div onClick=${e => onUserClick(e, msg)} style="cursor:pointer;">
+        <${UserAvatar}
+          userId=${msg.user_id}
+          displayName=${msg.display_name}
+          color=${color}
+          size="md"
+        />
+      </div>
       <div class="chat-msg-content">
         <div class="chat-msg-header">
-          <span class="chat-author" style="color:${color}">
+          <span
+            class="chat-author"
+            style="color:${color}; cursor:pointer;"
+            onClick=${e => onUserClick(e, msg)}
+          >
             ${
               msg.nickname
                 ? html`<span class="chat-nickname">${msg.nickname}</span
@@ -44,9 +57,12 @@ function ChatMessageGroup({ msg, emotesMap }) {
 }
 
 // Mensaje continuación: solo texto, hora visible en hover
-function ChatMessageCont({ msg, emotesMap }) {
+function ChatMessageCont({ msg, emotesMap, onMsgContext }) {
   return html`
-    <div class="chat-msg-cont ${msg.is_bot ? 'is-bot' : ''}">
+    <div
+      class="chat-msg-cont ${msg.is_bot ? 'is-bot' : ''}"
+      onContextMenu=${e => onMsgContext(e, msg)}
+    >
       <span class="chat-time-hover">${fmtTime(msg.timestamp)}</span>
       <div class="chat-msg-body">${parseEmotes(msg.text, emotesMap, msg.emotes)}</div>
     </div>
@@ -67,7 +83,7 @@ function ChatMessageSystem({ msg }) {
 }
 
 // Usuario IRC
-function IrcUser({ user }) {
+function IrcUser({ user, onUserClick }) {
   const color = toRgb(user.color_rgb);
   const timeStr = user.timestamp ? fmtTime(user.timestamp) : '--:--';
   const nameStr = user.display_name || user.username;
@@ -100,7 +116,11 @@ function IrcUser({ user }) {
   const metaText = user.nickname ? `${user.nickname} · ${followStatus}` : followStatus;
 
   return html`
-    <div class="irc-user ${isParted ? 'is-parted' : ''}">
+    <div
+      class="irc-user ${isParted ? 'is-parted' : ''}"
+      onClick=${e => onUserClick(e, user)}
+      style="cursor:pointer;"
+    >
       <${UserAvatar} userId=${user.user_id} displayName=${nameStr} color=${color} size="md" />
       <div class="irc-user-details">
         <div class="irc-user-top">
@@ -131,12 +151,19 @@ export function ChatTab({
   const timeoutsRef = useRef([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  // Estados para cuentas y mensajería
+  // Estados de cuentas y mensajería
   const [accounts, setAccounts] = useState([]);
   const [selectedSenderId, setSelectedSenderId] = useState('');
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [clipping, setClipping] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+
+  // Perfil de usuario y Menú Contextual
+  const [profileUser, setProfileUser] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null); // { position: {x,y}, items: [...] }
+
   const [emotesMap, setEmotesMap] = useState({});
   const [hideBots, setHideBots] = useState(
     () => localStorage.getItem('hide-bot-messages') === 'true'
@@ -155,6 +182,7 @@ export function ChatTab({
     return chatMessages.filter(m => m.isSystem || (!m.is_bot && m.role !== 'Bot'));
   }, [chatMessages, hideBots]);
 
+  // Handler para crear Clip
   async function handleCreateClip() {
     if (clipping || !streamOnline) return;
     setClipping(true);
@@ -174,6 +202,37 @@ export function ChatTab({
     setClipping(false);
   }
 
+  // Handler para limpiar chat público (/clear)
+  async function handleExecuteClearChat() {
+    setClearingChat(true);
+    setConfirmClearOpen(false);
+    try {
+      const res = await apiPost('/api/moderation/delete_message', {});
+      if (res.ok && dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'mod_action',
+            data: { message: 'Sala de chat limpiada en Twitch.' },
+          },
+        });
+      } else if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: res.error || 'No se pudo limpiar la sala de chat.' },
+          },
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setClearingChat(false);
+  }
+
   // Cargar las cuentas autenticadas
   useEffect(() => {
     async function loadAccounts() {
@@ -181,12 +240,10 @@ export function ChatTab({
       if (res.ok && Array.isArray(res.data)) {
         setAccounts(res.data);
         if (res.data.length > 0) {
-          // Seleccionar broadcaster por defecto si existe, sino la primera
           const broadcasterAcc = res.data.find(acc => acc.type === 'broadcaster');
           const finalSenderId = broadcasterAcc ? broadcasterAcc.user_id : res.data[0].user_id;
           setSelectedSenderId(finalSenderId);
 
-          // Cargar emotes para el broadcaster (o primera cuenta)
           try {
             const loaded = await fetchEmotes(finalSenderId);
             setEmotesMap(loaded);
@@ -271,6 +328,63 @@ export function ChatTab({
     timeoutsRef.current.push(focusTid);
   }
 
+  // Abrir perfil de usuario desde clic o menú contextual
+  function handleOpenUserProfile(userData) {
+    setProfileUser({
+      user_id: userData.user_id,
+      username: userData.username || userData.name || userData.display_name,
+      display_name: userData.display_name || userData.username,
+      nickname: userData.nickname || null,
+      is_bot: !!userData.is_bot,
+      is_moderator: !!userData.is_moderator,
+      is_vip: !!userData.is_vip,
+      is_subscriber: !!userData.is_subscriber,
+    });
+  }
+
+  // Manejar Menú Contextual en un Mensaje de Chat
+  function handleMsgContextMenu(e, msg) {
+    e.preventDefault();
+    const uName = msg.display_name || msg.username || 'usuario';
+
+    const items = [
+      {
+        label: `Ver perfil de ${uName}`,
+        icon: 'fa-user-gear',
+        onClick: () => handleOpenUserProfile(msg),
+      },
+    ];
+
+    if (msg.id) {
+      items.push({
+        label: 'Eliminar este mensaje',
+        icon: 'fa-trash-can',
+        isDanger: true,
+        onClick: async () => {
+          const res = await apiPost('/api/moderation/delete_message', {
+            username: msg.username || msg.display_name,
+            message_id: msg.id,
+          });
+          if (res.ok && dispatch) {
+            dispatch({
+              type: 'ADD_TOAST',
+              toast: {
+                id: Date.now().toString(),
+                type: 'mod_action',
+                data: { message: 'Mensaje eliminado de Twitch.' },
+              },
+            });
+          }
+        },
+      });
+    }
+
+    setContextMenu({
+      position: { x: e.clientX || e.pageX, y: e.clientY || e.pageY },
+      items,
+    });
+  }
+
   const users = useMemo(() => {
     return [...ircUsers.values()]
       .filter(u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot')
@@ -278,19 +392,16 @@ export function ChatTab({
         const aPresent = a.present !== false;
         const bPresent = b.present !== false;
 
-        // JOIN siempre antes que PART
         if (aPresent !== bPresent) {
           return aPresent ? -1 : 1;
         }
 
-        // Si ambos están en JOIN: primero el primero que entró (FIFO / joinedAt más antiguo)
         if (aPresent && bPresent) {
           const aTime = a.joinedAt || a.timestamp || '';
           const bTime = b.joinedAt || b.timestamp || '';
           return aTime.localeCompare(bTime);
         }
 
-        // Si ambos están en PART: primero el último que salió (LIFO / partedAt más reciente)
         const aPartTime = a.partedAt || a.timestamp || '';
         const bPartTime = b.partedAt || b.timestamp || '';
         return bPartTime.localeCompare(aPartTime);
@@ -306,20 +417,26 @@ export function ChatTab({
             <span>Chat</span>
             <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
           </div>
-          <button
-            id="btn-chat-clip"
-            class="chat-clip-btn ${clipping ? 'is-clipping' : ''}"
-            onClick=${handleCreateClip}
-            disabled=${clipping || !streamOnline}
-            title=${!streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'}
-          >
-            ${
-              clipping
-                ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
-                : html`<i class="fa-solid fa-scissors"></i>`
-            }
-            <span>Clip</span>
-          </button>
+          <div style="display:flex; gap:8px;">
+            <${ChatHeaderButton}
+              id="btn-chat-clear"
+              icon="fa-broom"
+              label="Limpiar Chat"
+              title="Borrar sala de chat pública (/clear)"
+              disabled=${clearingChat}
+              loading=${clearingChat}
+              onClick=${() => setConfirmClearOpen(true)}
+            />
+            <${ChatHeaderButton}
+              id="btn-chat-clip"
+              icon="fa-scissors"
+              label="Clip"
+              title=${!streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'}
+              disabled=${clipping || !streamOnline}
+              loading=${clipping}
+              onClick=${handleCreateClip}
+            />
+          </div>
         </div>
 
         <div
@@ -359,11 +476,14 @@ export function ChatTab({
                           key=${m.timestamp + i}
                           msg=${m}
                           emotesMap=${emotesMap}
+                          onMsgContext=${handleMsgContextMenu}
                         />`
                       : html`<${ChatMessageGroup}
                           key=${m.timestamp + i}
                           msg=${m}
                           emotesMap=${emotesMap}
+                          onUserClick=${(e, uData) => handleOpenUserProfile(uData)}
+                          onMsgContext=${handleMsgContextMenu}
                         />`;
                   })
             }
@@ -381,7 +501,7 @@ export function ChatTab({
           }
         </div>
 
-        <!-- Caja de Texto para Enviar Mensaje (Bot/Broadcaster) -->
+        <!-- Caja de Texto para Enviar Mensaje -->
         <div class="chat-input-container">
           <form onSubmit=${handleSend} class="chat-input-form">
             ${
@@ -467,10 +587,51 @@ export function ChatTab({
                       Vacío
                     </div>
                   `
-              : users.map(u => html`<${IrcUser} key=${u.username} user=${u} />`)
+              : users.map(
+                  u => html`
+                    <${IrcUser}
+                      key=${u.username}
+                      user=${u}
+                      onUserClick=${(e, uData) => handleOpenUserProfile(uData)}
+                    />
+                  `
+                )
           }
         </div>
       </div>
     </div>
+
+    <!-- Menú Contextual Flotante -->
+    ${
+      contextMenu
+        ? html`<${ContextMenu}
+            position=${contextMenu.position}
+            items=${contextMenu.items}
+            onClose=${() => setContextMenu(null)}
+          />`
+        : null
+    }
+
+    <!-- Drawer Unificado de Perfil de Usuario -->
+    ${
+      profileUser
+        ? html`<${UserProfileDrawer}
+            user=${profileUser}
+            onClose=${() => setProfileUser(null)}
+            dispatch=${dispatch}
+          />`
+        : null
+    }
+
+    <!-- Modal Confirmación Limpieza Chat Global (/clear) -->
+    <${ConfirmModal}
+      isOpen=${confirmClearOpen}
+      title="¿Limpiar el chat?"
+      message="Se borrarán los mensajes visibles en Twitch."
+      confirmText="Confirmar limpieza"
+      isDanger=${true}
+      onConfirm=${handleExecuteClearChat}
+      onClose=${() => setConfirmClearOpen(false)}
+    />
   `;
 }
