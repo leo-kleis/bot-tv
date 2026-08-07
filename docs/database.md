@@ -36,11 +36,13 @@ Representa la relación de cada usuario con cada canal en el que el bot está ac
 - `is_moderator` (BOOLEAN): Indica si es moderador en este canal específico.
 - `is_vip` (BOOLEAN): Indica si tiene rango VIP en este canal específico.
 - `is_subscriber` (BOOLEAN): Indica si está suscrito a este canal específico.
+- `sub_tier` (TEXT): Nivel de suscripción ("1000" | "2000" | "3000").
+- `gifter_id` (TEXT): ID de usuario de quien regaló la suscripción.
 - **Relación:** Relación de **uno a muchos (1:n)** desde `users` a `channel_users`. Un usuario en `users` tiene roles y seguimiento independientes por cada canal.
 
 ### Tabla: `chat_history`
 Almacena el historial de mensajes de los canales.
-- `id` (BIGINT, PK, Autoincremental).
+- `id` (UUID, PK): Identificador único del mensaje.
 - `channel_id` (TEXT): ID del canal donde se escribió el mensaje.
 - `user_id` (TEXT, FK): ID del usuario que envió el mensaje (`users.user_id`).
 - `message` (TEXT): Contenido del mensaje de chat.

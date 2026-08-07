@@ -2,4 +2,4 @@
 trigger: always_on
 ---
 
-- Revisar el archivo comandos.md para que entiendas que comandos se usan en este proyecto.
+- Consultar `docs/database.md` y `prisma/schema.prisma` al interactuar con entidades de la base de datos, asegurando el cumplimiento de la arquitectura híbrida (migraciones con Prisma y consultas en Python con `asyncpg`).
