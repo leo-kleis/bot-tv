@@ -58,13 +58,20 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     };
   }, []);
 
-  // Sincronizar roles desde Twitch únicamente al entrar a la pestaña 'roles'
+  const hasSyncedRoles = useRef(false);
+
   useEffect(() => {
-    if (activeTab !== 'roles') return;
+    hasSyncedRoles.current = false;
+  }, [username]);
+
+  // Sincronizar roles desde Twitch una única vez al entrar a la pestaña 'roles'
+  useEffect(() => {
+    if (activeTab !== 'roles' || hasSyncedRoles.current) return;
     async function syncRoles() {
       setSyncingRoles(true);
       const res = await apiPost('/api/sync_user_roles', { username });
       setSyncingRoles(false);
+      hasSyncedRoles.current = true;
       if (res && res.ok && res.data) {
         setTempRoles({
           is_bot: !!res.data.is_bot,
@@ -445,37 +452,40 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
                   <div style="display:flex; flex-direction:column; gap:10px;">
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">Moderador</span>
                       <input
                         type="checkbox"
                         class="role-toggle-checkbox"
                         checked=${tempRoles.is_moderator}
+                        disabled=${syncingRoles || savingRoles}
                         onChange=${e => setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
                       />
                     </label>
 
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">VIP</span>
                       <input
                         type="checkbox"
                         class="role-toggle-checkbox"
                         checked=${tempRoles.is_vip}
+                        disabled=${syncingRoles || savingRoles}
                         onChange=${e => setTempRoles({ ...tempRoles, is_vip: e.target.checked })}
                       />
                     </label>
 
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">Bot de Chat</span>
                       <input
                         type="checkbox"
                         class="role-toggle-checkbox"
                         checked=${tempRoles.is_bot}
+                        disabled=${syncingRoles || savingRoles}
                         onChange=${e => setTempRoles({ ...tempRoles, is_bot: e.target.checked })}
                       />
                     </label>
@@ -485,9 +495,15 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                     class="btn btn-primary"
                     style="width:100%; margin-top:14px; padding:8px;"
                     onClick=${handleSaveRoles}
-                    disabled=${savingRoles}
+                    disabled=${syncingRoles || savingRoles}
                   >
-                    ${savingRoles ? html`<i class="fa-solid fa-spinner fa-spin"></i> Guardando...` : 'Guardar Roles'}
+                    ${
+                      syncingRoles
+                        ? html`<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando roles...`
+                        : savingRoles
+                          ? html`<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`
+                          : 'Guardar Roles'
+                    }
                   </button>
                 </div>
 

@@ -547,13 +547,51 @@
 @media (max-width: 576px) {
   .pagination-bar {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
     text-align: center;
+    padding: 12px 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .pagination-info {
+    font-size: 11.5px;
+  }
+
+  .pagination-buttons {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pagination-pages {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-pages .btn {
+    min-width: 28px !important;
+    height: 28px !important;
+    padding: 2px 4px !important;
+    font-size: 11px !important;
+  }
+
+  .pagination-buttons > .btn {
+    padding: 5px 8px !important;
+    font-size: 11px !important;
   }
 
   .users-table-wrapper {
     min-height: auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .users-table,
@@ -563,6 +601,8 @@
   .users-table td,
   .users-table tr {
     display: block;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .users-table thead {
@@ -578,8 +618,8 @@
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto auto;
     align-items: center;
-    gap: 4px 16px;
-    padding: 12px 16px;
+    gap: 4px 10px;
+    padding: 10px 12px;
     border-bottom: 1px solid var(--border-2);
   }
 
@@ -615,11 +655,14 @@
   .follow-status-wrap {
     align-items: flex-start !important;
     text-align: left !important;
+    min-width: 0;
   }
 
   .user-display-name {
     max-width: 100% !important;
-    font-size: 14.5px;
+    font-size: 14px;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .irc-user-badges {
@@ -633,6 +676,12 @@
 
   .user-table-actions {
     justify-content: flex-end;
+  }
+
+  .user-table-actions .btn {
+    padding: 5px 9px !important;
+    font-size: 11px !important;
+    white-space: nowrap;
   }
 
   .filter-dates-row input[type='date'] {

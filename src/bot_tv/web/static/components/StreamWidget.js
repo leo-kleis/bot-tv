@@ -57,34 +57,26 @@ export function StreamWidget({
       />
 
       <div class="stream-info">
-        <div class="stream-name">
-          ${broadcasterName}
+        <div class="stream-name-row">
+          <span class="stream-broadcaster">${broadcasterName}</span>
           ${
             online
               ? html`
-                  <span
-                    style="color:var(--online);font-size:10px;margin-left:6px;font-weight:800;letter-spacing:0.05em;display:inline-flex;align-items:center;gap:4px"
-                  >
-                    ● LIVE
-                    ${
-                      uptime
-                        ? html`<span
-                            style="color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums"
-                            >(${uptime})</span
-                          >`
-                        : ''
-                    }
+                  <span class="stream-status live">
+                    <span class="live-dot">●</span> LIVE
+                    ${uptime ? html`<span class="uptime">(${uptime})</span>` : ''}
                   </span>
                 `
-              : html`<span style="color:var(--text-muted);font-size:10px;margin-left:6px"
-                  >offline</span
-                >`
+              : html`<span class="stream-status offline">offline</span>`
           }
         </div>
         ${
           title || category
             ? html`
-                <div class="stream-meta">${[title, category].filter(Boolean).join(' · ')}</div>
+                <div class="stream-meta-row">
+                  ${category ? html`<span class="stream-category-tag">${category}</span>` : null}
+                  ${title ? html`<span class="stream-title-text" title=${title}>${title}</span>` : null}
+                </div>
               `
             : null
         }

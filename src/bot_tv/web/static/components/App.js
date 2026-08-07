@@ -15,19 +15,40 @@ const TABS = [
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
 ];
 
+function isMobileOrTabletDevice() {
+  if (typeof navigator === 'undefined') return false;
+  if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
+    if (navigator.userAgentData.mobile) return true;
+  }
+  const ua = navigator.userAgent || '';
+  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua)) {
+    return true;
+  }
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
+    return true;
+  }
+  return false;
+}
+
 export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
+  const isMobileDevice = isMobileOrTabletDevice();
 
   useEffect(() => {
-    if (!state.stream.online && active === 'stream') {
+    if ((!state.stream.online || isMobileDevice) && active === 'stream') {
       setActive('chat');
     }
-  }, [state.stream.online, active]);
+  }, [state.stream.online, active, isMobileDevice]);
 
   const filteredIrcCount = [...state.ircUsers.values()].filter(
     u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
   ).length;
+
+  const availableTabs = TABS.filter(t => {
+    if (t.id === 'stream' && isMobileDevice) return false;
+    return true;
+  });
 
   return html`
     <div id="app-root">
@@ -45,7 +66,7 @@ export function App({ state, dispatch }) {
       </header>
 
       <nav class="tab-bar" role="tablist">
-        ${TABS.map(t => {
+        ${availableTabs.map(t => {
           const isDisabled = t.id === 'stream' && !state.stream.online;
           return html`
             <button

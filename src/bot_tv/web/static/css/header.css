@@ -23,22 +23,103 @@
 .stream-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
 }
-.stream-name {
+
+.stream-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.stream-broadcaster {
   font-weight: 700;
   font-size: 14px;
   color: var(--text);
-  display: flex;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-status {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
-.stream-meta {
-  font-size: 11px;
+
+.stream-status.live {
+  color: var(--online);
+}
+
+.stream-status.live .live-dot {
+  font-size: 8px;
+  animation: pulse-live 2s infinite;
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+.stream-status.live .uptime {
+  color: var(--text-2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stream-status.offline {
+  color: var(--offline, var(--text-muted));
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.stream-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+}
+
+.stream-category-tag {
+  flex-shrink: 0;
+  background: var(--surface3);
+  color: var(--accent-text);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stream-title-text {
+  flex: 1;
+  min-width: 0;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
+  overflow-wrap: break-word;
 }
 
 /* Badge de espectadores/usuarios */

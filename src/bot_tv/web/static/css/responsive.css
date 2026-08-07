@@ -193,8 +193,16 @@
     opacity: 1;
   }
 
-  #app-root .stream-meta {
-    display: none;
+  #app-root .stream-broadcaster {
+    font-size: 13px;
+  }
+  #app-root .stream-meta-row {
+    font-size: 10.5px;
+  }
+  #app-root .stream-category-tag {
+    max-width: 90px;
+    font-size: 9.5px;
+    padding: 0 4px;
   }
   #app-root .viewers-badge {
     padding: 4px 8px;
@@ -280,11 +288,16 @@
   .stream-widget {
     gap: 8px;
   }
-  .stream-meta {
-    display: none;
+  .stream-broadcaster {
+    font-size: 12.5px;
   }
-  .stream-name {
-    font-size: 13px;
+  .stream-meta-row {
+    font-size: 10px;
+  }
+  .stream-category-tag {
+    max-width: 80px;
+    font-size: 9px;
+    padding: 0 3px;
   }
   .viewers-badge {
     padding: 4px 8px;
