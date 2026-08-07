@@ -187,14 +187,19 @@ class UserMemoryCache:
                 "user_id": user_id,
                 "followed_at": None,
                 "unfollowed_at": None,
+                "is_moderator": is_moderator,
+                "is_vip": is_vip,
+                "is_subscriber": is_subscriber,
+                "sub_tier": sub_tier,
+                "gifter_id": gifter_id,
             }
             self._channel_roles[(channel_id, user_id)] = roles
-
-        roles["is_moderator"] = is_moderator
-        roles["is_vip"] = is_vip
-        roles["is_subscriber"] = is_subscriber
-        roles["sub_tier"] = sub_tier
-        roles["gifter_id"] = gifter_id
+        else:
+            roles["is_moderator"] = is_moderator
+            roles["is_vip"] = is_vip
+            roles["is_subscriber"] = is_subscriber
+            roles["sub_tier"] = sub_tier
+            roles["gifter_id"] = gifter_id
 
     def set_nickname(self, user_id: str, nickname: str | None) -> None:
         """Establece o elimina el apodo en la caché."""
