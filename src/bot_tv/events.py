@@ -118,6 +118,16 @@ class StreamOfflineEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class StreamUpdateEvent:
+    """Actualización de título o categoría del stream."""
+
+    broadcaster_name: str
+    title: str
+    category: str
+    timestamp: str = field(default_factory=_now)
+
+
+@dataclass(frozen=True, slots=True)
 class ViewerUpdateEvent:
     """Actualización del conteo de viewers."""
 

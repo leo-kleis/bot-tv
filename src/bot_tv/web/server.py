@@ -32,6 +32,7 @@ from bot_tv.web.api import (
     endpoint_moderation_delete_message,
     endpoint_moderation_purge,
     endpoint_moderation_unban,
+    endpoint_search_categories,
     endpoint_search_users,
     endpoint_send_chat_message,
     endpoint_set_context_limit,
@@ -40,6 +41,7 @@ from bot_tv.web.api import (
     endpoint_sync_followers,
     endpoint_sync_user_roles,
     endpoint_talk,
+    endpoint_update_stream_info,
     endpoint_update_user_roles,
     endpoint_user_messages,
 )
@@ -121,6 +123,8 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
             methods=["POST"],
         ),
         Route("/api/moderation/purge", endpoint_moderation_purge, methods=["POST"]),
+        Route("/api/categories/search", endpoint_search_categories, methods=["GET"]),
+        Route("/api/stream/update_info", endpoint_update_stream_info, methods=["POST"]),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
         Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]

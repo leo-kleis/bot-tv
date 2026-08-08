@@ -120,6 +120,18 @@ function reducer(state, action) {
         },
       };
 
+    case 'stream_update':
+      return {
+        ...state,
+        stream: {
+          ...state.stream,
+          broadcasterName: action.data.broadcaster_name || state.stream.broadcasterName,
+          title: action.data.title !== undefined ? action.data.title : state.stream.title,
+          category:
+            action.data.category !== undefined ? action.data.category : state.stream.category,
+        },
+      };
+
     case 'viewer_update':
       return {
         ...state,

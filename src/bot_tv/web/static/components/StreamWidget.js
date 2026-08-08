@@ -16,6 +16,7 @@ export function StreamWidget({
   ircCount = 0,
   showIrcMobile,
   onToggleIrc,
+  onOpenEditStream,
 }) {
   const { online, broadcasterName, title, category, viewerCount, startedAt } = stream;
   const [uptime, setUptime] = useState('');
@@ -70,16 +71,24 @@ export function StreamWidget({
               : html`<span class="stream-status offline">offline</span>`
           }
         </div>
-        ${
-          title || category
-            ? html`
-                <div class="stream-meta-row">
-                  ${category ? html`<span class="stream-category-tag">${category}</span>` : null}
-                  ${title ? html`<span class="stream-title-text" title=${title}>${title}</span>` : null}
-                </div>
-              `
-            : null
-        }
+
+        <button
+          type="button"
+          class="stream-meta-btn"
+          onClick=${onOpenEditStream}
+          title="Hacer clic para editar el título o categoría del stream"
+          aria-label="Editar información del stream"
+        >
+          ${category ? html`<span class="stream-category-tag">${category}</span>` : null}
+          ${
+            title
+              ? html`<span class="stream-title-text" title=${title}>${title}</span>`
+              : html`<span class="stream-title-text stream-title-placeholder"
+                  >Editar título / categoría</span
+                >`
+          }
+          <i class="fa-solid fa-pen-to-square stream-edit-icon" aria-hidden="true"></i>
+        </button>
       </div>
 
       ${

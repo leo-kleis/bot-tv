@@ -48,6 +48,7 @@ class TokenRepository(BaseRepository):
             ),
             eventsub.StreamOnlineSubscription(broadcaster_user_id=user_id),
             eventsub.StreamOfflineSubscription(broadcaster_user_id=user_id),
+            eventsub.ChannelUpdateSubscription(broadcaster_user_id=user_id),
             eventsub.ChannelRaidSubscription(to_broadcaster_user_id=user_id),
             eventsub.ChannelSubscribeSubscription(broadcaster_user_id=user_id),
             eventsub.ChannelSubscribeMessageSubscription(broadcaster_user_id=user_id),

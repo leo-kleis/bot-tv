@@ -6,6 +6,7 @@ import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab } from '/static/components/agent/AgentTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
 import { ToastOverlay } from '/static/components/ToastOverlay.js';
+import { StreamEditModal } from '/static/components/stream/StreamEditModal.js';
 
 const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
@@ -33,6 +34,7 @@ function isMobileOrTabletDevice() {
 export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
+  const [editStreamModalOpen, setEditStreamModalOpen] = useState(false);
   const isMobileDevice = isMobileOrTabletDevice();
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function App({ state, dispatch }) {
           ircCount=${filteredIrcCount}
           showIrcMobile=${showIrcMobile}
           onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}
+          onOpenEditStream=${() => setEditStreamModalOpen(true)}
         />
       </header>
 
@@ -114,6 +117,19 @@ export function App({ state, dispatch }) {
         ${active === 'settings' && html`<${SettingsTab} dispatch=${dispatch} />`}
       </main>
       <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />
+
+      <!-- Modal de Edición de Título y Categoría a nivel raíz -->
+      ${
+        editStreamModalOpen
+          ? html`
+              <${StreamEditModal}
+                initialTitle=${state.stream.title || ''}
+                initialCategory=${state.stream.category || ''}
+                onClose=${() => setEditStreamModalOpen(false)}
+              />
+            `
+          : null
+      }
     </div>
   `;
 }

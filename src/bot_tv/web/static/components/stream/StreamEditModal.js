@@ -1,0 +1,312 @@
+import { html, useState, useEffect, useRef } from 'preact-setup';
+import { apiGet, apiPost } from '/static/components/api.js';
+
+export function StreamEditModal({ initialTitle = '', initialCategory = '', onClose, onSaved }) {
+  const [title, setTitle] = useState(initialTitle);
+  const [selectedCategory, setSelectedCategory] = useState(
+    initialCategory ? { id: '', name: initialCategory } : null
+  );
+
+  // Estados del buscador reactivo con debounce (patrón FollowersFilterBar/FollowersTab)
+  const [categoryInput, setCategoryInput] = useState('');
+  const [categorySearch, setCategorySearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
+
+  const categoryBoxRef = useRef(null);
+
+  // Manejador de tecla Esc y clic fuera del dropdown
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (dropdownOpen) {
+          setDropdownOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    }
+
+    function handleClickOutside(e) {
+      if (categoryBoxRef.current && !categoryBoxRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose, dropdownOpen]);
+
+  // Debounce de búsqueda de categoría (500ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCategorySearch(categoryInput);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [categoryInput]);
+
+  // Consulta de categorías contra la API de Twitch
+  useEffect(() => {
+    const query = categorySearch.trim();
+    if (!query) {
+      setSearchResults([]);
+      setDropdownOpen(false);
+      return;
+    }
+
+    let active = true;
+    setSearching(true);
+    setErrorMsg(null);
+
+    apiGet(`/api/categories/search?query=${encodeURIComponent(query)}`)
+      .then(res => {
+        if (!active) return;
+        setSearching(false);
+        if (res && res.ok && Array.isArray(res.data?.categories)) {
+          setSearchResults(res.data.categories);
+          setDropdownOpen(res.data.categories.length > 0);
+        } else {
+          setSearchResults([]);
+          setDropdownOpen(false);
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setSearching(false);
+        setSearchResults([]);
+        setDropdownOpen(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [categorySearch]);
+
+  function handleSelectCategory(cat) {
+    setSelectedCategory({ id: cat.id, name: cat.name });
+    setCategoryInput('');
+    setSearchResults([]);
+    setDropdownOpen(false);
+  }
+
+  function handleRemoveCategory() {
+    setSelectedCategory(null);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setErrorMsg(null);
+
+    const body = {
+      title: title.trim(),
+    };
+    if (selectedCategory && selectedCategory.id) {
+      body.category_id = selectedCategory.id;
+    }
+
+    const res = await apiPost('/api/stream/update_info', body);
+    setSaving(false);
+
+    if (res && res.ok) {
+      if (onSaved) {
+        onSaved({
+          title: title.trim(),
+          category: selectedCategory ? selectedCategory.name : initialCategory,
+        });
+      }
+      onClose();
+    } else {
+      setErrorMsg(res?.data?.error || res?.error || 'Error al actualizar el stream en Twitch.');
+    }
+  }
+
+  const titleLength = title.length;
+  const maxTitleLength = 140;
+
+  return html`
+    <div class="stream-modal-backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
+      <div class="stream-modal-dialog" role="dialog" aria-modal="true">
+        <!-- Cabecera del Modal -->
+        <div class="stream-modal-header">
+          <div class="stream-modal-title">
+            <span class="stream-modal-icon-badge">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </span>
+            <span>Editar Información del Stream</span>
+          </div>
+          <button class="stream-modal-close-btn" onClick=${onClose} title="Cerrar modal">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Cuerpo del Modal -->
+        <div class="stream-modal-body">
+          ${
+            errorMsg
+              ? html`
+                  <div class="stream-modal-alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>${errorMsg}</span>
+                  </div>
+                `
+              : null
+          }
+
+          <!-- Campo Título -->
+          <div class="stream-modal-field">
+            <div class="stream-modal-label-row">
+              <label class="stream-modal-label" for="stream-title-input">
+                <i class="fa-solid fa-heading" style="margin-right: 5px;"></i>
+                Título del Stream
+              </label>
+              <span
+                class="stream-modal-char-count ${titleLength > maxTitleLength ? 'exceeded' : ''}"
+              >
+                ${titleLength} / ${maxTitleLength}
+              </span>
+            </div>
+            <input
+              id="stream-title-input"
+              type="text"
+              class="stream-modal-input"
+              maxlength=${maxTitleLength}
+              placeholder="Escribe el título de tu transmisión..."
+              value=${title}
+              onInput=${e => setTitle(e.target.value)}
+              disabled=${saving}
+            />
+          </div>
+
+          <!-- Campo Categoría -->
+          <div class="stream-modal-field category-field" ref=${categoryBoxRef}>
+            <div class="stream-modal-label-row">
+              <label class="stream-modal-label">
+                <i class="fa-solid fa-gamepad" style="margin-right: 5px;"></i>
+                Categoría / Juego
+              </label>
+            </div>
+
+            <!-- Categoría Actualmente Seleccionada -->
+            ${
+              selectedCategory
+                ? html`
+                    <div class="selected-category-chip">
+                      <span class="selected-category-badge">
+                        <i class="fa-solid fa-check"></i>
+                      </span>
+                      <span class="selected-category-name">${selectedCategory.name}</span>
+                      <button
+                        type="button"
+                        class="remove-category-btn"
+                        onClick=${handleRemoveCategory}
+                        title="Cambiar categoría"
+                        disabled=${saving}
+                      >
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                  `
+                : null
+            }
+
+            <!-- Buscador de Categorías con Debounce -->
+            <div class="category-search-box">
+              <i class="fa-solid fa-magnifying-glass search-box-icon"></i>
+              <input
+                type="text"
+                class="stream-modal-input category-search-input"
+                placeholder=${
+                  selectedCategory
+                    ? 'Buscar otra categoría en Twitch...'
+                    : 'Buscar categoría o juego en Twitch...'
+                }
+                value=${categoryInput}
+                onInput=${e => setCategoryInput(e.target.value)}
+                onFocus=${() => searchResults.length > 0 && setDropdownOpen(true)}
+                disabled=${saving}
+              />
+              ${
+                searching
+                  ? html`<span class="search-box-spinner"
+                      ><i class="fa-solid fa-spinner fa-spin"></i
+                    ></span>`
+                  : null
+              }
+            </div>
+
+            <!-- Resultados desplegables de búsqueda -->
+            ${
+              dropdownOpen && searchResults.length > 0
+                ? html`
+                    <div class="category-dropdown-list">
+                      ${searchResults.map(cat => {
+                        const boxArt = cat.box_art_url
+                          ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
+                          : null;
+                        return html`
+                          <div
+                            key=${cat.id}
+                            class="category-dropdown-item"
+                            onClick=${() => handleSelectCategory(cat)}
+                          >
+                            ${
+                              boxArt
+                                ? html`<img
+                                    src=${boxArt}
+                                    alt=${cat.name}
+                                    class="category-box-art"
+                                    loading="lazy"
+                                    onError=${e => {
+                                      e.target.style.display = 'none';
+                                    }}
+                                  />`
+                                : html`<div class="category-box-art-placeholder">
+                                    <i class="fa-solid fa-gamepad"></i>
+                                  </div>`
+                            }
+                            <span class="category-item-name">${cat.name}</span>
+                          </div>
+                        `;
+                      })}
+                    </div>
+                  `
+                : null
+            }
+          </div>
+        </div>
+
+        <!-- Pie de Botones de Acción -->
+        <div class="stream-modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary stream-modal-btn"
+            onClick=${onClose}
+            disabled=${saving}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary stream-modal-btn"
+            onClick=${handleSave}
+            disabled=${saving || titleLength > maxTitleLength}
+          >
+            ${
+              saving
+                ? html`<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`
+                : html`<i class="fa-solid fa-check"></i> Guardar Cambios`
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}

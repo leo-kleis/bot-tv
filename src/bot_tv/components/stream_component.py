@@ -12,6 +12,7 @@ from twitchio.ext import commands
 from bot_tv.events import (
     StreamOfflineEvent,
     StreamOnlineEvent,
+    StreamUpdateEvent,
     ViewerUpdateEvent,
 )
 
@@ -122,6 +123,26 @@ class StreamComponent(commands.Component):
             StreamOfflineEvent(
                 timestamp=datetime.now().isoformat(),
                 broadcaster_name=nombre,
+            )
+        )
+
+    @commands.Component.listener()
+    async def event_channel_update(self, payload: twitchio.ChannelUpdate) -> None:
+        """Se ejecuta cuando un stream actualiza título o categoría (EventSub)."""
+        nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
+        titulo = payload.title or ""
+        categoria = (
+            getattr(payload, "category_name", None)
+            or getattr(payload, "game_name", None)
+            or ""
+        )
+
+        await self.bot.event_bus.emit(
+            StreamUpdateEvent(
+                timestamp=datetime.now().isoformat(),
+                broadcaster_name=nombre,
+                title=titulo,
+                category=categoria,
             )
         )
 

@@ -53,6 +53,26 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  /* Stream Modal en Móviles */
+  .stream-modal-backdrop {
+    padding: 10px;
+  }
+  .stream-modal-dialog {
+    max-width: 100%;
+    max-height: calc(100dvh - 20px);
+    border-radius: var(--radius-sm);
+  }
+  .stream-modal-header {
+    padding: 12px 14px;
+  }
+  .stream-modal-body {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+  .stream-modal-footer {
+    padding: 10px 12px;
+  }
+
   /* Panel IRC como Drawer Flotante Absoluto sobre el Chat */
   .irc-panel {
     position: absolute;
@@ -225,6 +245,30 @@
   }
   #app-root .two-col {
     gap: 16px;
+  }
+
+  /* Stream Modal en Landscape */
+  .stream-modal-backdrop {
+    padding: 6px;
+  }
+  .stream-modal-dialog {
+    max-height: calc(100dvh - 12px);
+    border-radius: 12px;
+  }
+  .stream-modal-header {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+  .stream-modal-body {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+  .stream-modal-input {
+    padding: 7px 10px;
+    font-size: 12.5px;
+  }
+  .stream-modal-footer {
+    padding: 8px 14px;
   }
 
   /* Ajustar la posición absoluta del drawer IRC en móvil horizontal solo en pantallas angostas */
