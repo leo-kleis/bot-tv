@@ -20,7 +20,62 @@ Esto significa que la query debe usar **términos que existan literalmente en el
 
 ---
 
-## Flujo recomendado al inicio de una sesión
+## Protocolo de Inicio Automático (OBLIGATORIO)
+
+**No esperes instrucciones del usuario para usar estas herramientas.** Al inicio de cada sesión de trabajo en un proyecto, detecta el tipo de tarea y ejecuta el flujo correspondiente de forma autónoma.
+
+### Cómo detectar el tipo de tarea
+
+Analiza el mensaje inicial del usuario y clasifica la tarea:
+
+| Señales en el mensaje | Tipo de tarea |
+|---|---|
+| Bug en lógica, error, funcionalidad, API, base de datos, servicio, modelo | **Solo lógica** |
+| CSS, layout, diseño, visual, componente UI, responsive, estilo, color | **Solo diseño** |
+| Ambas señales presentes, o "corregir problemas" sin especificar | **Lógica + diseño** |
+
+---
+
+### Flujo A: Solo lógica
+
+Ejecutar en este orden sin pedir permiso al usuario:
+
+1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural del proyecto.
+2. `query_codebase(...)` — con los nombres descubiertos en el mapa para profundizar en relaciones y código relevante.
+
+---
+
+### Flujo B: Solo diseño
+
+Ejecutar en este orden sin pedir permiso al usuario:
+
+1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural (necesario para entender componentes).
+2. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS del componente afectado.
+3. `audit_layout_risks(project_path=<ruta_workspace>)` — estado actual del diseño antes de intervenir (línea base).
+4. `query_codebase(...)` — para encontrar el código JSX/HTML del componente y sus relaciones.
+5. Al finalizar los cambios: `audit_layout_risks(...)` nuevamente para confirmar que la implementación nueva no introduce regresiones.
+
+---
+
+### Flujo C: Lógica + diseño
+
+Ejecutar en este orden sin pedir permiso al usuario:
+
+1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural completo.
+2. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS.
+3. `audit_layout_risks(project_path=<ruta_workspace>)` — línea base del estado de diseño.
+4. `query_codebase(...)` — para lógica y relaciones de código usando nombres del mapa.
+5. Al finalizar: `audit_layout_risks(...)` para confirmar que la implementación es correcta visualmente.
+
+---
+
+### Verificación del índice (pre-condición)
+
+Antes de cualquier flujo, si el índice no está inicializado (`LANCEDB_INDEXADA: No` en `get_config`), informa al usuario y propone ejecutar `ingest_codebase`. **No ejecutes `ingest_codebase` automáticamente** — es una operación pesada que requiere confirmación.
+
+---
+
+## Flujo recomendado al inicio de una sesión (referencia técnica)
 
 Al trabajar con un proyecto por primera vez, o al retomar una sesión:
 
@@ -28,10 +83,10 @@ Al trabajar con un proyecto por primera vez, o al retomar una sesión:
 2. **`manage_daemon(action="start")`** — (opcional) precarga los modelos en VRAM para máxima velocidad de respuesta (~0.05s por query).
 3. **`ingest_codebase`** — si el índice no existe o se requiere una reindexación completa (`force=True`). Proponer al usuario si requiere reindexar.
 4. **`get_project_map`** — obtén el mapa de clases, servicios y modelos del proyecto.
-4. **`get_styles_map`** — obtén la trazabilidad Componente ↔ CSS, líneas exactas, variables `--*` y mapa de propiedades (recomendado usar `component_filter`).
-5. **`audit_layout_risks`** — realiza una auditoría estática de layout responsivo, desbordamientos flexbox y mitigación por jerarquía DOM UI.
-6. **`get_code_metrics`** — obtén las métricas LOC del proyecto e identifica archivos críticos (>400 líneas) o de advertencia (>200 líneas) que requieran refactorización.
-7. **`query_codebase`** — con los nombres encontrados en el mapa, obtén el código real y relaciones.
+5. **`get_styles_map`** — obtén la trazabilidad Componente ↔ CSS, líneas exactas, variables `--*` y mapa de propiedades (recomendado usar `component_filter`).
+6. **`audit_layout_risks`** — realiza una auditoría estática de layout responsivo, desbordamientos flexbox y mitigación por jerarquía DOM UI.
+7. **`get_code_metrics`** — obtén las métricas LOC del proyecto e identifica archivos críticos (>400 líneas) o de advertencia (>200 líneas) que requieran refactorización.
+8. **`query_codebase`** — con los nombres encontrados en el mapa, obtén el código real y relaciones.
 
 ```
 Ejemplo:
@@ -181,9 +236,13 @@ get_code_metrics(
     project_path: str | None, # Ruta absoluta opcional al repositorio del proyecto
     threshold: int = 200      # Umbral de líneas para reportar (por defecto: 200)
 )
+
+manage_daemon(
+    action: str = "status"    # 'status' | 'start' | 'stop' (Global para todo el sistema)
+)
 ```
 
-- **`project_path`**: Siempre pasa la ruta absoluta del workspace. Sin esto el RAG no sabe qué base de datos abrir.
+- **`project_path`**: Siempre pasa la ruta absoluta del workspace en las herramientas de proyecto. Sin esto el RAG no sabe qué base de datos abrir. `manage_daemon` no requiere `project_path`.
 - **`scope`**: Úsalo cuando sabes que la respuesta está en un framework específico. Reduce ruido y mejora precisión.
 - **`query`**: En inglés. Usa los nombres exactos del código cuando los conoces.
 
@@ -194,4 +253,6 @@ get_code_metrics(
 - **Sincronización Automática Incremental (`Fast Pre-Query Check`)**: Todas las herramientas del RAG (`query_codebase`, `audit_layout_risks`, `get_styles_map`, `get_code_metrics`, `get_project_map`) ejecutan una verificación ultra-rápida de compatibilidad de esquema SemVer (`SCHEMA_VERSION`) y modificación de archivos (`mtime`) en **~10ms**.
 - Si detecta un esquema desactualizado, el RAG ejecuta de forma transparente una re-ingesta limpia forzada (`force=True`).
 - Si durante la sesión editas o creas archivos en el proyecto, **el RAG los detecta y sincroniza automáticamente los deltas en LanceDB en ~150ms antes de responder o auditar**.
+- Cuando ocurre una sincronización, la herramienta antepone el encabezado informativo:
+  `[Auto-Sync: Actualizados X archivos modificados en LanceDB]`
 - No es necesario ejecutar `ingest_codebase` manualmente tras editar archivos ni al actualizar versiones de esquema.

@@ -1,5 +1,6 @@
 import { html, useState, useEffect } from 'preact-setup';
 import { ConnectionIndicator } from '/static/components/ConnectionIndicator.js';
+import { Tooltip } from '/static/components/Tooltip.js';
 
 function fmtViewers(n) {
   if (n == null) return '—';
@@ -72,23 +73,24 @@ export function StreamWidget({
           }
         </div>
 
-        <button
-          type="button"
-          class="stream-meta-btn"
-          onClick=${onOpenEditStream}
-          title="Hacer clic para editar el título o categoría del stream"
-          aria-label="Editar información del stream"
-        >
-          ${category ? html`<span class="stream-category-tag">${category}</span>` : null}
-          ${
-            title
-              ? html`<span class="stream-title-text" title=${title}>${title}</span>`
-              : html`<span class="stream-title-text stream-title-placeholder"
-                  >Editar título / categoría</span
-                >`
-          }
-          <i class="fa-solid fa-pen-to-square stream-edit-icon" aria-hidden="true"></i>
-        </button>
+        <${Tooltip} text="Hacer clic para editar el título o categoría del stream" position="bottom">
+          <button
+            type="button"
+            class="stream-meta-btn"
+            onClick=${onOpenEditStream}
+            aria-label="Editar información del stream"
+          >
+            ${category ? html`<span class="stream-category-tag">${category}</span>` : null}
+            ${
+              title
+                ? html`<span class="stream-title-text">${title}</span>`
+                : html`<span class="stream-title-text stream-title-placeholder"
+                    >Editar título / categoría</span
+                  >`
+            }
+            <i class="fa-solid fa-pen-to-square stream-edit-icon" aria-hidden="true"></i>
+          </button>
+        </${Tooltip}>
       </div>
 
       ${

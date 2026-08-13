@@ -1,0 +1,153 @@
+/* tooltip.css — Componente Reutilizable de Tooltip con Indicador Visual */
+
+.ui-tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ui-tooltip {
+  position: absolute;
+  z-index: var(--z-popover);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  background: #161320;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.6),
+    0 0 1px rgba(169, 112, 255, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  animation: tooltip-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Flechas conectoras de dirección */
+.ui-tooltip:not(.ui-tooltip-cursor)::before,
+.ui-tooltip:not(.ui-tooltip-cursor)::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  pointer-events: none;
+}
+
+/* Posición Bottom (predeterminada: centrada bajo el botón con flecha apuntando arriba) */
+.ui-tooltip-bottom,
+.ui-tooltip-bottom-center {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ui-tooltip-bottom::before,
+.ui-tooltip-bottom-center::before {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 6px 7px 6px;
+  border-color: transparent transparent var(--border) transparent;
+}
+
+.ui-tooltip-bottom::after,
+.ui-tooltip-bottom-center::after {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 5px 6px 5px;
+  border-color: transparent transparent #161320 transparent;
+}
+
+/* Posición Top (sobre el elemento) */
+.ui-tooltip-top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ui-tooltip-top::before {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 7px 6px 0 6px;
+  border-color: var(--border) transparent transparent transparent;
+}
+
+.ui-tooltip-top::after {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 5px 0 5px;
+  border-color: #161320 transparent transparent transparent;
+}
+
+/* Posición Left */
+.ui-tooltip-left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ui-tooltip-left::before {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px 0 6px 7px;
+  border-color: transparent transparent transparent var(--border);
+}
+
+.ui-tooltip-left::after {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px 0 5px 6px;
+  border-color: transparent transparent transparent #161320;
+}
+
+/* Posición Right */
+.ui-tooltip-right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ui-tooltip-right::before {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px 7px 6px 0;
+  border-color: transparent var(--border) transparent transparent;
+}
+
+.ui-tooltip-right::after {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px 6px 5px 0;
+  border-color: transparent #161320 transparent transparent;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (hover: none) {
+  .ui-tooltip {
+    display: none !important;
+  }
+}
