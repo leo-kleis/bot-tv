@@ -19,6 +19,32 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
 
   const categoryBoxRef = useRef(null);
 
+  // Cargar metadatos completos (portada box_art_url) si existe una categoría inicial
+  useEffect(() => {
+    if (initialCategory && (!selectedCategory || !selectedCategory.box_art_url)) {
+      apiGet(`/api/categories/search?query=${encodeURIComponent(initialCategory)}`)
+        .then(res => {
+          if (
+            res &&
+            res.ok &&
+            Array.isArray(res.data?.categories) &&
+            res.data.categories.length > 0
+          ) {
+            const match =
+              res.data.categories.find(
+                c => c.name.toLowerCase() === initialCategory.toLowerCase()
+              ) || res.data.categories[0];
+            setSelectedCategory({
+              id: match.id,
+              name: match.name,
+              box_art_url: match.box_art_url,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialCategory]);
+
   // Manejador de tecla Esc y clic fuera del dropdown
   useEffect(() => {
     function handleKeyDown(e) {
@@ -91,7 +117,11 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   }, [categorySearch]);
 
   function handleSelectCategory(cat) {
-    setSelectedCategory({ id: cat.id, name: cat.name });
+    setSelectedCategory({
+      id: cat.id,
+      name: cat.name,
+      box_art_url: cat.box_art_url,
+    });
     setCategoryInput('');
     setSearchResults([]);
     setDropdownOpen(false);
@@ -131,15 +161,16 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   const titleLength = title.length;
   const maxTitleLength = 140;
 
+  const cardBoxArt = selectedCategory?.box_art_url
+    ? selectedCategory.box_art_url.replace('{width}', '108').replace('{height}', '144')
+    : null;
+
   return html`
     <div class="stream-modal-backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
       <div class="stream-modal-dialog" role="dialog" aria-modal="true">
         <!-- Cabecera del Modal -->
         <div class="stream-modal-header">
           <div class="stream-modal-title">
-            <span class="stream-modal-icon-badge">
-              <i class="fa-solid fa-pen-to-square"></i>
-            </span>
             <span>Editar Información del Stream</span>
           </div>
           <button class="stream-modal-close-btn" onClick=${onClose} title="Cerrar modal">
@@ -163,10 +194,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           <!-- Campo Título -->
           <div class="stream-modal-field">
             <div class="stream-modal-label-row">
-              <label class="stream-modal-label" for="stream-title-input">
-                <i class="fa-solid fa-heading" style="margin-right: 5px;"></i>
-                Título del Stream
-              </label>
+              <label class="stream-modal-label" for="stream-title-input"> Título del Stream </label>
               <span
                 class="stream-modal-char-count ${titleLength > maxTitleLength ? 'exceeded' : ''}"
               >
@@ -188,24 +216,35 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           <!-- Campo Categoría -->
           <div class="stream-modal-field category-field" ref=${categoryBoxRef}>
             <div class="stream-modal-label-row">
-              <label class="stream-modal-label">
-                <i class="fa-solid fa-gamepad" style="margin-right: 5px;"></i>
-                Categoría / Juego
-              </label>
+              <label class="stream-modal-label"> Categoría </label>
             </div>
 
-            <!-- Categoría Actualmente Seleccionada -->
+            <!-- Categoría Actualmente Seleccionada (Tarjeta Estilo Twitch) -->
             ${
               selectedCategory
                 ? html`
-                    <div class="selected-category-chip">
-                      <span class="selected-category-badge">
-                        <i class="fa-solid fa-check"></i>
-                      </span>
-                      <span class="selected-category-name">${selectedCategory.name}</span>
+                    <div class="twitch-category-card">
+                      ${
+                        cardBoxArt
+                          ? html`<img
+                              src=${cardBoxArt}
+                              alt=${selectedCategory.name}
+                              class="twitch-category-art"
+                              loading="lazy"
+                              onError=${e => {
+                                e.target.style.display = 'none';
+                              }}
+                            />`
+                          : html`<div class="twitch-category-art-placeholder">
+                              <i class="fa-solid fa-gamepad"></i>
+                            </div>`
+                      }
+                      <div class="twitch-category-info">
+                        <span class="twitch-category-name">${selectedCategory.name}</span>
+                      </div>
                       <button
                         type="button"
-                        class="remove-category-btn"
+                        class="twitch-category-remove-btn"
                         onClick=${handleRemoveCategory}
                         title="Cambiar categoría"
                         disabled=${saving}

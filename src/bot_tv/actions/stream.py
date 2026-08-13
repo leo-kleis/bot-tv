@@ -23,11 +23,14 @@ async def action_search_categories(bot: Bot, query: str) -> list[dict[str, str]]
         categories = await bot.search_categories(query=clean_query)
         results: list[dict[str, str]] = []
         for cat in categories:
+            box_art = getattr(cat, "box_art_url", "")
+            if not box_art and hasattr(cat, "box_art"):
+                box_art = str(cat.box_art)
             results.append(
                 {
                     "id": cat.id,
                     "name": cat.name,
-                    "box_art_url": getattr(cat, "box_art_url", "") or "",
+                    "box_art_url": box_art or "",
                 }
             )
         return results
