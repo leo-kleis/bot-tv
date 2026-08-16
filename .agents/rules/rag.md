@@ -40,8 +40,9 @@ Analiza el mensaje inicial del usuario y clasifica la tarea:
 
 Ejecutar en este orden sin pedir permiso al usuario:
 
-1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural del proyecto.
-2. `query_codebase(...)` — con los nombres descubiertos en el mapa para profundizar en relaciones y código relevante.
+1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural del proyecto.
+3. `query_codebase(project_path=<ruta_workspace>, ...)` — con los nombres descubiertos en el mapa para profundizar en relaciones y código relevante. **`project_path` es obligatorio (mandatory / obligatorio).**
 
 ---
 
@@ -49,11 +50,12 @@ Ejecutar en este orden sin pedir permiso al usuario:
 
 Ejecutar en este orden sin pedir permiso al usuario:
 
-1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural (necesario para entender componentes).
-2. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS del componente afectado.
-3. `audit_layout_risks(project_path=<ruta_workspace>)` — estado actual del diseño antes de intervenir (línea base).
-4. `query_codebase(...)` — para encontrar el código JSX/HTML del componente y sus relaciones.
-5. Al finalizar los cambios: `audit_layout_risks(...)` nuevamente para confirmar que la implementación nueva no introduce regresiones.
+1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural (necesario para entender componentes).
+3. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS del componente afectado.
+4. `audit_layout_risks(project_path=<ruta_workspace>)` — estado actual del diseño antes de intervenir (línea base).
+5. `query_codebase(project_path=<ruta_workspace>, ...)` — para encontrar el código JSX/HTML del componente y sus relaciones.
+6. Al finalizar los cambios: `audit_layout_risks(project_path=<ruta_workspace>)` nuevamente para confirmar que la implementación nueva no introduce regresiones.
 
 ---
 
@@ -61,17 +63,18 @@ Ejecutar en este orden sin pedir permiso al usuario:
 
 Ejecutar en este orden sin pedir permiso al usuario:
 
-1. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural completo.
-2. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS.
-3. `audit_layout_risks(project_path=<ruta_workspace>)` — línea base del estado de diseño.
-4. `query_codebase(...)` — para lógica y relaciones de código usando nombres del mapa.
-5. Al finalizar: `audit_layout_risks(...)` para confirmar que la implementación es correcta visualmente.
+1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural completo.
+3. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS.
+4. `audit_layout_risks(project_path=<ruta_workspace>)` — línea base del estado de diseño.
+5. `query_codebase(project_path=<ruta_workspace>, ...)` — para lógica y relaciones de código usando nombres del mapa.
+6. Al finalizar: `audit_layout_risks(project_path=<ruta_workspace>)` para confirmar que la implementación es correcta visualmente.
 
 ---
 
 ### Verificación del índice (pre-condición)
 
-Antes de cualquier flujo, si el índice no está inicializado (`LANCEDB_INDEXADA: No` en `get_config`), informa al usuario y propone ejecutar `ingest_codebase`. **No ejecutes `ingest_codebase` automáticamente** — es una operación pesada que requiere confirmación.
+Antes de cualquier flujo, si el índice no está inicializado (`LANCEDB_INDEXADA: No` en `get_config(project_path=<ruta_workspace>)`), informa al usuario y propone ejecutar `ingest_codebase`. **No ejecutes `ingest_codebase` automáticamente** — es una operación pesada que requiere confirmación.
 
 ---
 
@@ -79,14 +82,14 @@ Antes de cualquier flujo, si el índice no está inicializado (`LANCEDB_INDEXADA
 
 Al trabajar con un proyecto por primera vez, o al retomar una sesión:
 
-1. **`get_config`** — verifica si el índice existe (`LANCEDB_INDEXADA: Sí/No`) y el estado del Worker Daemon.
+1. **`get_config(project_path=<ruta_workspace>)`** — verifica si el índice existe (`LANCEDB_INDEXADA: Sí/No`) y el estado del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio)** — sin este parámetro la tool no sabe qué base de datos abrir.
 2. **`manage_daemon(action="start")`** — (opcional) precarga los modelos en VRAM para máxima velocidad de respuesta (~0.05s por query).
-3. **`ingest_codebase`** — si el índice no existe o se requiere una reindexación completa (`force=True`). Proponer al usuario si requiere reindexar.
+3. **`ingest_codebase`** — si el índice no existe o se requiere una reindexación completa. Proponer al usuario si requiere reindexar.
 4. **`get_project_map`** — obtén el mapa de clases, servicios y modelos del proyecto.
 5. **`get_styles_map`** — obtén la trazabilidad Componente ↔ CSS, líneas exactas, variables `--*` y mapa de propiedades (recomendado usar `component_filter`).
-6. **`audit_layout_risks`** — realiza una auditoría estática de layout responsivo, desbordamientos flexbox y mitigación por jerarquía DOM UI.
+6. **`audit_layout_risks(project_path=<ruta_workspace>)`** — realiza una auditoría estática de layout responsivo, desbordamientos flexbox y mitigación por jerarquía DOM UI. **`project_path` es obligatorio (mandatory / obligatorio).**
 7. **`get_code_metrics`** — obtén las métricas LOC del proyecto e identifica archivos críticos (>400 líneas) o de advertencia (>200 líneas) que requieran refactorización.
-8. **`query_codebase`** — con los nombres encontrados en el mapa, obtén el código real y relaciones.
+8. **`query_codebase(project_path=<ruta_workspace>, ...)`** — con los nombres encontrados en el mapa, obtén el código real y relaciones. **`project_path` es obligatorio (mandatory / obligatorio).**
 
 ```
 Ejemplo:
@@ -102,7 +105,7 @@ Ejemplo:
           | selector: '.chat-msg.is-system .sys-text'
           | props(font-size: 0.93em, color: var(--text), flex: 1, min-width: 0, overflow-wrap: anywhere, word-break: break-word)
 
-  audit_layout_risks(severity="CRITICAL") →
+  audit_layout_risks(project_path="/ruta/al/proyecto", severity="CRITICAL") →
     [CSS Layout Audit — 0 issues found (Severity Filter: CRITICAL)]
 
   get_code_metrics(threshold=200) →
@@ -141,14 +144,14 @@ Ejemplo:
 Si ya tienes el mapa en contexto, úsalo directamente. Si no:
 
 ```
-SIN MAPA: query_codebase("how does the vehicle system work")
+SIN MAPA: query_codebase(project_path=<ruta_workspace>, query="how does the vehicle system work")
            → el código usa "automatic_move", no "vehicle" → NO_CONTEXT
 
 CON MAPA: get_project_map() → descubre "AutomaticMoveService"
-          query_codebase("AutomaticMoveService logic")  ← funciona
+          query_codebase(project_path=<ruta_workspace>, query="AutomaticMoveService logic")  ← funciona
 
 ALTERNATIVA (si no hay índice): grep_search("vehicle" OR "auto" OR "move")
-          → descubre "AutomaticMoveService" → query_codebase(...)
+          → descubre "AutomaticMoveService" → query_codebase(project_path=<ruta_workspace>, ...)
 ```
 
 ---
@@ -201,7 +204,7 @@ Estas herramientas consultan la base de datos vectorial y los metadatos extendid
 - **`get_code_metrics`**: Conteo e inspección de volumen de líneas de código (LOC) consultando metadatos `lines_code` en el índice.
 
 ### Herramienta Sintética de Estado del Entorno
-- **`get_config`**: Muestra el resumen sintético del repositorio, versión de esquema SemVer (`SCHEMA_VERSION`), modelo de embeddings y estado del índice en 5 líneas.
+- **`get_config(project_path=<ruta_workspace>)`**: Muestra el resumen sintético del repositorio, versión de esquema SemVer (`SCHEMA_VERSION`), modelo de embeddings y estado del índice en 5 líneas. **`project_path` es obligatorio (mandatory / obligatorio)**, igual que en el resto de las herramientas de proyecto.
 
 ---
 
@@ -210,39 +213,42 @@ Estas herramientas consultan la base de datos vectorial y los metadatos extendid
 ```
 query_codebase(
     query: str,          # Términos de búsqueda en inglés, usando nombres del código
+    project_path: str,   # Ruta absoluta del workspace actual (OBLIGATORIO)
     scope: str | None,   # "angular" | "nestjs" | "python" — filtra por framework
-    project_path: str    # Ruta absoluta del workspace actual (OBLIGATORIO)
 )
 
 ingest_codebase(
-    project_path: str | None, # Ruta absoluta opcional al repositorio del proyecto
-    force: bool = False       # Forzar reindexación completa ignorando caché de hashes
+    project_path: str    # Ruta absoluta al repositorio del proyecto (OBLIGATORIO)
 )
 
 get_styles_map(
-    project_path: str | None,     # Ruta absoluta opcional al repositorio del proyecto
+    project_path: str,            # Ruta absoluta al repositorio del proyecto (OBLIGATORIO)
     component_filter: str | None, # Filtra por nombre o archivo de componente UI (ej. 'ChatTab')
     class_filter: str | None,     # Filtra por nombre de clase CSS específica (ej. 'sys-text')
     property_filter: str | None   # Filtra por propiedad CSS (ej. 'word-break' o 'flex')
 )
 
 audit_layout_risks(
-    project_path: str | None,     # Ruta absoluta opcional al repositorio del proyecto
+    project_path: str,            # Ruta absoluta al repositorio del proyecto (OBLIGATORIO)
     severity: str = "ALL",        # Filtra por gravedad ('CRITICAL', 'WARNING', 'INFO', 'ALL')
     file_filter: str | None       # Filtra uno o varios archivos CSS (ej. 'chat.css, responsive.css')
 )
 
 get_code_metrics(
-    project_path: str | None, # Ruta absoluta opcional al repositorio del proyecto
-    threshold: int = 200      # Umbral de líneas para reportar (por defecto: 200)
+    project_path: str,    # Ruta absoluta al repositorio del proyecto (OBLIGATORIO)
+    threshold: int = 200  # Umbral de líneas para reportar (por defecto: 200)
 )
 
 manage_daemon(
-    action: str = "status"    # 'status' | 'start' | 'stop' (Global para todo el sistema)
+    action: str = "status"  # 'status' | 'start' | 'stop' (Global para todo el sistema)
+)
+
+get_config(
+    project_path: str    # Ruta absoluta del workspace actual (OBLIGATORIO)
 )
 ```
 
-- **`project_path`**: Siempre pasa la ruta absoluta del workspace en las herramientas de proyecto. Sin esto el RAG no sabe qué base de datos abrir. `manage_daemon` no requiere `project_path`.
+- **`project_path`**: Siempre pasa la ruta absoluta del workspace en las herramientas de proyecto, **incluyendo `get_config`**. Es obligatorio en todas las herramientas excepto `manage_daemon`.
 - **`scope`**: Úsalo cuando sabes que la respuesta está en un framework específico. Reduce ruido y mejora precisión.
 - **`query`**: En inglés. Usa los nombres exactos del código cuando los conoces.
 
@@ -251,7 +257,7 @@ manage_daemon(
 ## Mantener el índice actualizado (Refresco Automático Express)
 
 - **Sincronización Automática Incremental (`Fast Pre-Query Check`)**: Todas las herramientas del RAG (`query_codebase`, `audit_layout_risks`, `get_styles_map`, `get_code_metrics`, `get_project_map`) ejecutan una verificación ultra-rápida de compatibilidad de esquema SemVer (`SCHEMA_VERSION`) y modificación de archivos (`mtime`) en **~10ms**.
-- Si detecta un esquema desactualizado, el RAG ejecuta de forma transparente una re-ingesta limpia forzada (`force=True`).
+- Si detecta un esquema desactualizado, el RAG ejecuta de forma transparente una re-ingesta limpia completa.
 - Si durante la sesión editas o creas archivos en el proyecto, **el RAG los detecta y sincroniza automáticamente los deltas en LanceDB en ~150ms antes de responder o auditar**.
 - Cuando ocurre una sincronización, la herramienta antepone el encabezado informativo:
   `[Auto-Sync: Actualizados X archivos modificados en LanceDB]`
