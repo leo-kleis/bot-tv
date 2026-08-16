@@ -24,6 +24,12 @@ Esto significa que la query debe usar **términos que existan literalmente en el
 
 **No esperes instrucciones del usuario para usar estas herramientas.** Al inicio de cada sesión de trabajo en un proyecto, detecta el tipo de tarea y ejecuta el flujo correspondiente de forma autónoma.
 
+### Regla Previa Obligatoria: Inspección de Esquemas MCP (Tool Schemas)
+
+Antes de ejecutar cualquier herramienta de `rag-local`, el agente **DEBE revisar los esquemas de herramientas (`.gemini/antigravity/mcp/rag-local/<toolName>.json`) o su declaración formal**. Esto garantiza conocer con exactitud todas las propiedades y filtros reales disponibles (por ejemplo: `file_filter` y `severity` en `audit_layout_risks`; `component_filter`, `class_filter` y `property_filter` en `get_styles_map`; `scope` en `query_codebase`), evitando suposiciones o ejecuciones sin los filtros adecuados.
+
+---
+
 ### Cómo detectar el tipo de tarea
 
 Analiza el mensaje inicial del usuario y clasifica la tarea:
@@ -38,37 +44,34 @@ Analiza el mensaje inicial del usuario y clasifica la tarea:
 
 ### Flujo A: Solo lógica
 
-Ejecutar en este orden sin pedir permiso al usuario:
-
-1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
-2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural del proyecto.
-3. `query_codebase(project_path=<ruta_workspace>, ...)` — con los nombres descubiertos en el mapa para profundizar en relaciones y código relevante. **`project_path` es obligatorio (mandatory / obligatorio).**
+1. **Revisar esquema**: Consultar parámetros de `get_config`, `get_project_map` y `query_codebase`.
+2. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+3. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural del proyecto.
+4. `query_codebase(project_path=<ruta_workspace>, ...)` — con los nombres descubiertos en el mapa y filtrando por `scope` si aplica. **`project_path` es obligatorio (mandatory / obligatorio).**
 
 ---
 
 ### Flujo B: Solo diseño
 
-Ejecutar en este orden sin pedir permiso al usuario:
-
-1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
-2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural (necesario para entender componentes).
-3. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS del componente afectado.
-4. `audit_layout_risks(project_path=<ruta_workspace>)` — estado actual del diseño antes de intervenir (línea base).
-5. `query_codebase(project_path=<ruta_workspace>, ...)` — para encontrar el código JSX/HTML del componente y sus relaciones.
-6. Al finalizar los cambios: `audit_layout_risks(project_path=<ruta_workspace>)` nuevamente para confirmar que la implementación nueva no introduce regresiones.
+1. **Revisar esquema**: Consultar parámetros de `get_styles_map` (`component_filter`, `class_filter`, `property_filter`) y `audit_layout_risks` (`file_filter`, `severity`).
+2. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+3. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural (necesario para entender componentes).
+4. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS del componente afectado.
+5. `audit_layout_risks(project_path=<ruta_workspace>, file_filter=..., severity=...)` — estado actual del diseño antes de intervenir (línea base).
+6. `query_codebase(project_path=<ruta_workspace>, ...)` — para encontrar el código JSX/HTML del componente y sus relaciones.
+7. Al finalizar los cambios: `audit_layout_risks(project_path=<ruta_workspace>, file_filter=..., severity=...)` nuevamente para confirmar que la implementación nueva no introduce regresiones.
 
 ---
 
 ### Flujo C: Lógica + diseño
 
-Ejecutar en este orden sin pedir permiso al usuario:
-
-1. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
-2. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural completo.
-3. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS.
-4. `audit_layout_risks(project_path=<ruta_workspace>)` — línea base del estado de diseño.
-5. `query_codebase(project_path=<ruta_workspace>, ...)` — para lógica y relaciones de código usando nombres del mapa.
-6. Al finalizar: `audit_layout_risks(project_path=<ruta_workspace>)` para confirmar que la implementación es correcta visualmente.
+1. **Revisar esquemas**: Consultar parámetros de todas las herramientas a utilizar antes de su invocación.
+2. `get_config(project_path=<ruta_workspace>)` — verifica estado del índice y del Worker Daemon. **`project_path` es obligatorio (mandatory / obligatorio).**
+3. `get_project_map(project_path=<ruta_workspace>)` — mapa estructural completo.
+4. `get_styles_map(project_path=<ruta_workspace>, component_filter=<componente_relevante>)` — trazabilidad CSS.
+5. `audit_layout_risks(project_path=<ruta_workspace>, file_filter=..., severity=...)` — línea base del estado de diseño.
+6. `query_codebase(project_path=<ruta_workspace>, ...)` — para lógica y relaciones de código usando nombres del mapa.
+7. Al finalizar: `audit_layout_risks(project_path=<ruta_workspace>, file_filter=..., severity=...)` para confirmar que la implementación es correcta visualmente.
 
 ---
 

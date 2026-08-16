@@ -370,6 +370,7 @@
   padding: 10px 14px;
   position: relative;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   transition: border-color 0.2s ease;
 }

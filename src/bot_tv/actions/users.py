@@ -24,6 +24,58 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+async def _sync_irc_user(
+    bot: Bot,
+    user_id: str,
+    username: str,
+    *,
+    nickname: str | None = None,
+    update_nickname: bool = False,
+    is_bot: bool | None = None,
+    is_moderator: bool | None = None,
+    is_vip: bool | None = None,
+    is_subscriber: bool | None = None,
+    sub_tier: str | None = None,
+    update_sub_tier: bool = False,
+) -> None:
+    """Actualiza en memoria y emite el UserJoinEvent de un usuario conectado en IRC."""
+    if not bot.irc:
+        return
+
+    key = (
+        user_id
+        if user_id in bot.irc.connected_users
+        else (username.lower() if username.lower() in bot.irc.connected_users else None)
+    )
+    if not key:
+        u_lower = username.lower()
+        for k, v in bot.irc.connected_users.items():
+            if (user_id and v.user_id == user_id) or v.username.lower() == u_lower:
+                key = k
+                break
+
+    if key:
+        from dataclasses import replace as dataclass_replace
+
+        u = bot.irc.connected_users[key]
+        updated_u = dataclass_replace(
+            u,
+            nickname=nickname if update_nickname else u.nickname,
+            is_bot=is_bot if is_bot is not None else u.is_bot,
+            is_moderator=is_moderator if is_moderator is not None else u.is_moderator,
+            is_vip=is_vip if is_vip is not None else u.is_vip,
+            is_subscriber=(
+                is_subscriber if is_subscriber is not None else u.is_subscriber
+            ),
+            sub_tier=sub_tier if update_sub_tier else u.sub_tier,
+        )
+        target_key = user_id or key
+        if target_key != key:
+            bot.irc.connected_users.pop(key, None)
+        bot.irc.connected_users[target_key] = updated_u
+        await bot.event_bus.emit(updated_u)
+
+
 async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
     """Busca user_id en DB local; si no está, consulta la API de Twitch."""
     user_id = await bot.user_repo.get_user_id_by_name(username)
@@ -72,13 +124,7 @@ async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
     nuevo_es_bot = not es_bot
     await bot.user_repo.set_user_bot(user_id, nuevo_es_bot, cache=cache)
 
-    if bot.irc and user_id in bot.irc.connected_users:
-        from dataclasses import replace as dataclass_replace
-
-        u = bot.irc.connected_users[user_id]
-        updated_u = dataclass_replace(u, is_bot=nuevo_es_bot)
-        bot.irc.connected_users[user_id] = updated_u
-        await bot.event_bus.emit(updated_u)
+    await _sync_irc_user(bot, user_id, username, is_bot=nuevo_es_bot)
 
     display_name = username
     if cache is not None:
@@ -123,13 +169,9 @@ async def action_set_nickname(
 
     await bot.user_repo.set_nickname(user_id, nickname, cache=cache)
 
-    if bot.irc and user_id in bot.irc.connected_users:
-        from dataclasses import replace as dataclass_replace
-
-        u = bot.irc.connected_users[user_id]
-        updated_u = dataclass_replace(u, nickname=nickname)
-        bot.irc.connected_users[user_id] = updated_u
-        await bot.event_bus.emit(updated_u)
+    await _sync_irc_user(
+        bot, user_id, username, nickname=nickname, update_nickname=True
+    )
 
     display_name = username
     if cache is not None:
@@ -269,15 +311,14 @@ async def action_update_user_roles(
         cache=cache,
     )
 
-    if bot.irc and user_id in bot.irc.connected_users:
-        from dataclasses import replace as dataclass_replace
-
-        u = bot.irc.connected_users[user_id]
-        updated_u = dataclass_replace(
-            u, is_moderator=is_moderator, is_vip=is_vip, is_bot=is_bot
-        )
-        bot.irc.connected_users[user_id] = updated_u
-        await bot.event_bus.emit(updated_u)
+    await _sync_irc_user(
+        bot,
+        user_id,
+        username,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+        is_bot=is_bot,
+    )
 
     display_name = username
     if cache is not None:
@@ -468,20 +509,17 @@ async def action_sync_user_roles(
     )
 
     if updated:
-        if bot.irc and user_id in bot.irc.connected_users:
-            from dataclasses import replace as dataclass_replace
-
-            u = bot.irc.connected_users[user_id]
-            updated_u = dataclass_replace(
-                u,
-                is_moderator=is_moderator,
-                is_vip=is_vip,
-                is_bot=is_bot,
-                is_subscriber=is_subscriber,
-                sub_tier=sub_tier,
-            )
-            bot.irc.connected_users[user_id] = updated_u
-            await bot.event_bus.emit(updated_u)
+        await _sync_irc_user(
+            bot,
+            user_id,
+            username,
+            is_moderator=is_moderator,
+            is_vip=is_vip,
+            is_bot=is_bot,
+            is_subscriber=is_subscriber,
+            sub_tier=sub_tier,
+            update_sub_tier=True,
+        )
 
         display_name = username
         if cache is not None:

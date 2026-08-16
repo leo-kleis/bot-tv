@@ -590,7 +590,7 @@ export function ChatTab({
               : users.map(
                   u => html`
                     <${IrcUser}
-                      key=${u.username}
+                      key=${u.user_id || u.username}
                       user=${u}
                       onUserClick=${(e, uData) => handleOpenUserProfile(uData)}
                     />

@@ -248,9 +248,12 @@ class TwitchIRCClient:
                 is_subscriber=is_sub,
                 sub_tier=sub_tier,
             )
-            self.connected_users[usuario] = join_event
+            user_key = user_id or usuario
+            self.connected_users[user_key] = join_event
             await self.bot.event_bus.emit(join_event)
         else:
+            if user_id:
+                self.connected_users.pop(user_id, None)
             self.connected_users.pop(usuario, None)
             await self.bot.event_bus.emit(
                 UserPartEvent(

@@ -72,8 +72,25 @@ function reducer(state, action) {
     case 'user_join': {
       const next = new Map(state.ircUsers);
       const nowISO = action.data.timestamp || new Date().toISOString();
-      const existing = next.get(action.data.username);
-      next.set(action.data.username, {
+      const key = action.data.user_id || action.data.username;
+      let existingKey = next.has(key) ? key : null;
+      if (!existingKey) {
+        for (const [k, u] of next.entries()) {
+          if (
+            (action.data.user_id && u.user_id === action.data.user_id) ||
+            (action.data.username &&
+              u.username?.toLowerCase() === action.data.username.toLowerCase())
+          ) {
+            existingKey = k;
+            break;
+          }
+        }
+      }
+      const existing = existingKey ? next.get(existingKey) : null;
+      if (existingKey && existingKey !== key) {
+        next.delete(existingKey);
+      }
+      next.set(key, {
         ...action.data,
         present: true,
         joinedAt: existing?.joinedAt || nowISO,
@@ -85,11 +102,25 @@ function reducer(state, action) {
     case 'user_part': {
       const next = new Map(state.ircUsers);
       const nowISO = action.data.timestamp || new Date().toISOString();
-      const existing = next.get(action.data.username);
-      if (existing) {
-        next.set(action.data.username, { ...existing, present: false, partedAt: nowISO });
+      const key = action.data.user_id || action.data.username;
+      let targetKey = next.has(key) ? key : null;
+      if (!targetKey) {
+        for (const [k, u] of next.entries()) {
+          if (
+            (action.data.user_id && u.user_id === action.data.user_id) ||
+            (action.data.username &&
+              u.username?.toLowerCase() === action.data.username.toLowerCase())
+          ) {
+            targetKey = k;
+            break;
+          }
+        }
+      }
+      if (targetKey) {
+        const existing = next.get(targetKey);
+        next.set(targetKey, { ...existing, present: false, partedAt: nowISO });
       } else {
-        next.set(action.data.username, { ...action.data, present: false, partedAt: nowISO });
+        next.set(key, { ...action.data, present: false, partedAt: nowISO });
       }
       return { ...state, ircUsers: next };
     }
@@ -253,26 +284,44 @@ function reducer(state, action) {
       return { ...state, exited: true };
 
     case 'user_nickname_updated': {
-      const { user_id, nickname } = action.data;
+      const { user_id, username, nickname } = action.data;
       const ircUsers = new Map(state.ircUsers);
 
-      let targetKey = user_id;
-      if (!targetKey && action.data.username) {
+      let targetKey = null;
+      if (user_id && ircUsers.has(user_id)) {
+        targetKey = user_id;
+      } else if (username && ircUsers.has(username)) {
+        targetKey = username;
+      } else {
         for (const [k, u] of ircUsers.entries()) {
-          if (u.username?.toLowerCase() === action.data.username.toLowerCase()) {
+          if (
+            (user_id && u.user_id === user_id) ||
+            (username && u.username?.toLowerCase() === username.toLowerCase())
+          ) {
             targetKey = k;
             break;
           }
         }
       }
 
-      if (targetKey && ircUsers.has(targetKey)) {
+      if (targetKey) {
         const u = ircUsers.get(targetKey);
         ircUsers.set(targetKey, {
           ...u,
           nickname,
         });
       }
+
+      const updatedChatMessages = state.chatMessages.map(m => {
+        if (m.isSystem) return m;
+        const matchesUser =
+          (user_id && m.user_id === user_id) ||
+          (username && m.username?.toLowerCase() === username.toLowerCase());
+        if (matchesUser) {
+          return { ...m, nickname };
+        }
+        return m;
+      });
 
       const systemMsg = {
         isSystem: true,
@@ -281,10 +330,10 @@ function reducer(state, action) {
         data: action.data,
       };
 
-      const exists = state.chatMessages.some(
+      const exists = updatedChatMessages.some(
         m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
       );
-      const msgs = exists ? state.chatMessages : [...state.chatMessages, systemMsg];
+      const msgs = exists ? updatedChatMessages : [...updatedChatMessages, systemMsg];
 
       return {
         ...state,
@@ -294,31 +343,68 @@ function reducer(state, action) {
     }
 
     case 'user_role_updated': {
-      const { user_id, is_bot, is_moderator, is_vip, is_subscriber, sub_tier } = action.data;
+      const { user_id, username, is_bot, is_moderator, is_vip, is_subscriber, sub_tier } =
+        action.data;
       const ircUsers = new Map(state.ircUsers);
 
-      // Buscar por user_id o username
-      let targetKey = user_id;
-      if (!targetKey && action.data.username) {
+      let targetKey = null;
+      if (user_id && ircUsers.has(user_id)) {
+        targetKey = user_id;
+      } else if (username && ircUsers.has(username)) {
+        targetKey = username;
+      } else {
         for (const [k, u] of ircUsers.entries()) {
-          if (u.username?.toLowerCase() === action.data.username.toLowerCase()) {
+          if (
+            (user_id && u.user_id === user_id) ||
+            (username && u.username?.toLowerCase() === username.toLowerCase())
+          ) {
             targetKey = k;
             break;
           }
         }
       }
 
-      if (targetKey && ircUsers.has(targetKey)) {
+      if (targetKey) {
         const u = ircUsers.get(targetKey);
+        const updatedIsBot = is_bot !== undefined ? is_bot : u.is_bot;
+        let role = u.role;
+        if (updatedIsBot) {
+          role = 'Bot';
+        } else if (role === 'Bot') {
+          role = 'Visita';
+        }
         ircUsers.set(targetKey, {
           ...u,
-          is_bot: is_bot ?? u.is_bot,
-          is_moderator: is_moderator ?? u.is_moderator,
-          is_vip: is_vip ?? u.is_vip,
-          is_subscriber: is_subscriber ?? u.is_subscriber,
-          sub_tier: sub_tier ?? u.sub_tier,
+          is_bot: updatedIsBot,
+          is_moderator: is_moderator !== undefined ? is_moderator : u.is_moderator,
+          is_vip: is_vip !== undefined ? is_vip : u.is_vip,
+          is_subscriber: is_subscriber !== undefined ? is_subscriber : u.is_subscriber,
+          sub_tier: sub_tier !== undefined ? sub_tier : u.sub_tier,
+          role,
         });
       }
+
+      const updatedChatMessages = state.chatMessages.map(m => {
+        if (m.isSystem) return m;
+        const matchesUser =
+          (user_id && m.user_id === user_id) ||
+          (username && m.username?.toLowerCase() === username.toLowerCase());
+        if (matchesUser) {
+          const updatedIsBot = is_bot !== undefined ? is_bot : m.is_bot;
+          let role = m.role;
+          if (updatedIsBot) {
+            role = 'Bot';
+          } else if (role === 'Bot') {
+            role = 'Visita';
+          }
+          return {
+            ...m,
+            is_bot: updatedIsBot,
+            role,
+          };
+        }
+        return m;
+      });
 
       const systemMsg = {
         isSystem: true,
@@ -327,10 +413,10 @@ function reducer(state, action) {
         data: action.data,
       };
 
-      const exists = state.chatMessages.some(
+      const exists = updatedChatMessages.some(
         m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
       );
-      const msgs = exists ? state.chatMessages : [...state.chatMessages, systemMsg];
+      const msgs = exists ? updatedChatMessages : [...updatedChatMessages, systemMsg];
 
       return {
         ...state,
