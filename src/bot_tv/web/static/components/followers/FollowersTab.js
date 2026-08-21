@@ -190,7 +190,7 @@ export function FollowersTab({ followers }) {
   const totalPages = Math.ceil(totalUsers / limit);
 
   return html`
-    <div class="panel" id="followers-panel" style="display:flex; flex-direction:column; gap:24px;">
+    <div class="panel" id="followers-panel">
       <!-- Resumen y Sincronización -->
       <${FollowersSummary}
         sync=${sync}
@@ -225,7 +225,7 @@ export function FollowersTab({ followers }) {
           }
         </div>
 
-        <div class="section-body" style="gap:16px;">
+        <div class="section-body">
           <!-- Barra de Filtros -->
           <${FollowersFilterBar}
             nameInput=${nameInput}

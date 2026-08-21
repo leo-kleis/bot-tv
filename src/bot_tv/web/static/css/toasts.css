@@ -172,3 +172,15 @@
   background: rgba(56, 161, 105, 0.15);
   color: var(--alert-sub-icon);
 }
+
+@media (max-height: 480px) {
+  .toast-overlay {
+    top: calc(var(--header-h, 44px) + 6px);
+    right: 10px;
+    max-width: 320px;
+    gap: 8px;
+  }
+  .toast-card {
+    padding: 10px 12px;
+  }
+}

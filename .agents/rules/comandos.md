@@ -2,22 +2,26 @@
 
 ## Proyecto (Ejecución)
 
-- Inicia el bot:
+- Inicia el bot (modo terminal con consola interactiva):
   ```bash
   uv run bot-tv
   ```
-- Ejecuta el script de configuración de Tokens:
+- Inicia el bot y el dashboard web (servidor Uvicorn + TwitchIO):
+  ```bash
+  uv run bot-web
+  ```
+- Ejecuta el asistente de configuración inicial de tokens OAuth y suscripciones:
   ```bash
   uv run bot-setup
   ```
 
-## Consola Interactiva (durante la ejecución del bot)
+## Consola Interactiva (durante la ejecución de `bot-tv`)
 
 - Sincroniza seguidores de todos los canales:
   ```bash
   sync_followers
   ```
-- Marca/desmarca un usuario como bot:
+- Marca o desmarca un usuario como bot:
   ```bash
   is_bot <usuario>
   ```
@@ -25,7 +29,23 @@
   ```bash
   apodo <usuario> [apodo]
   ```
-- Muestra los comandos disponibles:
+- Pregunta o interactúa directamente con el asistente IA (Gemini):
+  ```bash
+  talk <mensaje>
+  ```
+- Muestra el estado del rate limiter (RPM/RPD del modelo actual o de todos):
+  ```bash
+  rpm [all]
+  ```
+- Muestra o cambia el modelo de IA activo en tiempo de ejecución:
+  ```bash
+  model [nombre]
+  ```
+- Lista todos los modelos disponibles en AI Studio y sus límites:
+  ```bash
+  models
+  ```
+- Muestra la lista de comandos disponibles:
   ```bash
   help
   ```
@@ -45,7 +65,7 @@ mise exec -- uv run <comando>
 
 ## Uv (Gestor de dependencias)
 
-- Instala dependencias:
+- Instala y sincroniza dependencias del proyecto:
   ```bash
   uv sync
   ```
@@ -68,37 +88,45 @@ mise exec -- uv run <comando>
 
 ## Ruff (Linter & Formatter)
 
-- Revisa problemas:
+- Analiza problemas de linting en el proyecto:
   ```bash
-  uv run ruff check .
+  uv run ruff check
   ```
-- Autocorrige problemas:
+- Analiza problemas en una ruta específica:
   ```bash
-  uv run ruff check --fix .
+  uv run ruff check <ruta>
+  ```
+- Autocorrige problemas detectados:
+  ```bash
+  uv run ruff check --fix
   ```
 - Formatea el código:
   ```bash
-  uv run ruff format .
+  uv run ruff format
+  ```
+- Verifica el formato sin modificar archivos:
+  ```bash
+  uv run ruff format --check
   ```
 
 ## Pyrefly (Type Checker)
 
-- Revisa tipos de forma estricta:
+- Revisa tipos en modo estándar (falla ante errores de tipo):
   ```bash
   uv run pyrefly check
   ```
-- Revisa tipos y muestra advertencias:
+- Revisa tipos en modo estricto (muestra advertencias y falla ante warnings y errores):
   ```bash
   uv run pyrefly check --min-severity warn
   ```
 
 ## Prettier (Formatter)
 
-- Formatea archivos de frontend:
+- Formatea archivos de frontend (`.js`, `.html`, `.css`):
   ```bash
   pnpm run format
   ```
-- Verifica el formato de archivos de frontend:
+- Verifica el formato de archivos de frontend sin modificar:
   ```bash
   pnpm run format:check
   ```
@@ -129,7 +157,7 @@ mise exec -- uv run <comando>
   pnpm exec eslint --fix <ruta>
   ```
 
-## Scripts de Frontend (Linter & Formatter combinados)
+## Scripts de Frontend (Linter, Formatter & Typecheck)
 
 - Ejecuta oxlint y eslint en el directorio static:
   ```bash
@@ -139,6 +167,10 @@ mise exec -- uv run <comando>
   ```bash
   pnpm run lint:fix
   ```
+- Valida tipos de TypeScript en el proyecto:
+  ```bash
+  pnpm run typecheck
+  ```
 
 ## Prisma (Gestión de Base de Datos)
 
@@ -146,7 +178,7 @@ mise exec -- uv run <comando>
   ```bash
   pnpm run prisma:migrate -- --name <nombre>
   ```
-- Sincroniza directamente el esquema schema.prisma con la base de datos en la nube sin crear historial de migraciones:
+- Sincroniza directamente el esquema schema.prisma con la base de datos sin crear historial de migraciones:
   ```bash
   pnpm run prisma:push
   ```
@@ -157,7 +189,7 @@ mise exec -- uv run <comando>
 
 ## Lefthook (Git Hooks)
 
-- Instala y activa los Git hooks locales en el repositorio mediante la versión gestionada por mise:
+- Instala y activa los Git hooks locales en el repositorio:
   ```bash
   lefthook install
   ```
@@ -172,19 +204,38 @@ mise exec -- uv run <comando>
 
 ## Release-it (Gestión de Versiones)
 
-- Incrementa la versión parche, ej. 0.6.1 a 0.6.2, crea el commit, tag de Git y sube todo a GitHub:
+- Incrementa la versión parche, crea el commit, tag de Git y sube los cambios:
   ```bash
   pnpm run release patch
   ```
-- Incrementa la versión menor, ej. 0.6.1 a 0.7.0, crea commit, tag y push:
+- Incrementa la versión menor, crea commit, tag y push:
   ```bash
   pnpm run release minor
   ```
-- Incrementa la versión mayor, ej. 0.6.1 a 1.0.0, crea commit, tag y push:
+- Incrementa la versión mayor, crea commit, tag y push:
   ```bash
   pnpm run release major
   ```
 - Simula el proceso de lanzamiento mostrando el diff y los comandos a ejecutar sin aplicarlos:
   ```bash
   pnpm run release -- --dry-run
+  ```
+
+## Scripts Utilitarios (`extra/`)
+
+- Valida los scopes configurados para los tokens de Twitch:
+  ```bash
+  uv run python extra/check_scopes.py
+  ```
+- Consulta o verifica IDs de Twitch:
+  ```bash
+  uv run python extra/check_twitch_id.py
+  ```
+- Obtiene IDs de canales y usuarios de Twitch:
+  ```bash
+  uv run python extra/get_twitch_ids.py
+  ```
+- Verifica la existencia y estructura de tablas en PostgreSQL:
+  ```bash
+  uv run python extra/run_migrations.py
   ```

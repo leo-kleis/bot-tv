@@ -27,8 +27,8 @@ export function ContextMenu({ position, items, onClose }) {
   }, [onClose]);
 
   // Ajustar coordenadas para no salirse de la pantalla
-  const x = Math.min(position.x, window.innerWidth - 220);
-  const y = Math.min(position.y, window.innerHeight - 200);
+  const x = Math.max(8, Math.min(position.x, window.innerWidth - 220));
+  const y = Math.max(8, Math.min(position.y, window.innerHeight - 200));
 
   return html`
     <div

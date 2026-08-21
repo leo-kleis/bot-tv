@@ -73,7 +73,10 @@ export function StreamWidget({
           }
         </div>
 
-        <${Tooltip} text="Hacer clic para editar el título o categoría del stream" position="bottom">
+        <${Tooltip}
+          text="Hacer clic para editar el título o categoría del stream"
+          position="bottom-start"
+        >
           <button
             type="button"
             class="stream-meta-btn"

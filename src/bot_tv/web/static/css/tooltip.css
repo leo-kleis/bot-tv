@@ -4,16 +4,20 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
+  width: fit-content;
   max-width: 100%;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .ui-tooltip {
   position: absolute;
   z-index: var(--z-popover);
   isolation: isolate;
-  padding: 5px 10px;
-  font-size: 11px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
   font-weight: 500;
   color: var(--text);
   background: #161320;
@@ -24,9 +28,11 @@
     0 0 1px rgba(169, 112, 255, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  max-width: min(280px, calc(100vw - 24px));
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
   white-space: normal;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
   text-align: center;
   pointer-events: none;
   opacity: 0;
@@ -66,6 +72,32 @@
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
+  border-width: 0 5px 6px 5px;
+  border-color: transparent transparent #161320 transparent;
+}
+
+/* Posición Bottom-Start (alineado al inicio del elemento) */
+.ui-tooltip-bottom-start,
+.ui-tooltip-bottom-left {
+  top: calc(100% + 8px);
+  left: 0;
+  transform: none;
+}
+
+.ui-tooltip-bottom-start::before,
+.ui-tooltip-bottom-left::before {
+  bottom: 100%;
+  left: 16px;
+  transform: none;
+  border-width: 0 6px 7px 6px;
+  border-color: transparent transparent var(--border) transparent;
+}
+
+.ui-tooltip-bottom-start::after,
+.ui-tooltip-bottom-left::after {
+  bottom: 100%;
+  left: 17px;
+  transform: none;
   border-width: 0 5px 6px 5px;
   border-color: transparent transparent #161320 transparent;
 }

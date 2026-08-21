@@ -18,6 +18,8 @@
   border-radius: var(--radius-sm);
   animation: msg-in 0.2s ease;
   margin-top: 4px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .result-msg.ok {
   background: rgba(52, 211, 153, 0.08);

@@ -27,6 +27,7 @@ from bot_tv.web.api import (
     endpoint_get_ffz_emotes,
     endpoint_get_models,
     endpoint_get_rpm,
+    endpoint_get_user_detail,
     endpoint_list_users,
     endpoint_moderation_ban,
     endpoint_moderation_delete_message,
@@ -108,6 +109,11 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route(
             "/api/users/{username}/messages",
             endpoint_user_messages,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/users/{username}/detail",
+            endpoint_get_user_detail,
             methods=["GET"],
         ),
         Route("/api/users", endpoint_list_users, methods=["GET"]),

@@ -1,5 +1,14 @@
 // Mapeo centralizado de tipo de evento Twitch a configuraciones de visualización en Chat y Toasts.
 export const EVENT_CONFIG = {
+  twitch_follow: {
+    icon: 'fa-heart',
+    sysClassName: 'sys-sub',
+    toastClassName: 'toast-sub',
+    toastTitle: '¡Nuevo Seguidor!',
+    chatHtml: (data, html) =>
+      html`<strong>${data.display_name}</strong>${' comenzó a seguir el canal!'}`,
+    toastText: data => `${data.display_name} comenzó a seguirte.`,
+  },
   twitch_raid: {
     icon: 'fa-people-group',
     sysClassName: 'sys-raid',

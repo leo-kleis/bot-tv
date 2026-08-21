@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef } from 'preact-setup';
+import { html, useState, useEffect, useRef, render } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 
 export function StreamEditModal({ initialTitle = '', initialCategory = '', onClose, onSaved }) {
@@ -13,6 +13,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -58,7 +59,12 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     }
 
     function handleClickOutside(e) {
-      if (categoryBoxRef.current && !categoryBoxRef.current.contains(e.target)) {
+      const portalEl = document.getElementById('stream-category-portal');
+      if (
+        categoryBoxRef.current &&
+        !categoryBoxRef.current.contains(e.target) &&
+        (!portalEl || !portalEl.contains(e.target))
+      ) {
         setDropdownOpen(false);
       }
     }
@@ -70,6 +76,30 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [onClose, dropdownOpen]);
+
+  // Calcular posición del dropdown flotante
+  const updateDropdownPos = () => {
+    if (!categoryBoxRef.current) return;
+    const rect = categoryBoxRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.bottom + 6,
+      left: rect.left,
+      width: rect.width,
+    });
+  };
+
+  useEffect(() => {
+    if (dropdownOpen && searchResults.length > 0) {
+      updateDropdownPos();
+      const handleScrollOrResize = () => updateDropdownPos();
+      window.addEventListener('resize', handleScrollOrResize);
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      return () => {
+        window.removeEventListener('resize', handleScrollOrResize);
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+      };
+    }
+  }, [dropdownOpen, searchResults]);
 
   // Debounce de búsqueda de categoría (500ms)
   useEffect(() => {
@@ -130,6 +160,78 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   function handleRemoveCategory() {
     setSelectedCategory(null);
   }
+
+  // Renderizar dropdown en portal a document.body para evitar recorte por scroll del modal
+  useEffect(() => {
+    let portalRoot = document.getElementById('stream-category-portal');
+    if (!dropdownOpen || searchResults.length === 0) {
+      if (portalRoot) {
+        render(null, portalRoot);
+      }
+      return;
+    }
+
+    if (!portalRoot) {
+      portalRoot = document.createElement('div');
+      portalRoot.id = 'stream-category-portal';
+      document.body.appendChild(portalRoot);
+    }
+
+    const dropdownContent = html`
+      <div
+        class="category-dropdown-list"
+        style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-popover);"
+      >
+        ${searchResults.map(cat => {
+          const boxArt = cat.box_art_url
+            ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
+            : null;
+          return html`
+            <div
+              key=${cat.id}
+              class="category-dropdown-item"
+              onClick=${() => handleSelectCategory(cat)}
+            >
+              ${
+                boxArt
+                  ? html`<img
+                      src=${boxArt}
+                      alt=${cat.name}
+                      class="category-box-art"
+                      loading="lazy"
+                      onError=${e => {
+                        e.target.style.display = 'none';
+                      }}
+                    />`
+                  : html`<div class="category-box-art-placeholder">
+                      <i class="fa-solid fa-gamepad"></i>
+                    </div>`
+              }
+              <span class="category-item-name">${cat.name}</span>
+            </div>
+          `;
+        })}
+      </div>
+    `;
+
+    render(dropdownContent, portalRoot);
+
+    return () => {
+      if (portalRoot) {
+        render(null, portalRoot);
+      }
+    };
+  }, [dropdownOpen, searchResults, dropdownPos]);
+
+  // Limpiar portal al desmontar
+  useEffect(() => {
+    return () => {
+      const portalRoot = document.getElementById('stream-category-portal');
+      if (portalRoot) {
+        render(null, portalRoot);
+      }
+    };
+  }, []);
 
   async function handleSave() {
     setSaving(true);
@@ -280,45 +382,6 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                   : null
               }
             </div>
-
-            <!-- Resultados desplegables de búsqueda -->
-            ${
-              dropdownOpen && searchResults.length > 0
-                ? html`
-                    <div class="category-dropdown-list">
-                      ${searchResults.map(cat => {
-                        const boxArt = cat.box_art_url
-                          ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
-                          : null;
-                        return html`
-                          <div
-                            key=${cat.id}
-                            class="category-dropdown-item"
-                            onClick=${() => handleSelectCategory(cat)}
-                          >
-                            ${
-                              boxArt
-                                ? html`<img
-                                    src=${boxArt}
-                                    alt=${cat.name}
-                                    class="category-box-art"
-                                    loading="lazy"
-                                    onError=${e => {
-                                      e.target.style.display = 'none';
-                                    }}
-                                  />`
-                                : html`<div class="category-box-art-placeholder">
-                                    <i class="fa-solid fa-gamepad"></i>
-                                  </div>`
-                            }
-                            <span class="category-item-name">${cat.name}</span>
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  `
-                : null
-            }
           </div>
         </div>
 

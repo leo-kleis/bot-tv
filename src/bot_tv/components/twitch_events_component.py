@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import twitchio
 from twitchio.ext import commands
 
+from bot_tv.actions.users import _sync_irc_user
 from bot_tv.events import (
     TwitchBanEvent,
     TwitchChannelPointsRedeemEvent,
     TwitchChatClearEvent,
     TwitchChatClearUserEvent,
     TwitchCheerEvent,
+    TwitchFollowEvent,
     TwitchMessageDeleteEvent,
     TwitchPredictionBeginEvent,
     TwitchPredictionEndEvent,
@@ -35,6 +38,68 @@ class TwitchEventsComponent(commands.Component):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
+
+    # ── Follow ──────────────────────────────────────────────────────────────
+
+    @commands.Component.listener()
+    async def event_follow(self, payload: twitchio.models.ChannelFollow) -> None:
+        """Se ejecuta cuando un usuario sigue el canal en tiempo real."""
+        user = payload.user
+        user_id = user.id
+        username = user.name or user_id
+        display_name = user.display_name or username
+        broadcaster_id = payload.broadcaster.id
+
+        followed_at_iso = (
+            payload.followed_at.isoformat()
+            if hasattr(payload.followed_at, "isoformat")
+            else str(payload.followed_at)
+        )
+
+        try:
+            clean_str = followed_at_iso.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(clean_str).astimezone()
+            role = dt.strftime("%d/%m/%y")
+        except Exception:
+            role = "Visita"
+
+        cache = self.bot.user_cache
+
+        # 1. Upsert usuario en DB y caché
+        await self.bot.user_repo.upsert_user(
+            user_id,
+            username,
+            display_name,
+            cache=cache,
+        )
+
+        # 2. Persistir estado de follow en channel_users y caché
+        await self.bot.channel_user_repo.set_user_follow_status(
+            broadcaster_id,
+            user_id,
+            followed_at_iso,
+            cache=cache,
+        )
+
+        # 3. Sincronizar usuario IRC si está conectado
+        await _sync_irc_user(
+            self.bot,
+            user_id,
+            username,
+            role=role,
+            update_role=True,
+        )
+
+        # 4. Emitir TwitchFollowEvent al EventBus
+        await self.bot.event_bus.emit(
+            TwitchFollowEvent(
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                followed_at=followed_at_iso,
+                role=role,
+            )
+        )
 
     # ── Raid ────────────────────────────────────────────────────────────────
 

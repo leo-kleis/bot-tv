@@ -272,6 +272,46 @@ async def endpoint_get_avatar(request: Request) -> Response:
     return RedirectResponse(url=url, status_code=302)
 
 
+async def endpoint_get_user_detail(request: Request) -> Response:
+    """Retorna los datos consolidados de un usuario para el drawer de perfil."""
+    bot: Bot = request.app.state.bot
+    username = request.path_params.get("username", "").strip()
+    if not username:
+        return _err("username requerido")
+
+    channels = await bot.get_channels()
+    if not channels:
+        return _err("No hay canales configurados.")
+    channel_id = channels[0]["user_id"]
+
+    row = await bot.user_repo.get_user_detail_by_name(username, channel_id)
+    if not row:
+        return _err(f"Usuario '{username}' no encontrado.", status=404)
+
+    is_follower = (
+        row.get("followed_at") is not None and row.get("unfollowed_at") is None
+    )
+    user_id = await bot.user_repo.get_user_id_by_name(username) or ""
+    is_broadcaster = user_id == str(bot.owner_id) or user_id == channel_id
+
+    return _ok(
+        {
+            "user_id": user_id,
+            "username": row["username"],
+            "display_name": row["display_name"],
+            "nickname": row["nickname"],
+            "is_bot": bool(row["is_bot"]),
+            "is_moderator": bool(row["is_moderator"]),
+            "is_vip": bool(row["is_vip"]),
+            "is_subscriber": bool(row["is_subscriber"]),
+            "followed_at": row.get("followed_at"),
+            "unfollowed_at": row.get("unfollowed_at"),
+            "is_follower": is_follower,
+            "is_broadcaster": is_broadcaster,
+        }
+    )
+
+
 async def endpoint_user_messages(request: Request) -> Response:
     """Retorna el historial de mensajes de un usuario con paginación."""
     bot: Bot = request.app.state.bot

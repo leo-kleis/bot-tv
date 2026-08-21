@@ -36,6 +36,7 @@ from bot_tv.web.api.system import (
 )
 from bot_tv.web.api.users import (
     endpoint_get_avatar,
+    endpoint_get_user_detail,
     endpoint_list_users,
     endpoint_search_users,
     endpoint_set_nickname,
@@ -57,6 +58,7 @@ __all__ = [
     "endpoint_get_ffz_emotes",
     "endpoint_get_models",
     "endpoint_get_rpm",
+    "endpoint_get_user_detail",
     "endpoint_list_users",
     "endpoint_moderation_ban",
     "endpoint_moderation_delete_message",

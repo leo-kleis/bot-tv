@@ -1,9 +1,11 @@
-import { html, useState, useEffect, useRef } from 'preact-setup';
+import { html, render, useState, useEffect, useRef } from 'preact-setup';
 
 /**
  * Calcula el estado global del indicador según las conexiones activas.
  * @param {boolean} connected
+ * @param {boolean} historyLoaded
  * @param {boolean} ircConnected
+ * @param {boolean} exited
  * @returns {'ok'|'warn'|'error'}
  */
 function getOverallStatus(connected, historyLoaded, ircConnected, exited) {
@@ -14,8 +16,8 @@ function getOverallStatus(connected, historyLoaded, ircConnected, exited) {
 
 /**
  * Indicador unificado de estado de conexiones.
- * El popover usa position:fixed para escapar del stacking context del header
- * (que tiene backdrop-filter, lo que crea un contexto de apilamiento propio).
+ * El popover se monta mediante portal en document.body para escapar del
+ * stacking context del header (que tiene backdrop-filter).
  *
  * @param {Object} props
  * @param {boolean} props.connected     - WebSocket al servidor
@@ -52,8 +54,8 @@ export function ConnectionIndicator({ connected, historyLoaded, ircConnected, ex
 
     function handleOutside(e) {
       if (dotRef.current && !dotRef.current.contains(e.target)) {
-        // El popover está en fixed fuera del árbol DOM del dot,
-        // así que debemos verificar si el click fue en el popover
+        // El popover está montado en body mediante portal,
+        // así que verificamos si el click fue en el popover
         const popover = document.getElementById('conn-popover');
         if (popover && popover.contains(e.target)) return;
         setOpen(false);
@@ -110,6 +112,55 @@ export function ConnectionIndicator({ connected, historyLoaded, ircConnected, ex
     ircStatus = 'err';
   }
 
+  // Renderizar el popover en portal a nivel raíz (document.body)
+  useEffect(() => {
+    let portalRoot = document.getElementById('conn-popover-portal');
+    if (!open) {
+      if (portalRoot) {
+        render(null, portalRoot);
+      }
+      return;
+    }
+
+    if (!portalRoot) {
+      portalRoot = document.createElement('div');
+      portalRoot.id = 'conn-popover-portal';
+      document.body.appendChild(portalRoot);
+    }
+
+    const popoverContent = html`
+      <div
+        id="conn-popover"
+        class="conn-popover"
+        role="dialog"
+        aria-label="Estado de conexiones"
+        style="top:${popoverPos.top}px;left:${popoverPos.left}px"
+      >
+        <div class="conn-popover-title">Conexiones</div>
+
+        <div class="conn-popover-row">
+          <span class="conn-popover-dot ${serverStatus}"></span>
+          <span class="conn-popover-label">Servidor</span>
+          <span class="conn-popover-status ${serverStatus}">${serverLabel}</span>
+        </div>
+
+        <div class="conn-popover-row">
+          <span class="conn-popover-dot ${ircStatus}"></span>
+          <span class="conn-popover-label">IRC</span>
+          <span class="conn-popover-status ${ircStatus}">${ircLabel}</span>
+        </div>
+      </div>
+    `;
+
+    render(popoverContent, portalRoot);
+
+    return () => {
+      if (portalRoot) {
+        render(null, portalRoot);
+      }
+    };
+  }, [open, popoverPos, serverStatus, serverLabel, ircStatus, ircLabel]);
+
   return html`
     <div class="conn-indicator-wrap">
       <button
@@ -120,33 +171,6 @@ export function ConnectionIndicator({ connected, historyLoaded, ircConnected, ex
         aria-haspopup="true"
         onClick=${toggleOpen}
       ></button>
-
-      ${
-        open &&
-        html`
-          <div
-            id="conn-popover"
-            class="conn-popover"
-            role="dialog"
-            aria-label="Estado de conexiones"
-            style="top:${popoverPos.top}px;left:${popoverPos.left}px"
-          >
-            <div class="conn-popover-title">Conexiones</div>
-
-            <div class="conn-popover-row">
-              <span class="conn-popover-dot ${serverStatus}"></span>
-              <span class="conn-popover-label">Servidor</span>
-              <span class="conn-popover-status ${serverStatus}">${serverLabel}</span>
-            </div>
-
-            <div class="conn-popover-row">
-              <span class="conn-popover-dot ${ircStatus}"></span>
-              <span class="conn-popover-label">IRC</span>
-              <span class="conn-popover-status ${ircStatus}">${ircLabel}</span>
-            </div>
-          </div>
-        `
-      }
     </div>
   `;
 }

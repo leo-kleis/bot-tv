@@ -114,6 +114,8 @@ class StreamOfflineEvent:
     """El stream se puso offline."""
 
     broadcaster_name: str
+    title: str = ""
+    category: str = ""
     timestamp: str = field(default_factory=_now)
 
 
@@ -200,6 +202,16 @@ class BotLogEvent:
 
 
 # ── Twitch EventSub Alerts ──────────────────────────────────────────────────
+@dataclass(frozen=True, slots=True)
+class TwitchFollowEvent:
+    """Evento que representa un nuevo seguidor en tiempo real."""
+
+    user_id: str
+    username: str
+    display_name: str
+    followed_at: str
+    role: str
+    timestamp: str = field(default_factory=_now)
 
 
 @dataclass(frozen=True, slots=True)

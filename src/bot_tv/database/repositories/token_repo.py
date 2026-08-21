@@ -68,6 +68,9 @@ class TokenRepository(BaseRepository):
             eventsub.ChatMessageDeleteSubscription(
                 broadcaster_user_id=user_id, user_id=bot_id
             ),
+            eventsub.ChannelFollowSubscription(
+                broadcaster_user_id=user_id, moderator_user_id=bot_id
+            ),
         ]
 
     async def load_tokens_and_subscriptions(

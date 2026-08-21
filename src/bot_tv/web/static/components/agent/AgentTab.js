@@ -165,7 +165,7 @@ export function AgentTab({ conversations = [], dispatch }) {
           onInput=${e => setInput(e.target.value)}
           onKeyDown=${onKeyDown}
           rows="2"
-          style="flex:1;min-height:42px;max-height:120px;resize:none"
+          style="flex:1;min-height:42px;max-height:120px;resize:none;min-width:0;"
           disabled=${loading}
         ></textarea>
         <button

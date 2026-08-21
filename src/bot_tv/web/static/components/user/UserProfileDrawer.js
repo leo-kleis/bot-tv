@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef } from 'preact-setup';
-import { apiPost } from '/static/components/api.js';
+import { apiGet, apiPost } from '/static/components/api.js';
 import { ConfirmModal } from '/static/components/ConfirmModal.js';
 import {
   useMessageHistory,
@@ -44,6 +44,34 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
   const username = user.username || user.display_name;
   const displayName = userData.display_name || user.display_name || username;
+
+  // Cargar datos consolidados de usuario (follow, roles, etc.) al abrir el drawer
+  useEffect(() => {
+    async function loadUserDetails() {
+      try {
+        const res = await apiGet(`/api/users/${encodeURIComponent(username)}/detail`);
+        if (res && res.ok && res.data) {
+          setUserData(prev => ({
+            ...prev,
+            ...res.data,
+          }));
+          if (res.data.nickname !== undefined) {
+            setNickname(res.data.nickname || '');
+          }
+          setTempRoles(prev => ({
+            ...prev,
+            is_bot: !!res.data.is_bot,
+            is_moderator: !!res.data.is_moderator,
+            is_vip: !!res.data.is_vip,
+            is_subscriber: !!res.data.is_subscriber,
+          }));
+        }
+      } catch (e) {
+        console.error('Error cargando detalles de usuario:', e);
+      }
+    }
+    loadUserDetails();
+  }, [username]);
 
   // Animación de entrada, tecla Esc y soporte para botón atrás en Android
   useEffect(() => {
@@ -310,30 +338,24 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       </div>
 
       <!-- Navegación por Pestañas Internas del Drawer -->
-      <div
-        style="display:flex; border-bottom:1px solid var(--border-2); background:var(--surface); min-width:0;"
-      >
+      <div class="history-drawer-tabs">
         <button
-          class="btn"
-          style="flex:1; border-radius:0; border:none; background:${activeTab === 'info' ? 'var(--surface2)' : 'none'}; color:${activeTab === 'info' ? 'var(--accent-text)' : 'var(--text-muted)'}; font-size:12.5px; padding:10px;"
+          class="history-drawer-tab-btn ${activeTab === 'info' ? 'active' : ''}"
           onClick=${() => setActiveTab('info')}
         >
-          <i class="fa-solid fa-user-gear" style="margin-right:6px;"></i> Detalle y Apodo
+          <i class="fa-solid fa-user-gear"></i> Detalle y Apodo
         </button>
         <button
-          class="btn"
-          style="flex:1; border-radius:0; border:none; background:${activeTab === 'roles' ? 'var(--surface2)' : 'none'}; color:${activeTab === 'roles' ? 'var(--accent-text)' : 'var(--text-muted)'}; font-size:12.5px; padding:10px;"
+          class="history-drawer-tab-btn ${activeTab === 'roles' ? 'active' : ''}"
           onClick=${() => setActiveTab('roles')}
         >
-          <i class="fa-solid fa-shield-halved" style="margin-right:6px;"></i> Roles y Moderación
+          <i class="fa-solid fa-shield-halved"></i> Roles y Moderación
         </button>
         <button
-          class="btn"
-          style="flex:1; border-radius:0; border:none; background:${activeTab === 'history' ? 'var(--surface2)' : 'none'}; color:${activeTab === 'history' ? 'var(--accent-text)' : 'var(--text-muted)'}; font-size:12.5px; padding:10px;"
+          class="history-drawer-tab-btn ${activeTab === 'history' ? 'active' : ''}"
           onClick=${() => setActiveTab('history')}
         >
-          <i class="fa-solid fa-comments" style="margin-right:6px;"></i> Historial
-          (${formatCount(total)})
+          <i class="fa-solid fa-comments"></i> Historial (${formatCount(total)})
         </button>
       </div>
 
@@ -341,9 +363,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       ${
         activeTab === 'info'
           ? html`
-              <div
-                style="padding:16px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex:1; min-height:0;"
-              >
+              <div class="history-drawer-panel">
                 <!-- Apodo Local -->
                 <div
                   style="background:var(--surface2); border:1px solid var(--border-2); border-radius:var(--radius-sm); padding:14px;"
@@ -461,9 +481,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       ${
         activeTab === 'roles'
           ? html`
-              <div
-                style="padding:16px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; flex:1; min-height:0;"
-              >
+              <div class="history-drawer-panel roles-panel">
                 <!-- Asignación de Roles -->
                 <div
                   style="background:var(--surface2); border:1px solid var(--border-2); border-radius:var(--radius-sm); padding:14px;"
@@ -559,7 +577,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                     </button>
                     <button
                       class="btn btn-danger"
-                      style="flex:1; font-size:12px; padding:10px;"
+                      style="flex:1; min-width:0; font-size:12px; padding:10px;"
                       onClick=${() => setConfirmBanOpen(true)}
                       disabled=${actionInProgress}
                     >

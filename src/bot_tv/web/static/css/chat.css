@@ -126,11 +126,13 @@
   width: 32px;
   height: 32px;
   font-size: 0.85rem;
+  flex-shrink: 0;
 }
 .user-avatar--sm {
   width: 18px;
   height: 18px;
   font-size: 0.55rem;
+  flex-shrink: 0;
 }
 
 /* Contenido al lado del avatar */
@@ -704,6 +706,7 @@
     width: 28px;
     height: 28px;
     font-size: 0.75rem;
+    flex-shrink: 0;
   }
   .chat-msg-cont {
     padding: 1px 14px 1px 50px; /* 14px + 28px + 8px */
@@ -733,6 +736,14 @@
     width: 26px;
     height: 26px;
     font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .chat-select-field {
+    max-width: 95px;
+  }
+  .chat-select-field .custom-select-trigger {
+    font-size: 0.75rem;
+    padding: 6px 8px;
   }
   .chat-msg-cont {
     padding: 1px 16px 1px 50px; /* 16px + 26px + 8px */

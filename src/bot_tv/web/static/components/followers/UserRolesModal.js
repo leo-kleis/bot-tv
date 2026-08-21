@@ -28,9 +28,7 @@ export function UserRolesModal({ user, tempRoles, setTempRoles, onClose, onSave 
         </div>
 
         <!-- Info del Usuario -->
-        <div
-          style="background:var(--surface2); border: 1px solid var(--border-2); border-radius:var(--radius-sm); padding:16px; margin-bottom:20px; display:flex; flex-direction:column; gap:8px;"
-        >
+        <div class="modal-info-box">
           <div>
             <span
               style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:2px;"

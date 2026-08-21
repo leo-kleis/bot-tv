@@ -28,7 +28,6 @@
     flex: 1;
     overflow: hidden;
     position: relative;
-    isolation: isolate;
     background: var(--bg);
     display: flex;
     flex-direction: column;
@@ -223,6 +222,9 @@
     opacity: 1;
   }
 
+  #app-root .stream-widget {
+    gap: 8px;
+  }
   #app-root .stream-broadcaster {
     font-size: 13px;
   }
@@ -256,6 +258,17 @@
   }
   #app-root .two-col {
     gap: 16px;
+  }
+  #app-root .action-row {
+    gap: 8px;
+  }
+  #app-root .model-select-wrap {
+    min-width: 140px;
+  }
+  #app-root .conn-indicator-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
   }
 
   /* Stream Modal en Landscape */
@@ -365,6 +378,7 @@
   .conn-indicator-dot {
     width: 7px;
     height: 7px;
+    flex-shrink: 0;
   }
 
   .tab-btn {

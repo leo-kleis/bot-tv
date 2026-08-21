@@ -31,6 +31,8 @@ async def _sync_irc_user(
     *,
     nickname: str | None = None,
     update_nickname: bool = False,
+    role: str | None = None,
+    update_role: bool = False,
     is_bot: bool | None = None,
     is_moderator: bool | None = None,
     is_vip: bool | None = None,
@@ -61,6 +63,7 @@ async def _sync_irc_user(
         updated_u = dataclass_replace(
             u,
             nickname=nickname if update_nickname else u.nickname,
+            role=role if (update_role and role is not None) else u.role,
             is_bot=is_bot if is_bot is not None else u.is_bot,
             is_moderator=is_moderator if is_moderator is not None else u.is_moderator,
             is_vip=is_vip if is_vip is not None else u.is_vip,

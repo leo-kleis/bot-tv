@@ -117,12 +117,26 @@ class StreamComponent(commands.Component):
         self._stream_online = False
         self._last_viewer_count = None
 
-        nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
+        channel_id = payload.broadcaster.id
+        nombre = (
+            payload.broadcaster.display_name
+            or payload.broadcaster.name
+            or self._channel_map.get(channel_id, "")
+        )
+        titulo = ""
+        categoria = ""
+        with contextlib.suppress(Exception):
+            info = await self.bot.fetch_channel(broadcaster_id=channel_id)
+            if info:
+                titulo = info.title or ""
+                categoria = info.game_name or ""
 
         await self.bot.event_bus.emit(
             StreamOfflineEvent(
                 timestamp=datetime.now().isoformat(),
                 broadcaster_name=nombre,
+                title=titulo,
+                category=categoria,
             )
         )
 
@@ -185,10 +199,27 @@ class StreamComponent(commands.Component):
                     )
                     break
                 else:
+                    nombre = self._channel_map.get(channel_id, "")
+                    titulo = ""
+                    categoria = ""
+                    with contextlib.suppress(Exception):
+                        info = await self.bot.fetch_channel(
+                            broadcaster_id=int(channel_id)
+                        )
+                        if info:
+                            titulo = info.title or ""
+                            categoria = info.game_name or ""
+                            if info.user and (info.user.display_name or info.user.name):
+                                nombre = (
+                                    info.user.display_name or info.user.name or nombre
+                                )
+
                     await self.bot.event_bus.emit(
                         StreamOfflineEvent(
                             timestamp=datetime.now().isoformat(),
-                            broadcaster_name=self._channel_map.get(channel_id, ""),
+                            broadcaster_name=nombre,
+                            title=titulo,
+                            category=categoria,
                         )
                     )
             except Exception as e:
@@ -260,12 +291,23 @@ class StreamComponent(commands.Component):
                         if self._stream_online:
                             self._stream_online = False
                             self._last_viewer_count = None
+                            nombre = self._channel_map.get(channel_id, "")
+                            titulo = ""
+                            categoria = ""
+                            with contextlib.suppress(Exception):
+                                info = await self.bot.fetch_channel(
+                                    broadcaster_id=int(channel_id)
+                                )
+                                if info:
+                                    titulo = info.title or ""
+                                    categoria = info.game_name or ""
+
                             await self.bot.event_bus.emit(
                                 StreamOfflineEvent(
                                     timestamp=datetime.now().isoformat(),
-                                    broadcaster_name=self._channel_map.get(
-                                        channel_id, ""
-                                    ),
+                                    broadcaster_name=nombre,
+                                    title=titulo,
+                                    category=categoria,
                                 )
                             )
                 except Exception as e:

@@ -17,9 +17,15 @@
   min-width: 0;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 481px) {
   .two-col-grid {
     flex-direction: column;
+    gap: 16px;
+  }
+}
+
+@media (max-height: 480px) {
+  .two-col-grid {
     gap: 16px;
   }
 }

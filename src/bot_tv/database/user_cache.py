@@ -228,6 +228,28 @@ class UserMemoryCache:
             if c == cid and roles.get("followed_at") and not roles.get("unfollowed_at")
         }
 
+    def set_user_follow_status(
+        self, channel_id: str, user_id: str, followed_at: str | None
+    ) -> None:
+        """Actualiza el estado de seguimiento de un usuario en un canal en la caché."""
+        roles = self._channel_roles.get((channel_id, user_id))
+        if not roles:
+            roles = {
+                "channel_id": channel_id,
+                "user_id": user_id,
+                "followed_at": followed_at,
+                "unfollowed_at": None,
+                "is_moderator": False,
+                "is_vip": False,
+                "is_subscriber": False,
+                "sub_tier": None,
+                "gifter_id": None,
+            }
+            self._channel_roles[(channel_id, user_id)] = roles
+        else:
+            roles["followed_at"] = followed_at
+            roles["unfollowed_at"] = None
+
     def sync_followers(
         self,
         channel_id: str,

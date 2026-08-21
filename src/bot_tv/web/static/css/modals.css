@@ -7,6 +7,9 @@
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   background: rgba(7, 6, 10, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -19,6 +22,17 @@
   overflow-y: auto;
   box-sizing: border-box;
   animation: fade-in 0.2s ease-out;
+}
+
+.modal-info-box {
+  background: var(--surface2);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .modal-card {
@@ -81,5 +95,41 @@
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+@media (max-height: 480px) {
+  .modal-backdrop {
+    padding: 8px;
+  }
+  .modal-card {
+    padding: 14px 18px;
+    max-height: calc(100dvh - 16px);
+    gap: 8px;
+  }
+  .modal-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+  .modal-card h3 {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .modal-card p {
+    font-size: 12.5px;
+    margin-bottom: 12px;
+  }
+  .modal-actions {
+    gap: 8px;
+  }
+  .modal-actions .btn {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+  }
+  .modal-info-box {
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    gap: 4px;
   }
 }

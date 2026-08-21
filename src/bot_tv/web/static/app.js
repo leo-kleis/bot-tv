@@ -145,6 +145,14 @@ function reducer(state, action) {
           ...state.stream,
           online: false,
           broadcasterName: action.data.broadcaster_name || state.stream.broadcasterName,
+          title:
+            action.data.title !== undefined && action.data.title !== ''
+              ? action.data.title
+              : state.stream.title,
+          category:
+            action.data.category !== undefined && action.data.category !== ''
+              ? action.data.category
+              : state.stream.category,
           viewerCount: null,
           viewerDiff: null,
           startedAt: null,
@@ -492,6 +500,80 @@ function reducer(state, action) {
 
       return {
         ...state,
+        ircUsers,
+        chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
+      };
+    }
+
+    case 'twitch_follow': {
+      const { user_id, username, display_name, role } = action.data;
+      const ircUsers = new Map(state.ircUsers);
+
+      let targetKey = null;
+      if (user_id && ircUsers.has(user_id)) {
+        targetKey = user_id;
+      } else if (username && ircUsers.has(username)) {
+        targetKey = username;
+      } else {
+        for (const [k, u] of ircUsers.entries()) {
+          if (
+            (user_id && u.user_id === user_id) ||
+            (username && u.username?.toLowerCase() === username.toLowerCase())
+          ) {
+            targetKey = k;
+            break;
+          }
+        }
+      }
+
+      if (targetKey) {
+        const u = ircUsers.get(targetKey);
+        const updatedRole =
+          u.role === 'Broadcaster' || u.is_bot || u.role === 'Bot' ? u.role : role || u.role;
+        ircUsers.set(targetKey, {
+          ...u,
+          role: updatedRole,
+        });
+      }
+
+      const updatedChatMessages = state.chatMessages.map(m => {
+        if (m.isSystem) return m;
+        const matchesUser =
+          (user_id && m.user_id === user_id) ||
+          (username && m.username?.toLowerCase() === username.toLowerCase());
+        if (matchesUser) {
+          const updatedRole =
+            m.role === 'Broadcaster' || m.is_bot || m.role === 'Bot' ? m.role : role || m.role;
+          return {
+            ...m,
+            role: updatedRole,
+          };
+        }
+        return m;
+      });
+
+      const systemMsg = {
+        isSystem: true,
+        type: action.type,
+        timestamp: action.data.timestamp || new Date().toISOString(),
+        data: action.data,
+      };
+
+      const exists = updatedChatMessages.some(
+        m => m.isSystem && m.type === systemMsg.type && m.timestamp === systemMsg.timestamp
+      );
+      const msgs = exists ? updatedChatMessages : [...updatedChatMessages, systemMsg];
+
+      const followToast = {
+        id: `tf-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        type: 'twitch_follow',
+        title: '¡Nuevo Seguidor!',
+        data: { message: `${display_name || username} comenzó a seguir el canal.` },
+      };
+
+      return {
+        ...state,
+        toasts: [...state.toasts, followToast],
         ircUsers,
         chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
       };

@@ -22,6 +22,7 @@ from bot_tv.events import (
     TwitchChatClearEvent,
     TwitchChatClearUserEvent,
     TwitchCheerEvent,
+    TwitchFollowEvent,
     TwitchMessageDeleteEvent,
     TwitchPredictionBeginEvent,
     TwitchPredictionEndEvent,
@@ -76,6 +77,7 @@ class TerminalConsumer:
         self._event_bus.subscribe(ClipCreatedEvent, self._on_clip_created)
 
         # Twitch EventSub Alerts
+        self._event_bus.subscribe(TwitchFollowEvent, self._on_twitch_follow)
         self._event_bus.subscribe(TwitchRaidEvent, self._on_twitch_raid)
         self._event_bus.subscribe(TwitchSubscribeEvent, self._on_twitch_subscribe)
         self._event_bus.subscribe(TwitchSubscriptionGiftEvent, self._on_twitch_sub_gift)
@@ -233,6 +235,12 @@ class TerminalConsumer:
         )
 
     # ── Twitch EventSub Alerts ────────────────────────────────────────────────
+    async def _on_twitch_follow(self, event: TwitchFollowEvent) -> None:
+        timestamp = format_timestamp()
+        CONSOLE.print(
+            f"{timestamp} [bold green][FOLLOW][/] "
+            f"[bold]{event.display_name}[/] comenzó a seguir el canal!"
+        )
 
     async def _on_twitch_raid(self, event: TwitchRaidEvent) -> None:
         timestamp = format_timestamp()

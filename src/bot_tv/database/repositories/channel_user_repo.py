@@ -32,6 +32,30 @@ class ChannelUserRepository(BaseRepository):
             )
         return {row["user_id"] for row in rows}
 
+    async def set_user_follow_status(
+        self,
+        channel_id: str,
+        user_id: str,
+        followed_at: str | None,
+        *,
+        cache: UserMemoryCache | None = None,
+    ) -> None:
+        """Actualiza el estado de follow individual de un usuario en DB y caché."""
+        if cache is not None:
+            cache.set_user_follow_status(channel_id, user_id, followed_at)
+
+        query = """
+            INSERT INTO channel_users (
+                channel_id, user_id, followed_at, unfollowed_at
+            )
+            VALUES ($1, $2, $3, NULL)
+            ON CONFLICT (channel_id, user_id) DO UPDATE SET
+                followed_at = EXCLUDED.followed_at,
+                unfollowed_at = NULL
+        """
+        async with self._db.acquire() as conn:
+            await conn.execute(query, channel_id, user_id, followed_at)
+
     async def sync_followers(
         self,
         channel_id: str,

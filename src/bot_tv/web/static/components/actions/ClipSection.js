@@ -59,10 +59,9 @@ export function ClipSection({ clips = [], streamOnline = false }) {
                       (c, i) => html`
                         <div
                           key=${i}
-                          class="follower-item"
-                          style="display:flex;justify-content:space-between;align-items:center"
+                          style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-2);gap:8px;min-width:0"
                         >
-                          <span style="font-size:11px;color:var(--text-muted)"
+                          <span style="font-size:11px;color:var(--text-muted);flex-shrink:0"
                             >${new Date(c.timestamp).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -71,7 +70,7 @@ export function ClipSection({ clips = [], streamOnline = false }) {
                           <a
                             href=${c.url}
                             target="_blank"
-                            style="color:var(--accent-text);font-size:12px;text-decoration:none;word-break:break-all"
+                            style="color:var(--accent-text);font-size:12px;text-decoration:none;word-break:break-all;overflow-wrap:anywhere;min-width:0;text-align:right"
                             >${c.url}</a
                           >
                         </div>
