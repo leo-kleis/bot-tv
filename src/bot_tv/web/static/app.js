@@ -209,17 +209,89 @@ function reducer(state, action) {
       const allNewLabels = [...(prev.allNewLabels || []), ...freshNew];
       const allLostLabels = [...(prev.allLostLabels || []), ...freshLost];
 
+      const followerToasts = [];
+      const getCleanName = label => label.replace(/^\[\d+\]\s*/, '').split(' (')[0] || label;
+
+      // Generar Toast agrupado para Nuevos Seguidores
+      if (freshNew.length === 1) {
+        const name = getCleanName(freshNew[0]);
+        followerToasts.push({
+          id: `fn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_new',
+          title: '¡Nuevo Seguidor!',
+          data: { message: `${name} comenzó a seguirte.` },
+        });
+      } else if (freshNew.length === 2) {
+        const name1 = getCleanName(freshNew[0]);
+        const name2 = getCleanName(freshNew[1]);
+        followerToasts.push({
+          id: `fn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_new',
+          title: '¡Nuevos Seguidores!',
+          data: { message: `${name1} y ${name2} comenzaron a seguirte.` },
+        });
+      } else if (freshNew.length >= 3) {
+        const name1 = getCleanName(freshNew[0]);
+        const name2 = getCleanName(freshNew[1]);
+        followerToasts.push({
+          id: `fn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_new',
+          title: `¡${freshNew.length} Nuevos Seguidores!`,
+          data: {
+            message: `${name1}, ${name2} y ${freshNew.length - 2} más comenzaron a seguirte.`,
+          },
+        });
+      }
+
+      // Generar Toast agrupado para Seguidores Perdidos
+      if (freshLost.length === 1) {
+        const name = getCleanName(freshLost[0]);
+        followerToasts.push({
+          id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_lost',
+          title: 'Seguidor Perdido',
+          data: { message: `${name} dejó de seguirte.` },
+        });
+      } else if (freshLost.length === 2) {
+        const name1 = getCleanName(freshLost[0]);
+        const name2 = getCleanName(freshLost[1]);
+        followerToasts.push({
+          id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_lost',
+          title: 'Seguidores Perdidos',
+          data: { message: `${name1} y ${name2} dejaron de seguirte.` },
+        });
+      } else if (freshLost.length >= 3) {
+        const name1 = getCleanName(freshLost[0]);
+        const name2 = getCleanName(freshLost[1]);
+        followerToasts.push({
+          id: `fl-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: 'follower_lost',
+          title: `${freshLost.length} Seguidores Perdidos`,
+          data: {
+            message: `${name1}, ${name2} y ${freshLost.length - 2} más dejaron de seguirte.`,
+          },
+        });
+      }
+
+      const addedUnread = freshNew.length + freshLost.length;
+
       return {
         ...state,
+        toasts: followerToasts.length > 0 ? [...state.toasts, ...followerToasts] : state.toasts,
         followers: {
           ...prev,
           lastSync: syncData,
           progress: null,
+          unreadCount: (prev.unreadCount || 0) + addedUnread,
           allNewLabels,
           allLostLabels,
         },
       };
     }
+
+    case 'CLEAR_UNREAD_FOLLOWERS':
+      return { ...state, followers: { ...state.followers, unreadCount: 0 } };
 
     case 'follower_progress':
       return { ...state, followers: { ...state.followers, progress: action.data } };

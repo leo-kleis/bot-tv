@@ -62,20 +62,26 @@ export function ConfirmModal({
 
         <div class="modal-actions">
           <button class="btn" onClick=${onClose} disabled=${loading}>${cancelText}</button>
-          <button
-            class="btn ${isDanger ? 'btn-danger' : 'btn-primary'}"
-            onClick=${handleConfirm}
-            disabled=${loading}
-          >
-            ${
-              loading
-                ? html`<span
-                    class="spinner"
-                    style="border-top-color:${isDanger ? 'var(--danger)' : 'var(--accent)'}"
-                  ></span>`
-                : confirmText
-            }
-          </button>
+          ${
+            onConfirm
+              ? html`
+                  <button
+                    class="btn ${isDanger ? 'btn-danger' : 'btn-primary'}"
+                    onClick=${handleConfirm}
+                    disabled=${loading}
+                  >
+                    ${
+                      loading
+                        ? html`<span
+                            class="spinner"
+                            style="border-top-color:${isDanger ? 'var(--danger)' : 'var(--accent)'}"
+                          ></span>`
+                        : confirmText
+                    }
+                  </button>
+                `
+              : null
+          }
         </div>
       </div>
     </div>

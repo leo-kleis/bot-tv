@@ -45,16 +45,26 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
   const username = user.username || user.display_name;
   const displayName = userData.display_name || user.display_name || username;
 
-  // Animación de entrada y tecla Esc
+  // Animación de entrada, tecla Esc y soporte para botón atrás en Android
   useEffect(() => {
     const id = requestAnimationFrame(() => setOpen(true));
+    window.history.pushState({ botDrawer: 'user-profile' }, '');
+
     function handleKeyDown(e) {
       if (e.key === 'Escape') handleClose();
     }
+
+    function handlePopState() {
+      setOpen(false);
+      setTimeout(onClose, 300);
+    }
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('popstate', handlePopState);
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('popstate', handlePopState);
     };
   }, []);
 
@@ -122,6 +132,9 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
   function handleClose() {
     setOpen(false);
+    if (window.history.state && window.history.state.botDrawer === 'user-profile') {
+      window.history.back();
+    }
     setTimeout(onClose, 300);
   }
 
@@ -239,7 +252,20 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       <!-- Cabecera de Perfil -->
       <div class="history-header">
         <div class="history-header-info">
-          <span class="history-header-name">${displayName}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="history-header-name">${displayName}</span>
+            <a
+              href="https://twitch.tv/${encodeURIComponent(username)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="history-twitch-link"
+              title="Abrir canal en Twitch"
+            >
+              <i class="fa-brands fa-twitch"></i>
+              <span>Twitch</span>
+              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i>
+            </a>
+          </div>
           <div class="history-header-meta">
             ${
               user.display_name && user.display_name.toLowerCase() !== username.toLowerCase()

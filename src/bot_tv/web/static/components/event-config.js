@@ -248,6 +248,25 @@ export const EVENT_CONFIG = {
     chatHtml: (data, html) => html`${data.message}`,
     toastText: data => data.message,
   },
+  follower_new: {
+    icon: 'fa-user-plus',
+    sysClassName: 'sys-mod-green',
+    toastClassName: 'toast-mod-green',
+    toastTitle: '¡Nuevo Seguidor!',
+    chatHtml: (data, html) =>
+      html`<strong>${data.display_name || data.name}</strong>${' comenzó a seguir el canal.'}`,
+    toastText: data =>
+      data.message || `${data.display_name || data.name} comenzó a seguir el canal.`,
+  },
+  follower_lost: {
+    icon: 'fa-user-minus',
+    sysClassName: 'sys-mod',
+    toastClassName: 'toast-mod',
+    toastTitle: 'Seguidor Perdido',
+    chatHtml: (data, html) =>
+      html`<strong>${data.display_name || data.name}</strong>${' dejó de seguir el canal.'}`,
+    toastText: data => data.message || `${data.display_name || data.name} dejó de seguir el canal.`,
+  },
 };
 
 export const DEFAULT_CONFIG = {

@@ -74,6 +74,36 @@
   color: var(--text-muted);
 }
 
+.history-twitch-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(145, 70, 255, 0.15);
+  color: #bf94ff;
+  border: 1px solid rgba(145, 70, 255, 0.35);
+  border-radius: var(--radius-xs);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.history-twitch-link:hover {
+  background: rgba(145, 70, 255, 0.3);
+  border-color: #a970ff;
+  color: #ffffff;
+}
+
+.history-twitch-link i.fa-brands {
+  font-size: 11px;
+}
+
 .history-msg-count {
   font-size: 11px;
   color: var(--accent-text);

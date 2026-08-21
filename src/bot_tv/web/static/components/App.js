@@ -7,6 +7,7 @@ import { AgentTab } from '/static/components/agent/AgentTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
 import { ToastOverlay } from '/static/components/ToastOverlay.js';
 import { StreamEditModal } from '/static/components/stream/StreamEditModal.js';
+import { ConfirmModal } from '/static/components/ConfirmModal.js';
 
 const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
@@ -35,6 +36,7 @@ export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
   const [editStreamModalOpen, setEditStreamModalOpen] = useState(false);
+  const [confirmExitOpen, setConfirmExitOpen] = useState(false);
   const isMobileDevice = isMobileOrTabletDevice();
 
   useEffect(() => {
@@ -42,6 +44,96 @@ export function App({ state, dispatch }) {
       setActive('chat');
     }
   }, [state.stream.online, active, isMobileDevice]);
+
+  // Limpiar contador no leído al ingresar a la pestaña de usuarios
+  useEffect(() => {
+    if (active === 'users' && state.followers?.unreadCount > 0) {
+      dispatch({ type: 'CLEAR_UNREAD_FOLLOWERS' });
+    }
+  }, [active, state.followers?.unreadCount, dispatch]);
+
+  // Inicializar Paso 0 (base de guardia de salida) y Paso 1 (pestaña activa)
+  useEffect(() => {
+    if (!window.history.state || (!window.history.state.tab && !window.history.state.exitGuard)) {
+      window.history.replaceState({ exitGuard: true }, '');
+      window.history.pushState({ tab: 'chat' }, '');
+    }
+  }, []);
+
+  // Manejo de navegación y botón atrás de Android / PWA
+  useEffect(() => {
+    function handlePopState(e) {
+      // 1. Si hay un drawer con backdrop activo en el DOM, no intervenir
+      if (document.querySelector('.history-backdrop')) {
+        return;
+      }
+
+      // 2. Si hay modal de stream abierto, cerrarlo
+      if (editStreamModalOpen) {
+        setEditStreamModalOpen(false);
+        return;
+      }
+
+      // 3. Si hay panel IRC móvil abierto, cerrarlo
+      if (showIrcMobile) {
+        setShowIrcMobile(false);
+        return;
+      }
+
+      // 4. Si el retroceso llega al Paso 0 (exitGuard), desplegar advertencia de salida
+      if (e.state && e.state.exitGuard) {
+        setConfirmExitOpen(true);
+        return;
+      }
+
+      // 5. Navegación cronológica entre pestañas
+      if (e.state && e.state.tab) {
+        setConfirmExitOpen(false);
+        setActive(e.state.tab);
+      } else {
+        setConfirmExitOpen(true);
+      }
+    }
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [editStreamModalOpen, showIrcMobile]);
+
+  function handleTabSelect(tabId) {
+    if (tabId !== active) {
+      window.history.pushState({ tab: tabId }, '');
+      setActive(tabId);
+    }
+  }
+
+  function handleToggleIrc(open) {
+    if (open) {
+      window.history.pushState({ overlay: 'irc-mobile' }, '');
+      setShowIrcMobile(true);
+    } else {
+      setShowIrcMobile(false);
+      if (window.history.state && window.history.state.overlay === 'irc-mobile') {
+        window.history.back();
+      }
+    }
+  }
+
+  function handleOpenEditStream() {
+    window.history.pushState({ modal: 'stream-edit' }, '');
+    setEditStreamModalOpen(true);
+  }
+
+  function handleCloseEditStream() {
+    setEditStreamModalOpen(false);
+    if (window.history.state && window.history.state.modal === 'stream-edit') {
+      window.history.back();
+    }
+  }
+
+  function handleCancelExit() {
+    setConfirmExitOpen(false);
+    window.history.pushState({ tab: active || 'chat' }, '');
+  }
 
   const filteredIrcCount = [...state.ircUsers.values()].filter(
     u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
@@ -51,6 +143,8 @@ export function App({ state, dispatch }) {
     if (t.id === 'stream' && isMobileDevice) return false;
     return true;
   });
+
+  const unreadCount = state.followers?.unreadCount || 0;
 
   return html`
     <div id="app-root">
@@ -63,14 +157,15 @@ export function App({ state, dispatch }) {
           exited=${state.exited}
           ircCount=${filteredIrcCount}
           showIrcMobile=${showIrcMobile}
-          onToggleIrc=${() => setShowIrcMobile(!showIrcMobile)}
-          onOpenEditStream=${() => setEditStreamModalOpen(true)}
+          onToggleIrc=${() => handleToggleIrc(!showIrcMobile)}
+          onOpenEditStream=${handleOpenEditStream}
         />
       </header>
 
       <nav class="tab-bar" role="tablist">
         ${availableTabs.map(t => {
           const isDisabled = t.id === 'stream' && !state.stream.online;
+          const showBadge = t.id === 'users' && unreadCount > 0;
           return html`
             <button
               key=${t.id}
@@ -81,12 +176,17 @@ export function App({ state, dispatch }) {
               disabled=${isDisabled}
               onClick=${() => {
                 if (!isDisabled) {
-                  setActive(t.id);
+                  handleTabSelect(t.id);
                 }
               }}
               title=${isDisabled ? 'El stream está offline' : ''}
             >
               <span class="tab-icon">${t.icon}</span>
+              ${
+                showBadge
+                  ? html`<span class="tab-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                  : null
+              }
               <span class="tab-label">${t.label}</span>
             </button>
           `;
@@ -116,7 +216,7 @@ export function App({ state, dispatch }) {
         }
         ${active === 'settings' && html`<${SettingsTab} dispatch=${dispatch} />`}
       </main>
-      <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} />
+      <${ToastOverlay} toasts=${state.toasts} dispatch=${dispatch} activeTab=${active} />
 
       <!-- Modal de Edición de Título y Categoría a nivel raíz -->
       ${
@@ -125,11 +225,21 @@ export function App({ state, dispatch }) {
               <${StreamEditModal}
                 initialTitle=${state.stream.title || ''}
                 initialCategory=${state.stream.category || ''}
-                onClose=${() => setEditStreamModalOpen(false)}
+                onClose=${handleCloseEditStream}
               />
             `
           : null
       }
+
+      <!-- Modal de Advertencia al salir de la PWA -->
+      <${ConfirmModal}
+        isOpen=${confirmExitOpen}
+        title="¿Deseas salir de la aplicación?"
+        message="Estás en la pantalla principal. Presiona nuevamente el botón atrás para salir."
+        cancelText="Permanecer en la app"
+        isDanger=${false}
+        onClose=${handleCancelExit}
+      />
     </div>
   `;
 }

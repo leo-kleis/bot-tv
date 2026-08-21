@@ -27,6 +27,8 @@ class TwitchIRCClient:
         self.broadcaster: twitchio.PartialUser | None = None
         self.connected_event = asyncio.Event()
         self.connected_users: dict[str, UserJoinEvent] = {}
+        self.parted_users: dict[str, UserPartEvent] = {}
+        self._tasks: set[asyncio.Task[None]] = set()
         self._running = True
         self.is_connected = False
 
@@ -47,13 +49,6 @@ class TwitchIRCClient:
 
             LOGGER.info("Conectando a irc.chat.twitch.tv:6697...")
             try:
-                try:
-                    if not self.broadcaster:
-                        broadcaster_id = self.bot.owner_id
-                        self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
-                except Exception as e:
-                    LOGGER.error("Error al precargar broadcaster: %s", e)
-
                 self.reader, self.writer = await asyncio.open_connection(
                     "irc.chat.twitch.tv", 6697, ssl=True
                 )
@@ -138,102 +133,93 @@ class TwitchIRCClient:
             elif " PART #" in line:
                 await self._handle_event(usuario, "PART")
 
-    async def _get_user_role(
-        self,
-        usuario: twitchio.PartialUser | None,
-        broadcaster: twitchio.PartialUser | None,
+    def _get_user_role_cached(
+        self, user_id: str | None, broadcaster_id: str | int
     ) -> str:
-        """Determina el rol del usuario como string limpio (sin markup Rich)."""
-        if usuario is None or broadcaster is None:
-            return "Desconocido"
+        """Determina el rol del usuario instantáneamente desde UserMemoryCache."""
+        if not user_id:
+            return "Visita"
 
-        if usuario.id == broadcaster.id:
+        uid_str = user_id
+        bid_str = str(broadcaster_id)
+
+        if uid_str == bid_str:
             return "Broadcaster"
 
-        if usuario.id == self.bot.bot_id:
+        if uid_str == str(self.bot.bot_id):
             return "Bot"
 
-        if await self.bot.user_repo.is_user_bot(usuario.id, cache=self.bot.user_cache):
+        if self.bot.user_cache.is_user_bot(uid_str):
             return "Bot"
 
-        follow = await broadcaster.fetch_followers(user=usuario, first=1)
-        async for event in follow.followers:
-            return event.followed_at.strftime("%d/%m/%y")
+        roles = self.bot.user_cache.get_user_roles(uid_str, bid_str)
+        if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
+            fat = roles.get("followed_at")
+            try:
+                clean = fat.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(clean).astimezone()
+                return dt.strftime("%d/%m/%y")
+            except Exception:
+                return "Visita"
 
         return "Visita"
+
+    async def _resolve_and_cache_new_user(self, usuario: str) -> None:
+        """Resuelve en background datos para usuarios no presentes en caché."""
+        cache = self.bot.user_cache
+        try:
+            twitch_user = await self.bot.fetch_user(login=usuario)
+            if twitch_user:
+                uid = str(twitch_user.id)
+                display_name = twitch_user.display_name
+                await self.bot.user_repo.upsert_user(
+                    uid,
+                    twitch_user.name,
+                    display_name,
+                    cache=cache,
+                )
+        except Exception as e:
+            LOGGER.debug(
+                "No se pudo resolver usuario nuevo %s en background: %s", usuario, e
+            )
 
     async def _handle_event(self, usuario: str, action: str) -> None:
         if usuario == self.bot_username:
             return
 
         cache = self.bot.user_cache
-        user_id = await self.bot.user_repo.get_user_id_by_name(usuario, cache=cache)
-        display_name = usuario
+        user_id = cache.get_user_id_by_name(usuario)
+        user_data = cache.get_user(user_id) if user_id else None
 
-        twitch_user = None
-        try:
-            twitch_user = await self.bot.fetch_user(login=usuario)
-            if twitch_user:
-                display_name = twitch_user.display_name
-                if not user_id and action == "JOIN":
-                    user_id = str(twitch_user.id)
-                    await self.bot.user_repo.upsert_user(
-                        user_id,
-                        twitch_user.name,
-                        display_name,
-                        cache=cache,
-                    )
-        except Exception as e:
-            LOGGER.error("Error al buscar fetch_user para %s: %s", usuario, e)
-
-        nickname = None
-        if user_id:
-            nickname = await self.bot.user_repo.get_user_nickname(user_id, cache=cache)
-
+        display_name = (user_data.get("display_name") if user_data else None) or usuario
+        nickname = user_data.get("nickname") if user_data else None
         r, g, b = get_chatter_rgb(None, usuario)
+        role = self._get_user_role_cached(user_id, self.bot.owner_id)
 
-        if not self.broadcaster:
-            try:
-                broadcaster_id = self.bot.owner_id
-                self.broadcaster = await self.bot.fetch_user(id=broadcaster_id)
-            except Exception as e:
-                LOGGER.error(
-                    "Error al obtener broadcaster para id %s: %s",
-                    self.bot.owner_id,
-                    e,
-                )
+        is_bot = (user_id == str(self.bot.bot_id)) or (
+            cache.is_user_bot(user_id) if user_id else False
+        )
+        is_mod = False
+        is_vip = False
+        is_sub = False
+        sub_tier = None
 
-        try:
-            role = await self._get_user_role(twitch_user, self.broadcaster)
-        except Exception as e:
-            LOGGER.error("Error al obtener rol para %s: %s", usuario, e)
-            role = "Desconocido"
+        if user_id:
+            roles = cache.get_user_roles(user_id, str(self.bot.owner_id))
+            if roles:
+                is_mod = bool(roles.get("is_moderator", False))
+                is_vip = bool(roles.get("is_vip", False))
+                is_sub = bool(roles.get("is_subscriber", False))
+                sub_tier = roles.get("sub_tier")
+        elif action == "JOIN":
+            # Si el usuario no estaba en caché, resolverlo en segundo plano
+            task = asyncio.create_task(self._resolve_and_cache_new_user(usuario))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+
+        user_key = user_id or usuario
 
         if action == "JOIN":
-            is_bot = False
-            is_mod = False
-            is_vip = False
-            is_sub = False
-            sub_tier = None
-            if twitch_user:
-                is_bot = (twitch_user.id == self.bot.bot_id) or (
-                    await self.bot.user_repo.is_user_bot(
-                        str(twitch_user.id), cache=cache
-                    )
-                )
-            elif user_id:
-                is_bot = await self.bot.user_repo.is_user_bot(user_id, cache=cache)
-
-            if user_id:
-                roles = await self.bot.user_repo.get_user_roles(
-                    user_id, self.bot.owner_id, cache=cache
-                )
-                if roles:
-                    is_mod = roles["is_moderator"]
-                    is_vip = roles["is_vip"]
-                    is_sub = roles["is_subscriber"]
-                    sub_tier = roles.get("sub_tier")
-
             join_event = UserJoinEvent(
                 timestamp=datetime.now().isoformat(),
                 user_id=user_id,
@@ -248,21 +234,27 @@ class TwitchIRCClient:
                 is_subscriber=is_sub,
                 sub_tier=sub_tier,
             )
-            user_key = user_id or usuario
             self.connected_users[user_key] = join_event
+            self.parted_users.pop(user_key, None)
+            if user_id:
+                self.parted_users.pop(user_id, None)
+            self.parted_users.pop(usuario, None)
+
             await self.bot.event_bus.emit(join_event)
         else:
+            part_event = UserPartEvent(
+                timestamp=datetime.now().isoformat(),
+                user_id=user_id,
+                username=usuario,
+                display_name=display_name,
+                nickname=nickname,
+                color_rgb=(r, g, b),
+                role=role,
+            )
+            self.connected_users.pop(user_key, None)
             if user_id:
                 self.connected_users.pop(user_id, None)
             self.connected_users.pop(usuario, None)
-            await self.bot.event_bus.emit(
-                UserPartEvent(
-                    timestamp=datetime.now().isoformat(),
-                    user_id=user_id,
-                    username=usuario,
-                    display_name=display_name,
-                    nickname=nickname,
-                    color_rgb=(r, g, b),
-                    role=role,
-                )
-            )
+            self.parted_users[user_key] = part_event
+
+            await self.bot.event_bus.emit(part_event)

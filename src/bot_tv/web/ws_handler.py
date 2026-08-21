@@ -232,10 +232,18 @@ class WebSocketManager:
                 except Exception:
                     break
 
-        # Enviar usuarios conectados actualmente en IRC
+        # Enviar usuarios conectados y desconectados actualmente en IRC
         if self._bot and self._bot.irc is not None:
             for join_event in list(self._bot.irc.connected_users.values()):
                 message = _serialize(join_event)
+                if message:
+                    try:
+                        await ws.send_text(message)
+                    except Exception:
+                        break
+
+            for part_event in list(self._bot.irc.parted_users.values()):
+                message = _serialize(part_event)
                 if message:
                     try:
                         await ws.send_text(message)
