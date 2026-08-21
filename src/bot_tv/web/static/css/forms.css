@@ -2,6 +2,7 @@
 .panel {
   height: 100%;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
@@ -239,6 +240,7 @@ select option {
   transition: all 0.15s;
   user-select: none;
   text-align: left;
+  overflow-wrap: break-word;
 }
 
 .custom-select-item:hover {

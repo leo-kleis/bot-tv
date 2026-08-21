@@ -38,7 +38,7 @@
    ────────────────────────────────────────── */
 
 /* MÓVILES PORTRAIT (max-width: 600px) */
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 481px) {
   .stream-tab {
     padding: 12px;
     justify-content: center;

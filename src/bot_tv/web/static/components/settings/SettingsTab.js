@@ -96,7 +96,9 @@ export function SettingsTab({ dispatch }) {
           <label class="settings-label" for="context-limit-input">
             Límite de Contexto de Conversación (Turnos)
           </label>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+          <div
+            style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:6px;min-width:0;"
+          >
             <input
               id="context-limit-input"
               type="number"
@@ -163,7 +165,7 @@ export function SettingsTab({ dispatch }) {
           </div>
 
           <div
-            style="margin-top: 12px; display: flex; align-items: center; gap: 12px; width: 100%;"
+            style="margin-top: 12px; display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0;"
           >
             <input
               type="range"
@@ -172,7 +174,7 @@ export function SettingsTab({ dispatch }) {
               step=${STEP}
               value=${fontSize}
               onInput=${handleSliderChange}
-              style="flex: 1; accent-color: var(--accent); cursor: pointer;"
+              style="flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer;"
               aria-label="Selector deslizante de tamaño de letra"
             />
             <span

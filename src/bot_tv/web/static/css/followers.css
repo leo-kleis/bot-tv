@@ -58,6 +58,7 @@
   gap: 2px;
   max-height: 240px;
   overflow-y: auto;
+  overflow-anchor: none;
   padding-right: 4px;
 }
 
@@ -132,9 +133,10 @@
    -------------------------------------------------------------------------- */
 .filters-bar {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr 1fr 1.8fr 1.8fr auto;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr minmax(290px, 1.8fr) minmax(290px, 1.8fr) auto;
   align-items: end;
   gap: 16px;
+  min-width: 0;
   background: var(--surface2);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
@@ -207,6 +209,7 @@
   border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
   overflow-x: auto;
+  overflow-anchor: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   margin-top: 8px;
   min-height: 520px;
@@ -243,6 +246,7 @@
   border-collapse: collapse;
   text-align: left;
   font-size: 13.5px;
+  overflow-wrap: anywhere;
 }
 
 .users-table th,
@@ -515,7 +519,7 @@
 /* --------------------------------------------------------------------------
    6. Media Queries & Diseño Responsivo
    -------------------------------------------------------------------------- */
-@media (max-width: 1400px) {
+@media (max-width: 1480px) {
   .filters-bar {
     grid-template-columns: 1fr 1fr 1fr;
   }
@@ -524,6 +528,22 @@
 @media (max-width: 1050px) {
   .filters-bar {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-height: 480px) {
+  .users-table-wrapper {
+    min-height: auto;
+  }
+  .filters-bar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .followers-stat {
+    gap: 8px;
+  }
+  .stat-card {
+    padding: 6px 8px;
   }
 }
 
@@ -548,7 +568,7 @@
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 481px) {
   .pagination-bar {
     flex-direction: column;
     gap: 10px;
@@ -615,6 +635,7 @@
 
   .users-table tr {
     display: grid;
+    min-width: 0;
     grid-template-areas:
       'user actions'
       'roles actions'
@@ -694,7 +715,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 480px) and (min-height: 481px) {
   .followers-stat {
     display: flex;
     flex-direction: row !important;

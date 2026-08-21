@@ -413,11 +413,11 @@ export function ChatTab({
       <!-- Panel Chat (izquierda) -->
       <div class="chat-panel">
         <div class="chat-panel-header">
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
             <span>Chat</span>
             <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div style="display:flex;gap:8px;min-width:0;">
             <${ChatHeaderButton}
               id="btn-chat-clear"
               icon="fa-broom"

@@ -49,7 +49,7 @@ export function ConfirmModal({
                   <input
                     type="text"
                     class="form-control"
-                    style="width: 100%; background: var(--surface2); border: var(--border); border-radius: var(--radius-xs); color: var(--text); padding: 10px; font-family: var(--font); font-size: 13px; outline: none;"
+                    style="width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-xs); color: var(--text); padding: 10px; font-family: var(--font); font-size: 13px; outline: none;"
                     placeholder=${inputPlaceholder}
                     value=${inputValue}
                     onInput=${e => setInputValue(e.target.value)}

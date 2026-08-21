@@ -22,6 +22,7 @@
   background: var(--surface-solid);
   border-left: 1px solid var(--border);
   z-index: var(--z-history-drawer);
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -149,6 +150,7 @@
   display: flex;
   align-items: center;
   width: 100%;
+  min-width: 0;
 }
 
 .history-search-icon {
@@ -236,6 +238,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   display: flex;
   flex-direction: column;
 }
@@ -244,9 +247,11 @@
 .history-load-more {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-width: 0;
   padding: 10px;
   color: var(--text-muted);
   font-size: 12px;
@@ -261,6 +266,7 @@
 
 .history-msg {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 5px 14px;
   transition: background 0.1s;
@@ -287,6 +293,7 @@
   color: var(--text);
   line-height: 1.45;
   word-break: break-word;
+  overflow-wrap: anywhere;
   -webkit-user-select: text;
   user-select: text;
   min-width: 0;
@@ -336,7 +343,7 @@
 /* ── Breakpoints ─────────────────────────────────────────────────────────── */
 
 /* Mobile portrait: drawer ocupa 100%, sin backdrop */
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 481px) {
   .history-drawer {
     width: 100%;
   }

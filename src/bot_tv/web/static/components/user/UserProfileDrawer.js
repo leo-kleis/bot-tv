@@ -252,7 +252,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       <!-- Cabecera de Perfil -->
       <div class="history-header">
         <div class="history-header-info">
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px; min-width:0;">
             <span class="history-header-name">${displayName}</span>
             <a
               href="https://twitch.tv/${encodeURIComponent(username)}"
@@ -310,7 +310,9 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       </div>
 
       <!-- Navegación por Pestañas Internas del Drawer -->
-      <div style="display:flex; border-bottom:var(--border-2); background:var(--surface);">
+      <div
+        style="display:flex; border-bottom:1px solid var(--border-2); background:var(--surface); min-width:0;"
+      >
         <button
           class="btn"
           style="flex:1; border-radius:0; border:none; background:${activeTab === 'info' ? 'var(--surface2)' : 'none'}; color:${activeTab === 'info' ? 'var(--accent-text)' : 'var(--text-muted)'}; font-size:12.5px; padding:10px;"
@@ -340,7 +342,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
         activeTab === 'info'
           ? html`
               <div
-                style="padding:16px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex:1;"
+                style="padding:16px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; flex:1; min-height:0;"
               >
                 <!-- Apodo Local -->
                 <div
@@ -371,10 +373,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                   ${
                     editingNick
                       ? html`
-                          <div style="display:flex; gap:8px;">
+                          <div style="display:flex; gap:8px; min-width:0;">
                             <input
                               type="text"
-                              style="flex:1; background:var(--surface); border:var(--border); border-radius:var(--radius-xs); color:var(--text); padding:6px 10px; font-size:13px; outline:none;"
+                              style="flex:1; min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-xs); color:var(--text); padding:6px 10px; font-size:13px; outline:none;"
                               value=${nickname}
                               onInput=${e => setNickname(e.target.value)}
                               placeholder="Sin apodo"
@@ -460,7 +462,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
         activeTab === 'roles'
           ? html`
               <div
-                style="padding:16px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; flex:1;"
+                style="padding:16px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; flex:1; min-height:0;"
               >
                 <!-- Asignación de Roles -->
                 <div
@@ -542,10 +544,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                     >Acciones de Moderación</span
                   >
 
-                  <div style="display:flex; gap:10px;">
+                  <div style="display:flex; gap:10px; min-width:0;">
                     <button
                       class="btn"
-                      style="flex:1; background:rgba(255,255,255,0.05); border:var(--border-2); color:var(--text-2); font-size:12px; padding:10px;"
+                      style="flex:1; min-width:0; background:rgba(255,255,255,0.05); border:1px solid var(--border-2); color:var(--text-2); font-size:12px; padding:10px;"
                       onClick=${() => setConfirmPurgeOpen(true)}
                       disabled=${actionInProgress}
                     >

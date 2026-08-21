@@ -96,9 +96,9 @@ export function UserRolesModal({ user, tempRoles, setTempRoles, onClose, onSave 
 
           <!-- Fila: Moderador -->
           <div
-            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2); min-width:0;"
           >
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
               <span class="irc-badge badge-moderator" style="width:50px; text-align:center;"
                 >Mod</span
               >
@@ -114,9 +114,9 @@ export function UserRolesModal({ user, tempRoles, setTempRoles, onClose, onSave 
 
           <!-- Fila: VIP -->
           <div
-            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2); min-width:0;"
           >
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
               <span class="irc-badge badge-vip" style="width:50px; text-align:center;">VIP</span>
               <span style="font-size:13.5px; color:var(--text);">VIP</span>
             </div>
@@ -130,9 +130,9 @@ export function UserRolesModal({ user, tempRoles, setTempRoles, onClose, onSave 
 
           <!-- Fila: Bot -->
           <div
-            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2);"
+            style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-2); min-width:0;"
           >
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
               <span class="irc-badge badge-bot" style="width:50px; text-align:center;">Bot</span>
               <span style="font-size:13.5px; color:var(--text);">Bot de chat</span>
             </div>

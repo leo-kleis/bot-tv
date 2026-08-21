@@ -12,10 +12,7 @@ export function FollowersSummary({
   const progPct = prog && prog.total > 0 ? Math.round((prog.count / prog.total) * 100) : 0;
 
   return html`
-    <div
-      class="two-col-grid"
-      style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;"
-    >
+    <div class="two-col-grid">
       <!-- Columna Izquierda: Resumen y Sincronizador -->
       <div class="two-col">
         <div class="section">

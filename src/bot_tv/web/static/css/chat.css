@@ -76,6 +76,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
   padding: 12px 0;
   scroll-behavior: smooth;
   font-size: var(--font-size);
@@ -199,6 +200,8 @@
 .chat-msg-cont {
   padding: 2px 20px 2px 62px; /* 20px padding + 32px avatar + 10px gap = 62px */
   position: relative;
+  overflow-wrap: anywhere;
+  word-break: normal;
   animation: msg-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .chat-msg-cont:hover {
@@ -274,6 +277,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 10px 8px;
 }
 
@@ -281,6 +285,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: var(--radius-xs);
   margin-bottom: 4px;
@@ -316,6 +321,7 @@
   justify-content: space-between;
   gap: 6px;
   width: 100%;
+  min-width: 0;
 }
 
 .irc-name {
@@ -365,6 +371,7 @@
   justify-content: space-between;
   gap: 6px;
   width: 100%;
+  min-width: 0;
   font-size: 0.75rem;
   color: var(--text-muted);
 }
@@ -407,6 +414,7 @@
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
   z-index: var(--z-floating);
+  max-width: min(280px, calc(100vw - 24px));
   white-space: nowrap;
   user-select: none;
 }
@@ -672,7 +680,7 @@
 }
 
 /* Responsividad para móviles */
-@media (max-width: 600px) {
+@media (max-width: 600px) and (min-height: 481px) {
   .chat-select-field {
     max-width: 90px;
   }

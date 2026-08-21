@@ -3,6 +3,7 @@
   top: 16px;
   right: 16px;
   z-index: var(--z-toast);
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: 12px;

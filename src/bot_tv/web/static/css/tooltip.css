@@ -11,6 +11,7 @@
 .ui-tooltip {
   position: absolute;
   z-index: var(--z-popover);
+  isolation: isolate;
   padding: 5px 10px;
   font-size: 11px;
   font-weight: 500;
@@ -23,7 +24,10 @@
     0 0 1px rgba(169, 112, 255, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  white-space: nowrap;
+  max-width: min(280px, calc(100vw - 24px));
+  white-space: normal;
+  word-break: break-word;
+  text-align: center;
   pointer-events: none;
   opacity: 0;
   animation: tooltip-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;

@@ -58,7 +58,7 @@ export function ModelSection() {
           rpm
             ? html`
                 <div
-                  style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center"
+                  style="font-size:12px;color:var(--text-muted);display:flex;gap:8px;align-items:center;min-width:0;flex-wrap:wrap;"
                 >
                   <span style="color:var(--text)"
                     >Activo:

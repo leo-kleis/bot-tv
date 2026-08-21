@@ -120,9 +120,9 @@ export function AgentTab({ conversations = [], dispatch }) {
       <!-- Info RPM y Limpiar Chat -->
       <div
         class="agent-model-info"
-        style="display:flex;justify-content:space-between;align-items:center;"
+        style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;min-width:0;"
       >
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap;">
           ${
             rpm
               ? html`
