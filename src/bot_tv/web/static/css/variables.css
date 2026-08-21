@@ -62,10 +62,10 @@
   --z-tab-bar: 100;
   --z-header: 110;
   --z-irc-drawer: 300;
+  --z-history-drawer: 400;
   --z-overlay: 500;
-  --z-modal: 510;
   --z-popover: 520;
-  --z-history-drawer: 530;
+  --z-modal: 610;
   --z-toast: 700;
 }
 

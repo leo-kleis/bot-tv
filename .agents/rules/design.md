@@ -101,10 +101,10 @@ Todos los componentes deben acoplarse estrictamente a las variables CSS de la ta
 | Tab Bar | `--z-tab-bar` | `100` | Barra de pestañas principal (`.tab-bar`). |
 | Header | `--z-header` | `110` | Cabecera superior fija (`.app-header`). |
 | IRC Drawer | `--z-irc-drawer` | `300` | Panel lateral deslizable de chat/usuarios (`.irc-panel`). |
+| History Drawer | `--z-history-drawer` | `400` | Panel lateral principal de historial (`.history-drawer`). |
 | Overlays / Backdrops | `--z-overlay` | `500` | Telón de fondo oscuro/difuminado de modales o drawers (`.history-backdrop`). |
-| Modales | `--z-modal` | `510` | Diálogos modales de confirmación (`.modal-backdrop`). |
 | Popovers | `--z-popover` | `520` | Popovers contextuales fixed (`.conn-popover`). |
-| History Drawer | `--z-history-drawer` | `530` | Panel lateral principal de historial (`.history-drawer`). |
+| Modales | `--z-modal` | `610` | Diálogos modales de confirmación (`.modal-backdrop`). |
 | Toasts | `--z-toast` | `700` | Contenedor global de notificaciones toast (`.toast-container`). |
 
 ### Principios de Contexto de Apilamiento (Stacking Context)

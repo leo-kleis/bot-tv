@@ -548,7 +548,7 @@
   }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 600px) {
   .pagination-bar {
     flex-direction: column;
     gap: 10px;

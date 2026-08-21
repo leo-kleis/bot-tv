@@ -73,6 +73,7 @@
 
 .chat-feed {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px 0;
@@ -178,7 +179,8 @@
 /* Cuerpo del mensaje */
 .chat-msg-body {
   color: var(--text-2);
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: normal;
   font-weight: 400;
   font-size: inherit;
   line-height: 1.5;
@@ -270,6 +272,7 @@
 
 .irc-feed {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 10px 8px;
 }
@@ -669,7 +672,7 @@
 }
 
 /* Responsividad para móviles */
-@media (max-width: 576px) {
+@media (max-width: 600px) {
   .chat-select-field {
     max-width: 90px;
   }
