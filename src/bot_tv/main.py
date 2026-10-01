@@ -80,7 +80,7 @@ def main() -> None:
                         console = AdminConsole(bot)
                         console_task = asyncio.create_task(console.run())
 
-                        await bot.start(load_tokens=False)
+                        await bot.start(load_tokens=False, save_tokens=False)
                         await console_task
             finally:
                 await pool.close()

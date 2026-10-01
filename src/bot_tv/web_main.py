@@ -155,7 +155,9 @@ def main() -> None:
                         WEB_PORT,
                     )
 
-                    bot_task = asyncio.create_task(bot.start(load_tokens=False))
+                    bot_task = asyncio.create_task(
+                        bot.start(load_tokens=False, save_tokens=False)
+                    )
                     server_task = asyncio.create_task(server.serve())
 
                     _done, pending = await asyncio.wait(

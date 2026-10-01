@@ -160,3 +160,10 @@ class TokenPersistMixin:
                 resp.user_id,
             )
         return resp
+
+    async def save_tokens(self, path: str | None = None, /) -> None:
+        """Evita volcar tokens a archivo local .tio.tokens.json.
+
+        Los tokens se persisten exclusivamente en PostgreSQL en add_token.
+        """
+        pass
