@@ -180,7 +180,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     const dropdownContent = html`
       <div
         class="category-dropdown-list"
-        style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-popover);"
+        style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-modal-dropdown);"
       >
         ${searchResults.map(cat => {
           const boxArt = cat.box_art_url

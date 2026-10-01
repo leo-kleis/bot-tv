@@ -366,6 +366,11 @@
   color: #2196f3;
   border: 1px solid rgba(30, 136, 229, 0.3);
 }
+.badge-banned {
+  background: rgba(244, 63, 94, 0.15);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
 
 .irc-user-bottom {
   display: flex;

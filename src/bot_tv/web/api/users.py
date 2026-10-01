@@ -9,6 +9,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
 from bot_tv.actions.followers import action_sync_followers
+from bot_tv.actions.moderation import action_get_user_ban_status
 from bot_tv.actions.users import (
     action_set_nickname,
     action_sync_user_roles,
@@ -294,6 +295,8 @@ async def endpoint_get_user_detail(request: Request) -> Response:
     user_id = await bot.user_repo.get_user_id_by_name(username) or ""
     is_broadcaster = user_id == str(bot.owner_id) or user_id == channel_id
 
+    ban_status = await action_get_user_ban_status(bot, username)
+
     return _ok(
         {
             "user_id": user_id,
@@ -308,6 +311,10 @@ async def endpoint_get_user_detail(request: Request) -> Response:
             "unfollowed_at": row.get("unfollowed_at"),
             "is_follower": is_follower,
             "is_broadcaster": is_broadcaster,
+            "is_banned": ban_status.is_banned,
+            "ban_permanent": ban_status.permanent,
+            "ban_expires_at": ban_status.expires_at,
+            "ban_reason": ban_status.reason,
         }
     )
 

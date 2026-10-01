@@ -26,6 +26,19 @@ class ModerationActionResult:
     error: str | None = None
 
 
+@dataclass
+class UserBanStatus:
+    """Estado de moderación (ban/timeout) de un usuario en el canal."""
+
+    is_banned: bool = False
+    permanent: bool = False
+    expires_at: str | None = None
+    reason: str | None = None
+    created_at: str | None = None
+    moderator_id: str | None = None
+    moderator_name: str | None = None
+
+
 async def _get_broadcaster_channel(bot: Bot) -> twitchio.PartialUser | str:
     """Obtiene el objeto PartialUser del canal (broadcaster) para operaciones Helix."""
     channels = await bot.get_channels()
@@ -134,6 +147,63 @@ async def action_unban_user(bot: Bot, target_username: str) -> ModerationActionR
             target_username=target_username,
             error=f"Error inesperado: {e}",
         )
+
+
+async def action_get_user_ban_status(bot: Bot, target_username: str) -> UserBanStatus:
+    """Consulta en tiempo real a la API de Twitch si un usuario está baneado
+    en el canal.
+    """
+    res = await resolve_user(bot, target_username)
+    if not res.user_id:
+        return UserBanStatus(is_banned=False)
+
+    canal = await _get_broadcaster_channel(bot)
+    if isinstance(canal, str):
+        return UserBanStatus(is_banned=False)
+
+    # El broadcaster y el bot no pueden estar baneados en su propio canal
+    if res.user_id in (canal.id, bot.bot_id):
+        return UserBanStatus(is_banned=False)
+
+    try:
+        async for banned_user in canal.fetch_banned_user(
+            user_ids=[res.user_id], first=1, max_results=1
+        ):
+            expires_at_iso = (
+                banned_user.expires_at.isoformat() if banned_user.expires_at else None
+            )
+            created_at_iso = (
+                banned_user.created_at.isoformat() if banned_user.created_at else None
+            )
+            return UserBanStatus(
+                is_banned=True,
+                permanent=banned_user.expires_at is None,
+                expires_at=expires_at_iso,
+                reason=banned_user.reason or None,
+                created_at=created_at_iso,
+                moderator_id=banned_user.moderator.id
+                if banned_user.moderator
+                else None,
+                moderator_name=banned_user.moderator.name
+                if banned_user.moderator
+                else None,
+            )
+        return UserBanStatus(is_banned=False)
+    except twitchio.HTTPException as e:
+        LOGGER.warning(
+            "No se pudo consultar el estado de baneo de '%s' (HTTP %s): %s",
+            target_username,
+            e.status,
+            e,
+        )
+        return UserBanStatus(is_banned=False)
+    except Exception as e:
+        LOGGER.warning(
+            "Error al consultar el estado de baneo de '%s': %s",
+            target_username,
+            e,
+        )
+        return UserBanStatus(is_banned=False)
 
 
 async def action_delete_messages(

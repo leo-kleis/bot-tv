@@ -4,6 +4,7 @@ __all__ = [
     "agent",
     "followers",
     "models",
+    "moderation",
     "system",
     "users",
 ]

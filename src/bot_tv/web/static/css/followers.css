@@ -417,6 +417,17 @@
   border-radius: 3px;
 }
 
+.irc-badge.badge-banned {
+  background: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  font-size: 0.65em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 /* --------------------------------------------------------------------------
    4. Componente: FollowersPagination (Paginación de Usuarios)
    -------------------------------------------------------------------------- */

@@ -492,7 +492,7 @@
     0 0 1px rgba(169, 112, 255, 0.4);
   max-height: 220px;
   overflow-y: auto;
-  z-index: var(--z-popover);
+  z-index: var(--z-modal-dropdown);
   display: flex;
   flex-direction: column;
   padding: 4px;

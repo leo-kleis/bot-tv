@@ -66,6 +66,7 @@
   --z-overlay: 500;
   --z-popover: 520;
   --z-modal: 610;
+  --z-modal-dropdown: 620;
   --z-toast: 700;
 }
 

@@ -1,16 +1,20 @@
+"""Script interactivo de configuración y autorización OAuth mediante
+Device Code Flow (DCF).
+"""
+
+from __future__ import annotations
+
 import asyncio
 import logging
+import sys
 
-import asyncpg
 import twitchio
-from twitchio.ext import commands
 
 from bot_tv.database import (
-    TokenPersistMixin,
     TokenRepository,
     create_pg_pool,
 )
-from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
+from bot_tv.utils.env import BOT_ID, CLIENT_ID, OWNER_ID
 from bot_tv.utils.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -106,90 +110,174 @@ CHANNEL_SCOPES: list[str] = [
 ]
 
 
-class SetupBot(TokenPersistMixin, commands.AutoBot):
-    """Cliente mínimo para autorizar cuentas y guardar tokens."""
+class DCFClient(twitchio.Client):
+    """Cliente mínimo para autorizar una cuenta vía Device Code Flow."""
 
-    def __init__(self, *, database: asyncpg.Pool) -> None:
-        self.token_repo = TokenRepository(database)
-        self._authorized: set[str] = set()
+    def __init__(self, *, client_id: str) -> None:
+        self.authorized_payload: twitchio.authentication.ValidateTokenPayload | None = (
+            None
+        )
+        self.token_pair: tuple[str, str] | None = None
+        super().__init__(client_id=client_id)
 
-        super().__init__(
-            client_id=CLIENT_ID,
-            client_secret=CLIENT_SECRET,
-            bot_id=BOT_ID,
-            owner_id=OWNER_ID,
-            prefix="?",
+    async def add_token(
+        self, token: str, refresh: str
+    ) -> twitchio.authentication.ValidateTokenPayload:
+        validated = await super().add_token(token, refresh)
+        self.authorized_payload = validated
+        self.token_pair = (token, refresh)
+        return validated
+
+
+async def authorize_account(
+    *,
+    client_id: str,
+    scopes_list: list[str],
+    step_title: str,
+    account_label: str,
+    expected_id: str,
+    token_repo: TokenRepository,
+) -> None:
+    """Ejecuta el flujo DCF para autorizar una cuenta y persistirla en la DB."""
+    client = DCFClient(client_id=client_id)
+    scopes = twitchio.Scopes(scopes_list)
+
+    LOGGER.info("=" * 65)
+    LOGGER.info("%s (%d scopes)", step_title, len(scopes_list))
+    LOGGER.info("Solicitando código de autorización a Twitch...")
+
+    dcf_resp = await client.login_dcf(
+        load_token=False,
+        save_token=False,
+        scopes=scopes,
+        force_flow=True,
+    )
+    if not dcf_resp:
+        raise RuntimeError(f"No se pudo iniciar el flujo DCF para {account_label}")
+
+    uri = dcf_resp.get("verification_uri", "https://www.twitch.tv/activate")
+    code = dcf_resp["user_code"]
+    expires_in = dcf_resp.get("expires_in", 1800)
+    interval = dcf_resp.get("interval", 5)
+
+    LOGGER.info("")
+    LOGGER.info("  1. Abre este enlace en tu navegador (PC o celular):")
+    LOGGER.info("     %s", uri)
+    LOGGER.info("")
+    LOGGER.info(
+        "  2. Inicia sesión en Twitch con la cuenta de: %s.",
+        account_label.upper(),
+    )
+    LOGGER.info(
+        "  3. Si el campo no se autocompleta, ingresa el código: %s",
+        code,
+    )
+    LOGGER.info("     (El código expira en %d minutos)", expires_in // 60)
+    LOGGER.info("")
+    LOGGER.info("Esperando que autorices la cuenta en Twitch...")
+
+    try:
+        await client.start_dcf(
+            device_code=dcf_resp["device_code"],
+            interval=interval,
+            timeout=expires_in,
+            scopes=scopes,
+            block=False,
+        )
+    finally:
+        await client.close()
+
+    if not client.authorized_payload or not client.token_pair:
+        raise RuntimeError(
+            f"No se recibieron credenciales para la cuenta {account_label}."
         )
 
-    async def event_oauth_authorized(
-        self, payload: twitchio.authentication.UserTokenPayload
-    ) -> None:
-        """Se ejecuta cuando un usuario autoriza la aplicación."""
-        await self.add_token(payload.access_token, payload.refresh_token)
+    user_id = client.authorized_payload.user_id or ""
+    username = client.authorized_payload.login or ""
+    access_token, refresh_token = client.token_pair
 
-        if not payload.user_id:
-            return
-
-        if payload.user_id == self.bot_id:
-            LOGGER.info("[OK] Cuenta BOT autorizada (ID: %s)", payload.user_id)
-            self._authorized.add("bot")
-        else:
-            LOGGER.info("[OK] Cuenta CANAL autorizada (ID: %s)", payload.user_id)
-            self._authorized.add("canal")
-
-        if {"bot", "canal"} <= self._authorized:
-            LOGGER.info("")
-            LOGGER.info("Ambas cuentas autorizadas. Cerrando setup...")
-            await self.close()
-
-    async def event_ready(self) -> None:
-        """Muestra las instrucciones de autorización."""
-        bot_scopes_str = "%20".join(BOT_SCOPES)
-        channel_scopes_str = "%20".join(CHANNEL_SCOPES)
-
-        url_bot = (
-            f"http://localhost:4343/oauth?scopes={bot_scopes_str}&force_verify=true"
-        )
-        url_canal = (
-            f"http://localhost:4343/oauth?scopes={channel_scopes_str}&force_verify=true"
+    if expected_id and user_id != expected_id:
+        LOGGER.warning(
+            "Aviso: El ID obtenido (%s) no coincide con el configurado en .env (%s).",
+            user_id,
+            expected_id,
         )
 
-        LOGGER.info("=" * 60)
-        LOGGER.info("SETUP: Servidor OAuth listo en http://localhost:4343")
-        LOGGER.info("=" * 60)
-        LOGGER.info("")
-        LOGGER.info("Paso 1 - Autorizar cuenta BOT (%d scopes):", len(BOT_SCOPES))
-        LOGGER.info("  %s", url_bot)
-        LOGGER.info("")
-        LOGGER.info("Paso 2 - Autorizar cuenta CANAL (%d scopes):", len(CHANNEL_SCOPES))
-        LOGGER.info("  %s", url_canal)
-        LOGGER.info("")
-        LOGGER.info("Autoriza ambas cuentas. El setup se cerrará solo.")
-        LOGGER.info("=" * 60)
+    LOGGER.info(
+        "[OK] Cuenta %s autorizada: %s (ID: %s)",
+        account_label,
+        username,
+        user_id,
+    )
+
+    await token_repo.save_token(
+        user_id=user_id,
+        username=username,
+        token=access_token,
+        refresh=refresh_token,
+    )
+    LOGGER.info("[OK] Tokens encriptados y guardados en PostgreSQL.")
+    LOGGER.info("")
 
 
 def setup() -> None:
     """Punto de entrada del script de configuración."""
     setup_logging(level=logging.INFO)
 
-    async def runner() -> None:
-        try:
-            pool = await create_pg_pool()
-            try:
-                async with SetupBot(database=pool) as bot:
-                    await bot.start(load_tokens=False)
-            finally:
-                await pool.close()
-        finally:
-            import gc
+    if not CLIENT_ID:
+        LOGGER.critical(
+            "Falta la variable TWITCH_CLIENT_ID en el archivo .env. "
+            "Configúrala antes de ejecutar el setup."
+        )
+        sys.exit(1)
 
-            gc.collect()
-            await asyncio.sleep(0.25)
+    async def runner() -> None:
+        LOGGER.info("=" * 65)
+        LOGGER.info("SETUP: Autorización OAuth con Device Code Flow (DCF)")
+        LOGGER.info("=" * 65)
+        LOGGER.info("Conectando a PostgreSQL...")
+
+        pool = await create_pg_pool(direct=True)
+        try:
+            token_repo = TokenRepository(pool)
+
+            # Paso 1: Cuenta BOT
+            await authorize_account(
+                client_id=CLIENT_ID,
+                scopes_list=BOT_SCOPES,
+                step_title="PASO 1 DE 2: Autorizar cuenta BOT",
+                account_label="Bot",
+                expected_id=BOT_ID,
+                token_repo=token_repo,
+            )
+
+            # Paso 2: Cuenta CANAL
+            await authorize_account(
+                client_id=CLIENT_ID,
+                scopes_list=CHANNEL_SCOPES,
+                step_title="PASO 2 DE 2: Autorizar cuenta CANAL",
+                account_label="Canal / Streamer",
+                expected_id=OWNER_ID,
+                token_repo=token_repo,
+            )
+
+            LOGGER.info("=" * 65)
+            LOGGER.info("Configuración completada con éxito.")
+            LOGGER.info(
+                "Ambas cuentas han sido autorizadas y almacenadas en la base de datos."
+            )
+            LOGGER.info("Ya puedes iniciar el bot con: bot-web")
+            LOGGER.info("=" * 65)
+        finally:
+            await pool.close()
 
     try:
         asyncio.run(runner())
     except KeyboardInterrupt:
-        LOGGER.info("Setup finalizado.")
+        LOGGER.info("Setup cancelado por el usuario.")
+    except Exception as exc:
+        LOGGER.critical("Error durante el setup: %s", exc, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

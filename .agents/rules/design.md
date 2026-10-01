@@ -105,6 +105,7 @@ Todos los componentes deben acoplarse estrictamente a las variables CSS de la ta
 | Overlays / Backdrops | `--z-overlay` | `500` | Telón de fondo oscuro/difuminado de modales o drawers (`.history-backdrop`). |
 | Popovers | `--z-popover` | `520` | Popovers contextuales fixed (`.conn-popover`). |
 | Modales | `--z-modal` | `610` | Diálogos modales de confirmación (`.modal-backdrop`). |
+| Modal Dropdowns | `--z-modal-dropdown` | `620` | Menús desplegables y popovers activados dentro de diálogos modales en portales (`.category-dropdown-list`). |
 | Toasts | `--z-toast` | `700` | Contenedor global de notificaciones toast (`.toast-container`). |
 
 ### Principios de Contexto de Apilamiento (Stacking Context)

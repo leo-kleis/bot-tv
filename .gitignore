@@ -10,6 +10,7 @@ build/
 # Entorno y Secretos
 .env*
 !.env.example
+*.tokens.json
 
 # Virtual environments
 .venv/

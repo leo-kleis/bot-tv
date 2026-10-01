@@ -5,7 +5,9 @@
 [![Prisma](https://img.shields.io/badge/prisma-v7.9.1-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![License](https://img.shields.io/badge/license-MIT-4ba51c?style=flat-square)](LICENSE)
 
-Bot interactivo de Twitch con integración de Inteligencia Artificial (Google Gemini), arquitectura event-driven, persistencia en PostgreSQL con Prisma y un Dashboard Web en tiempo real.
+Bot interactivo de Twitch con integración de Inteligencia Artificial (Google Gemini), arquitectura event-driven, persistencia en PostgreSQL con Prisma y un Dashboard Web en tiempo real como interfaz predeterminada.
+
+Para una descripción detallada de todas las herramientas, endpoints y funcionalidades del sistema, consulta [docs/features.md](docs/features.md).
 
 ---
 
@@ -112,7 +114,9 @@ pnpm run typecheck
 ```
 bot-tv/
 ├── .agents/                 # Reglas y directivas de desarrollo
-├── docs/                    # Documentación técnica y guía de base de datos
+├── docs/                    # Documentación técnica
+│   ├── database.md          # Arquitectura híbrida y modelos de datos
+│   └── features.md          # Herramientas y funcionalidades de la app
 ├── extra/                   # Scripts auxiliares y migraciones
 ├── prisma/                  # Esquema Prisma y configuraciones
 │   └── schema.prisma

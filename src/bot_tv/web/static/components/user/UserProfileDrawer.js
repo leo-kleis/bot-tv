@@ -31,6 +31,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
   // Modales de Confirmación de Moderación
   const [confirmBanOpen, setConfirmBanOpen] = useState(false);
+  const [confirmUnbanOpen, setConfirmUnbanOpen] = useState(false);
   const [confirmPurgeOpen, setConfirmPurgeOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState(false);
 
@@ -221,6 +222,13 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     setConfirmBanOpen(false);
 
     if (res && res.ok) {
+      setUserData(prev => ({
+        ...prev,
+        is_banned: true,
+        ban_permanent: true,
+        ban_reason: reason || null,
+        ban_expires_at: null,
+      }));
       if (dispatch) {
         dispatch({
           type: 'ADD_TOAST',
@@ -238,6 +246,43 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           id: Date.now().toString(),
           type: 'api_error',
           data: { message: res.error || 'No se pudo banear al usuario.' },
+        },
+      });
+    }
+  }
+
+  // Ejecutar Desbaneo
+  async function handleExecuteUnban() {
+    setActionInProgress(true);
+    const res = await apiPost('/api/moderation/unban', { username });
+    setActionInProgress(false);
+    setConfirmUnbanOpen(false);
+
+    if (res && res.ok) {
+      setUserData(prev => ({
+        ...prev,
+        is_banned: false,
+        ban_permanent: false,
+        ban_expires_at: null,
+        ban_reason: null,
+      }));
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'mod_action',
+            data: { message: `Usuario ${displayName} desbaneado en Twitch.` },
+          },
+        });
+      }
+    } else if (dispatch) {
+      dispatch({
+        type: 'ADD_TOAST',
+        toast: {
+          id: Date.now().toString(),
+          type: 'api_error',
+          data: { message: res.error || 'No se pudo desbanear al usuario.' },
         },
       });
     }
@@ -327,6 +372,13 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
               tempRoles.is_bot
                 ? html`<span class="irc-badge badge-bot" style="font-size:9px;padding:1px 5px"
                     >Bot</span
+                  >`
+                : null
+            }
+            ${
+              userData.is_banned
+                ? html`<span class="irc-badge badge-banned" style="font-size:9px;padding:1px 5px"
+                    >Baneado</span
                   >`
                 : null
             }
@@ -555,12 +607,59 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
                 <!-- Acciones de Moderación Directa -->
                 <div
-                  style="background:rgba(248, 113, 113, 0.05); border:1px solid rgba(248, 113, 113, 0.2); border-radius:var(--radius-sm); padding:14px; display:flex; flex-direction:column; gap:12px;"
+                  style="background:var(--surface2); border:1px solid var(--border-2); border-radius:var(--radius-sm); padding:14px; display:flex; flex-direction:column; gap:12px;"
                 >
-                  <span
-                    style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--danger);"
-                    >Acciones de Moderación</span
-                  >
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span
+                      style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted);"
+                      >Acciones de Moderación</span
+                    >
+                    ${
+                      userData.is_banned
+                        ? html`<span class="irc-badge badge-banned">Baneado</span>`
+                        : null
+                    }
+                  </div>
+
+                  ${
+                    userData.is_banned &&
+                    (userData.ban_reason || (!userData.ban_permanent && userData.ban_expires_at))
+                      ? html`
+                          <div
+                            style="display:flex; flex-direction:column; gap:6px; padding-top:2px;"
+                          >
+                            ${
+                              userData.ban_reason
+                                ? html`
+                                    <div
+                                      style="font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; gap:12px;"
+                                    >
+                                      <span>Motivo:</span>
+                                      <span style="color:var(--text-2); text-align:right;"
+                                        >${userData.ban_reason}</span
+                                      >
+                                    </div>
+                                  `
+                                : null
+                            }
+                            ${
+                              !userData.ban_permanent && userData.ban_expires_at
+                                ? html`
+                                    <div
+                                      style="font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; gap:12px;"
+                                    >
+                                      <span>Expira:</span>
+                                      <span style="color:var(--text-2); text-align:right;"
+                                        >${formatDate(userData.ban_expires_at)}</span
+                                      >
+                                    </div>
+                                  `
+                                : null
+                            }
+                          </div>
+                        `
+                      : null
+                  }
 
                   <div style="display:flex; gap:10px; min-width:0;">
                     <button
@@ -575,14 +674,31 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                       ></i>
                       Purgar mensajes
                     </button>
-                    <button
-                      class="btn btn-danger"
-                      style="flex:1; min-width:0; font-size:12px; padding:10px;"
-                      onClick=${() => setConfirmBanOpen(true)}
-                      disabled=${actionInProgress}
-                    >
-                      <i class="fa-solid fa-ban" style="margin-right:6px;"></i> Banear usuario
-                    </button>
+                    ${
+                      userData.is_banned
+                        ? html`
+                            <button
+                              class="btn"
+                              style="flex:1; min-width:0; font-size:12px; padding:10px; background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.4); color:var(--warning);"
+                              onClick=${() => setConfirmUnbanOpen(true)}
+                              disabled=${actionInProgress}
+                            >
+                              <i class="fa-solid fa-user-check" style="margin-right:6px;"></i>
+                              Desbanear usuario
+                            </button>
+                          `
+                        : html`
+                            <button
+                              class="btn btn-danger"
+                              style="flex:1; min-width:0; font-size:12px; padding:10px;"
+                              onClick=${() => setConfirmBanOpen(true)}
+                              disabled=${actionInProgress}
+                            >
+                              <i class="fa-solid fa-ban" style="margin-right:6px;"></i> Banear
+                              usuario
+                            </button>
+                          `
+                    }
                   </div>
                 </div>
               </div>
@@ -721,6 +837,17 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       isDanger=${false}
       onConfirm=${handleExecutePurge}
       onClose=${() => setConfirmPurgeOpen(false)}
+    />
+
+    <!-- Modal Confirmación Desbaneo -->
+    <${ConfirmModal}
+      isOpen=${confirmUnbanOpen}
+      title="¿Desbanear a ${displayName}?"
+      message="El usuario recuperará el acceso para enviar mensajes en el chat de Twitch."
+      confirmText="Confirmar desbaneo"
+      isDanger=${false}
+      onConfirm=${handleExecuteUnban}
+      onClose=${() => setConfirmUnbanOpen(false)}
     />
   `;
 }
