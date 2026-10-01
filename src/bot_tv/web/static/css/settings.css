@@ -166,6 +166,74 @@
   line-height: 1.4;
 }
 
+/* Sección Audio y Hardware */
+.settings-audio-options {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-select {
+  width: 100%;
+  max-width: 440px;
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13.5px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.settings-select:focus {
+  border-color: var(--accent);
+}
+
+.settings-audio-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.keepalive-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.keepalive-status-badge.is-active {
+  color: var(--success);
+}
+
+.keepalive-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.keepalive-status-badge.is-active .keepalive-status-dot {
+  background: var(--success);
+  opacity: 1;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
 @media (max-height: 480px) {
   .settings-toggle-row {
     margin-top: 12px;
@@ -173,6 +241,18 @@
     gap: 10px;
   }
   .settings-toggle-info .settings-subtext {
+    font-size: 11px;
+  }
+  .settings-audio-options,
+  .settings-audio-footer {
+    padding-top: 8px;
+    gap: 8px;
+  }
+  .settings-select {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+  .keepalive-status-badge {
     font-size: 11px;
   }
 }

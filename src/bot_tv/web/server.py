@@ -18,10 +18,12 @@ from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket
 
+from bot_tv.utils.audio_keepalive import AUDIO_KEEP_ALIVE
 from bot_tv.web.api import (
     endpoint_clear_agent_chat,
     endpoint_create_clip,
     endpoint_exit,
+    endpoint_get_audio_keepalive,
     endpoint_get_avatar,
     endpoint_get_chat_accounts,
     endpoint_get_ffz_emotes,
@@ -36,12 +38,14 @@ from bot_tv.web.api import (
     endpoint_search_categories,
     endpoint_search_users,
     endpoint_send_chat_message,
+    endpoint_set_audio_keepalive,
     endpoint_set_context_limit,
     endpoint_set_nickname,
     endpoint_switch_model,
     endpoint_sync_followers,
     endpoint_sync_user_roles,
     endpoint_talk,
+    endpoint_test_audio_keepalive,
     endpoint_update_stream_info,
     endpoint_update_user_roles,
     endpoint_user_messages,
@@ -131,6 +135,13 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/moderation/purge", endpoint_moderation_purge, methods=["POST"]),
         Route("/api/categories/search", endpoint_search_categories, methods=["GET"]),
         Route("/api/stream/update_info", endpoint_update_stream_info, methods=["POST"]),
+        Route("/api/audio_keepalive", endpoint_get_audio_keepalive, methods=["GET"]),
+        Route("/api/audio_keepalive", endpoint_set_audio_keepalive, methods=["POST"]),
+        Route(
+            "/api/audio_keepalive/test",
+            endpoint_test_audio_keepalive,
+            methods=["POST"],
+        ),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
         Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]
@@ -138,9 +149,12 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     @asynccontextmanager
     async def lifespan(app_instance: Starlette) -> AsyncGenerator[None]:
         task = asyncio.create_task(_watch_static_files(ws_manager))
+        if AUDIO_KEEP_ALIVE.config.enabled:
+            AUDIO_KEEP_ALIVE.start()
         try:
             yield
         finally:
+            AUDIO_KEEP_ALIVE.stop()
             task.cancel()
 
     app = Starlette(

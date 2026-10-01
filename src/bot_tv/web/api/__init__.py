@@ -14,6 +14,11 @@ from bot_tv.web.api.agent import (
     endpoint_switch_model,
     endpoint_talk,
 )
+from bot_tv.web.api.audio import (
+    endpoint_get_audio_keepalive,
+    endpoint_set_audio_keepalive,
+    endpoint_test_audio_keepalive,
+)
 from bot_tv.web.api.chat import (
     endpoint_get_chat_accounts,
     endpoint_get_ffz_emotes,
@@ -53,6 +58,7 @@ __all__ = [
     "endpoint_clear_agent_chat",
     "endpoint_create_clip",
     "endpoint_exit",
+    "endpoint_get_audio_keepalive",
     "endpoint_get_avatar",
     "endpoint_get_chat_accounts",
     "endpoint_get_ffz_emotes",
@@ -67,12 +73,14 @@ __all__ = [
     "endpoint_search_categories",
     "endpoint_search_users",
     "endpoint_send_chat_message",
+    "endpoint_set_audio_keepalive",
     "endpoint_set_context_limit",
     "endpoint_set_nickname",
     "endpoint_switch_model",
     "endpoint_sync_followers",
     "endpoint_sync_user_roles",
     "endpoint_talk",
+    "endpoint_test_audio_keepalive",
     "endpoint_update_stream_info",
     "endpoint_update_user_roles",
     "endpoint_user_messages",
