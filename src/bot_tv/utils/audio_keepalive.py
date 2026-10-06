@@ -114,9 +114,9 @@ class AudioKeepAliveManager:
 
         try:
             wav_file = self._generate_wav(self._config.frequency, self._config.volume)
-            winsound.PlaySound(
+            winsound.PlaySound(  # type: ignore[attr-defined]
                 str(wav_file),
-                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP,
+                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_LOOP,  # type: ignore[attr-defined]
             )
             self._is_running = True
             LOGGER.info(
@@ -137,7 +137,7 @@ class AudioKeepAliveManager:
         import winsound
 
         try:
-            winsound.PlaySound(None, winsound.SND_PURGE)
+            winsound.PlaySound(None, winsound.SND_PURGE)  # type: ignore[attr-defined]
             self._is_running = False
             LOGGER.info("Audio keep-alive detenido en host.")
         except Exception as exc:
@@ -171,7 +171,7 @@ class AudioKeepAliveManager:
         import winsound
 
         try:
-            winsound.Beep(TEST_BEEP_FREQ_HZ, TEST_BEEP_DURATION_MS)
+            winsound.Beep(TEST_BEEP_FREQ_HZ, TEST_BEEP_DURATION_MS)  # type: ignore[attr-defined]
             if self._is_running and self._config.enabled:
                 self.start()
             return True

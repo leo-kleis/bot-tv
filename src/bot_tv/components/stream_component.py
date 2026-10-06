@@ -164,10 +164,20 @@ class StreamComponent(commands.Component):
 
     async def _check_initial_status(self) -> None:
         """Verifica el estado del stream al iniciar el componente."""
-        for channel_id in self._channel_ids:
-            try:
-                streams = self.bot.fetch_streams(user_ids=[int(channel_id)])
-                async for stream in streams:
+        if not self._channel_ids:
+            return
+
+        try:
+            # Batch fetch all streams
+            user_ids_ints = [int(cid) for cid in self._channel_ids]
+            streams_iter = self.bot.fetch_streams(user_ids=user_ids_ints)  # type: ignore[arg-type]
+            streams_map = {}
+            async for stream in streams_iter:
+                streams_map[str(stream.user.id)] = stream
+
+            for channel_id in self._channel_ids:
+                stream = streams_map.get(channel_id)
+                if stream:
                     self._stream_online = True
                     viewer_count = stream.viewer_count
                     self._last_viewer_count = viewer_count
@@ -197,7 +207,6 @@ class StreamComponent(commands.Component):
                             diff=None,
                         )
                     )
-                    break
                 else:
                     nombre = self._channel_map.get(channel_id, "")
                     titulo = ""
@@ -222,21 +231,27 @@ class StreamComponent(commands.Component):
                             category=categoria,
                         )
                     )
-            except Exception as e:
-                LOGGER.error("Error al verificar estado inicial del stream: %s", e)
+        except Exception as e:
+            LOGGER.error("Error al verificar estado inicial de streams: %s", e)
 
     async def _viewer_poll_loop(self) -> None:
         """Loop que consulta el estado del stream y viewers periódicamente."""
         while True:
             await asyncio.sleep(VIEWER_POLL_INTERVAL)
 
-            for channel_id in self._channel_ids:
-                try:
-                    streams = self.bot.fetch_streams(user_ids=[int(channel_id)])
-                    stream_obj = None
-                    async for stream in streams:
-                        stream_obj = stream
-                        break
+            if not self._channel_ids:
+                continue
+
+            try:
+                # Batch fetch all streams
+                user_ids_ints = [int(cid) for cid in self._channel_ids]
+                streams_iter = self.bot.fetch_streams(user_ids=user_ids_ints)  # type: ignore[arg-type]
+                streams_map = {}
+                async for stream in streams_iter:
+                    streams_map[str(stream.user.id)] = stream
+
+                for channel_id in self._channel_ids:
+                    stream_obj = streams_map.get(channel_id)
 
                     if stream_obj:
                         viewer_count = stream_obj.viewer_count
@@ -310,5 +325,5 @@ class StreamComponent(commands.Component):
                                     category=categoria,
                                 )
                             )
-                except Exception as e:
-                    LOGGER.error("Error al consultar estado/viewers del stream: %s", e)
+            except Exception as e:
+                LOGGER.error("Error al consultar estado/viewers del stream: %s", e)
