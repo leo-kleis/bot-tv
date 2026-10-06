@@ -431,7 +431,9 @@ export function ChatTab({
               id="btn-chat-clip"
               icon="fa-scissors"
               label="Clip"
-              title=${!streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'}
+              title=${
+                !streamOnline ? 'El canal debe estar en vivo para clipear' : 'Crear clip (F6)'
+              }
               disabled=${clipping || !streamOnline}
               loading=${clipping}
               onClick=${handleCreateClip}

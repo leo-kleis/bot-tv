@@ -6,94 +6,85 @@
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px; /* Aumentado para respirar mejor */
 }
 
 /* Sección Plana Minimalista */
 .section {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-  padding-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  margin-bottom: 0; /* Controlado por el gap del panel */
   overflow: visible;
-}
-.section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
 }
 
 .section-header {
-  padding: 8px 0;
-  border-bottom: none;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  padding: 0 0 16px 0;
+  border-bottom: 1px solid var(--border-2);
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: 10px;
   background: transparent;
 }
 .section-header .section-icon {
-  font-size: 15px;
-  color: var(--accent-text);
-  text-shadow: 0 0 8px var(--accent-glow);
+  font-size: 16px;
+  color: var(--accent);
 }
 
 .section-body {
-  padding: 12px 0 0 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* Form Controls con Volumen Interno */
+/* Form Controls con Volumen Interno Moderno */
 input[type='text'],
 input[type='search'],
 input[type='number'],
 textarea,
 select {
   width: 100%;
-  background: rgba(7, 6, 10, 0.55);
-  border: 1px solid var(--border-light);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
-  padding: 11px 16px;
+  font-size: 15px; /* Mejor lectura móvil */
+  padding: 12px 16px;
   outline: none;
-  box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.45),
-    var(--shadow-inset-light);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
   -webkit-appearance: none;
+  min-height: 44px; /* Touch target size */
 }
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
-  background: rgba(26, 22, 36, 0.7);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.3),
-    0 0 0 3px var(--accent-glow);
+  background: var(--surface2-solid);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: var(--text-muted);
 }
 textarea {
   resize: vertical;
-  min-height: 70px;
+  min-height: 88px;
   line-height: 1.5;
 }
 
 select {
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237f7b8d'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a1a1aa'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 16px center;
   padding-right: 40px;
@@ -105,9 +96,9 @@ select option {
 
 /* Spinner de carga */
 .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
@@ -130,38 +121,34 @@ select option {
 
 .custom-select-trigger {
   width: 100%;
-  background: rgba(7, 6, 10, 0.55);
-  border: 1px solid var(--border-light);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-sm);
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
-  padding: 11px 16px;
+  font-size: 15px;
+  padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   outline: none;
   cursor: pointer;
-  box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.45),
-    var(--shadow-inset-light);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease;
   user-select: none;
+  min-height: 44px;
 }
 
 .custom-select-wrap.open .custom-select-trigger,
 .custom-select-trigger:focus {
   border-color: var(--accent);
-  background: rgba(26, 22, 36, 0.7);
-  box-shadow:
-    inset 0 1px 2px rgba(0, 0, 0, 0.3),
-    0 0 0 3px var(--accent-glow);
+  background: var(--surface2-solid);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .custom-select-arrow {
   color: var(--text-muted);
   font-size: 12px;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -187,65 +174,68 @@ select option {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   z-index: var(--z-dropdown);
-  max-height: 220px;
+  max-height: 240px;
   max-width: min(300px, calc(100vw - 24px));
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
-  padding: 4px;
-  animation: dropdown-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 6px;
+  animation: dropdown-in 0.2s ease-out;
 }
 
 .custom-select-dropdown.open-up {
-  animation: dropdown-in-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: dropdown-in-up 0.2s ease-out;
 }
 
 @keyframes dropdown-in {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 @keyframes dropdown-in-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .custom-select-item {
-  padding: 10px 14px;
+  padding: 12px 14px;
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 14.5px;
   border-radius: var(--radius-xs);
   color: var(--text-2);
   transition: all 0.15s;
   user-select: none;
   text-align: left;
   overflow-wrap: break-word;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .custom-select-item:hover {
-  background: var(--accent-glow);
+  background: var(--surface2);
   color: var(--text);
 }
 
 .custom-select-item.selected {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-glow);
+  color: var(--accent-text);
   font-weight: 600;
 }
 
 .custom-select-wrap.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .custom-select-wrap.disabled .custom-select-trigger {
   cursor: not-allowed;

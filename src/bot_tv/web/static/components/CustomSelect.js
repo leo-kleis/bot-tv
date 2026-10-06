@@ -10,7 +10,7 @@ export function CustomSelect({
   placeholder,
 }) {
   const [open, setOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
+
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0, isUp: false });
   const wrapRef = useRef(null);
 
@@ -40,7 +40,6 @@ export function CustomSelect({
     const spaceBelow = windowHeight - rect.bottom;
     const spaceAbove = rect.top;
     const isUp = spaceBelow < 220 && spaceAbove > spaceBelow;
-    setOpenUpward(isUp);
 
     const width = rect.width;
     const left = Math.max(8, Math.min(rect.left, windowWidth - Math.min(300, width) - 8));

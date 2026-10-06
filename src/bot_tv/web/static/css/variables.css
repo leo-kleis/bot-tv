@@ -1,45 +1,47 @@
 /* variables.css — Diseño de Sistema, Resets & Atmósfera Base */
 :root {
-  --bg: #08070d;
-  --bg-gradient: radial-gradient(circle at top, #151125 0%, #07060a 100%);
-  --surface: rgba(18, 16, 23, 0.75);
-  --surface-solid: #121017;
-  --surface2: rgba(26, 22, 36, 0.8);
-  --surface2-solid: #1a1624;
-  --surface3: #251d33;
+  --bg: #09090b;
+  --bg-gradient: radial-gradient(circle at top, #18181b 0%, #09090b 100%);
+  --surface: rgba(24, 24, 27, 0.7);
+  --surface-solid: #18181b;
+  --surface2: rgba(39, 39, 42, 0.8);
+  --surface2-solid: #27272a;
+  --surface3: #3f3f46;
   --accent: #a970ff;
-  --accent-dim: #8c4eeb;
-  --accent-glow: rgba(169, 112, 255, 0.15);
-  --accent-text: #d8c4ff;
-  --text: #f5f4f8;
-  --text-2: #cfcbd8;
-  --text-muted: #938ea5;
+  --accent-dim: #8257e5;
+  --accent-glow: rgba(169, 112, 255, 0.2);
+  --accent-text: #e9d5ff;
+  --text: #f4f4f5;
+  --text-2: #d4d4d8;
+  --text-muted: #a1a1aa;
   --online: #34d399;
   --offline: #9ca3af;
   --danger: #f87171;
   --warning: #fbbf24;
   --success: #34d399;
 
-  /* Bordes semi-translúcidos para efecto vidrio */
-  --border: rgba(169, 112, 255, 0.18);
-  --border-light: rgba(255, 255, 255, 0.08);
-  --border-2: rgba(255, 255, 255, 0.04);
+  /* Bordes semi-translúcidos para efecto vidrio moderno */
+  --border: rgba(169, 112, 255, 0.15);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --border-2: rgba(255, 255, 255, 0.05);
 
-  /* Sombras tridimensionales */
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.7);
+  /* Sombras tridimensionales más suaves (modernas) */
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 20px 40px rgba(0, 0, 0, 0.6);
 
-  --radius: 18px;
-  --radius-sm: 12px;
-  --radius-xs: 8px;
-  --font: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-size: 14.5px;
+  /* Radios de borde más consistentes y ligeramente más redondeados */
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-xs: 10px;
+  --font: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size: 15px; /* Ligeramente más grande para lectura móvil */
   --mono: 'Cascadia Code', 'Fira Code', Consolas, monospace;
-  --tab-h: 64px;
-  --header-h: 60px;
+  --tab-h: 70px; /* Aumentado ligeramente para touch targets en mobile */
+  --header-h: 64px;
 
   /* Colores de Alertas (usados en chat.css y toasts.css) */
   --alert-raid: #e879f9;
@@ -87,7 +89,7 @@ body {
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);
-  font-size: 14.5px;
+  font-size: var(--font-size);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -118,7 +120,7 @@ textarea,
   overflow: hidden;
 }
 
-/* Scrollbar con personalidad */
+/* Scrollbar con personalidad y minimalista */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -128,8 +130,8 @@ textarea,
 }
 ::-webkit-scrollbar-thumb {
   background: var(--surface3);
-  border: 1px solid var(--border-2);
   border-radius: 99px;
+  transition: background 0.2s;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-dim);
@@ -139,11 +141,11 @@ textarea,
 @keyframes msg-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 

@@ -460,7 +460,11 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               onClick=${handleSaveNickname}
                               disabled=${savingNick}
                             >
-                              ${savingNick ? html`<i class="fa-solid fa-spinner fa-spin"></i>` : 'Guardar'}
+                              ${
+                                savingNick
+                                  ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+                                  : 'Guardar'
+                              }
                             </button>
                             <button
                               class="btn btn-secondary"
@@ -474,7 +478,11 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                         `
                       : html`
                           <div style="font-size:14px; color:var(--text-2);">
-                            ${userData.nickname ? html`<strong>${userData.nickname}</strong>` : html`<em style="color:var(--text-muted);">Sin apodo asignado</em>`}
+                            ${
+                              userData.nickname
+                                ? html`<strong>${userData.nickname}</strong>`
+                                : html`<em style="color:var(--text-muted);">Sin apodo asignado</em>`
+                            }
                           </div>
                         `
                   }
@@ -545,12 +553,20 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                       style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted);"
                       >Gestión de Roles</span
                     >
-                    ${syncingRoles ? html`<span style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...</span>` : null}
+                    ${
+                      syncingRoles
+                        ? html`<span style="font-size:11px; color:var(--text-muted);"
+                            ><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...</span
+                          >`
+                        : null
+                    }
                   </div>
 
                   <div style="display:flex; flex-direction:column; gap:10px;">
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${
+                        syncingRoles || savingRoles ? 'not-allowed' : 'pointer'
+                      }; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">Moderador</span>
                       <input
@@ -558,12 +574,15 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                         class="role-toggle-checkbox"
                         checked=${tempRoles.is_moderator}
                         disabled=${syncingRoles || savingRoles}
-                        onChange=${e => setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
+                        onChange=${e =>
+                          setTempRoles({ ...tempRoles, is_moderator: e.target.checked })}
                       />
                     </label>
 
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${
+                        syncingRoles || savingRoles ? 'not-allowed' : 'pointer'
+                      }; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">VIP</span>
                       <input
@@ -576,7 +595,9 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                     </label>
 
                     <label
-                      style="display:flex; justify-content:space-between; align-items:center; cursor:${syncingRoles || savingRoles ? 'not-allowed' : 'pointer'}; opacity:${syncingRoles ? '0.6' : '1'};"
+                      style="display:flex; justify-content:space-between; align-items:center; cursor:${
+                        syncingRoles || savingRoles ? 'not-allowed' : 'pointer'
+                      }; opacity:${syncingRoles ? '0.6' : '1'};"
                     >
                       <span style="font-size:13px; color:var(--text);">Bot de Chat</span>
                       <input
