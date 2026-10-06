@@ -2,21 +2,27 @@ from __future__ import annotations
 
 import logging
 
-import requests
-
 LOGGER = logging.getLogger(__name__)
 
 
-def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
+async def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
     """Verifica si la API de Twitch (id.twitch.tv) es accesible."""
-    import time
+    import asyncio
+
+    import aiohttp
 
     for attempt in range(1, retries + 1):
         try:
             # Usar HEAD para evitar descargar el cuerpo de la respuesta
-            requests.head("https://id.twitch.tv/oauth2/validate", timeout=timeout)
-            return True
-        except requests.RequestException as e:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.head(
+                    "https://id.twitch.tv/oauth2/validate",
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ),
+            ):
+                return True
+        except (TimeoutError, aiohttp.ClientError) as e:
             LOGGER.warning(
                 "Intento %d/%d de conexión con Twitch falló: %s",
                 attempt,
@@ -24,7 +30,7 @@ def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
                 e,
             )
             if attempt < retries:
-                time.sleep(1.0)
+                await asyncio.sleep(1.0)
 
     LOGGER.error("No se pudo conectar con Twitch tras %d intentos.", retries)
     return False
