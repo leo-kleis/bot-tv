@@ -2,21 +2,27 @@ from __future__ import annotations
 
 import logging
 
-import requests
-
 LOGGER = logging.getLogger(__name__)
 
 
-def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
+async def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
     """Verifica si la API de Twitch (id.twitch.tv) es accesible."""
-    import time
+    import asyncio
+
+    import aiohttp
 
     for attempt in range(1, retries + 1):
         try:
             # Usar HEAD para evitar descargar el cuerpo de la respuesta
-            requests.head("https://id.twitch.tv/oauth2/validate", timeout=timeout)
-            return True
-        except requests.RequestException as e:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.head(
+                    "https://id.twitch.tv/oauth2/validate",
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ),
+            ):
+                return True
+        except (TimeoutError, aiohttp.ClientError) as e:
             LOGGER.warning(
                 "Intento %d/%d de conexión con Twitch falló: %s",
                 attempt,
@@ -24,7 +30,7 @@ def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> bool:
                 e,
             )
             if attempt < retries:
-                time.sleep(1.0)
+                await asyncio.sleep(1.0)
 
     LOGGER.error("No se pudo conectar con Twitch tras %d intentos.", retries)
     return False
@@ -49,9 +55,11 @@ def get_port_process_info(port: int) -> tuple[int, str] | None:
 
     if sys.platform == "win32":
         try:
-            cmd = f"netstat -ano | findstr :{port}"
-            output = subprocess.check_output(cmd, shell=True, text=True)  # noqa: S602
+            cmd = ["netstat", "-ano"]
+            output = subprocess.check_output(cmd, text=True)  # noqa: S603
             for line in output.strip().splitlines():
+                if f":{port}" not in line:
+                    continue
                 parts = line.split()
                 if len(parts) >= 5 and f":{port}" in parts[1]:
                     pid = int(parts[-1])
@@ -68,8 +76,8 @@ def _get_process_name_by_pid(pid: int) -> str:
     import subprocess
 
     with contextlib.suppress(Exception):
-        cmd = f'tasklist /FI "PID eq {pid}" /FO CSV /NH'
-        output = subprocess.check_output(cmd, shell=True, text=True)  # noqa: S602
+        cmd = ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"]
+        output = subprocess.check_output(cmd, text=True)  # noqa: S603
         if output and "," in output:
             return output.split(",")[0].strip('"')
     return "Desconocido"
