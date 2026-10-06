@@ -173,18 +173,34 @@ class UserQueriesMixin(BaseRepository):
         sort_order_sql = "DESC" if (sort_order or "").lower() == "desc" else "ASC"
 
         if sort_by_clean == "role":
-            order_by_sql = (
-                "ORDER BY (CASE WHEN cu.is_moderator THEN 1 WHEN cu.is_vip THEN 2 "
-                "WHEN cu.is_subscriber THEN 3 WHEN u.is_bot THEN 4 ELSE 5 END) "
-                f"{sort_order_sql}, u.username ASC"
-            )
+            if sort_order_sql == "DESC":
+                order_by_sql = (
+                    "ORDER BY (CASE WHEN cu.is_moderator THEN 1 WHEN cu.is_vip THEN 2 "
+                    "WHEN cu.is_subscriber THEN 3 WHEN u.is_bot THEN 4 ELSE 5 END) "
+                    "DESC, u.username ASC"
+                )
+            else:
+                order_by_sql = (
+                    "ORDER BY (CASE WHEN cu.is_moderator THEN 1 WHEN cu.is_vip THEN 2 "
+                    "WHEN cu.is_subscriber THEN 3 WHEN u.is_bot THEN 4 ELSE 5 END) "
+                    "ASC, u.username ASC"
+                )
         elif sort_by_clean == "follow_date":
-            order_by_sql = (
-                f"ORDER BY COALESCE(cu.unfollowed_at, cu.followed_at) "
-                f"{sort_order_sql} NULLS LAST, u.username ASC"
-            )
+            if sort_order_sql == "DESC":
+                order_by_sql = (
+                    "ORDER BY COALESCE(cu.unfollowed_at, cu.followed_at) "
+                    "DESC NULLS LAST, u.username ASC"
+                )
+            else:
+                order_by_sql = (
+                    "ORDER BY COALESCE(cu.unfollowed_at, cu.followed_at) "
+                    "ASC NULLS LAST, u.username ASC"
+                )
         else:
-            order_by_sql = f"ORDER BY u.username {sort_order_sql}"
+            if sort_order_sql == "DESC":
+                order_by_sql = "ORDER BY u.username DESC"
+            else:
+                order_by_sql = "ORDER BY u.username ASC"
 
         count_query = f"""
             SELECT COUNT(*) AS total
