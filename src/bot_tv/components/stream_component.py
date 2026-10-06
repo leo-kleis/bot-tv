@@ -167,79 +167,72 @@ class StreamComponent(commands.Component):
         if not self._channel_ids:
             return
 
-        chunk_size = 100
-        for i in range(0, len(self._channel_ids), chunk_size):
-            chunk_ids = self._channel_ids[i : i + chunk_size]
-            try:
-                streams_iter = self.bot.fetch_streams(
-                    user_ids=[int(cid) for cid in chunk_ids]  # type: ignore[arg-type]
-                )
-                live_streams = {}
-                async for stream in streams_iter:
-                    live_streams[str(stream.user.id)] = stream
+        try:
+            # Batch fetch all streams
+            user_ids_ints = [int(cid) for cid in self._channel_ids]
+            streams_iter = self.bot.fetch_streams(user_ids=user_ids_ints)  # type: ignore[arg-type]
+            streams_map = {}
+            async for stream in streams_iter:
+                streams_map[str(stream.user.id)] = stream
 
-                for channel_id in chunk_ids:
-                    stream = live_streams.get(str(channel_id))
-                    if stream:
-                        self._stream_online = True
-                        viewer_count = stream.viewer_count
-                        self._last_viewer_count = viewer_count
+            for channel_id in self._channel_ids:
+                stream = streams_map.get(channel_id)
+                if stream:
+                    self._stream_online = True
+                    viewer_count = stream.viewer_count
+                    self._last_viewer_count = viewer_count
 
-                        nombre = stream.user.display_name or stream.user.name or ""
-                        titulo = stream.title or ""
-                        categoria = stream.game_name or ""
-                        started_at = (
-                            stream.started_at.isoformat()
-                            if hasattr(stream.started_at, "isoformat")
-                            else str(stream.started_at)
-                        )
+                    nombre = stream.user.display_name or stream.user.name or ""
+                    titulo = stream.title or ""
+                    categoria = stream.game_name or ""
+                    started_at = (
+                        stream.started_at.isoformat()
+                        if hasattr(stream.started_at, "isoformat")
+                        else str(stream.started_at)
+                    )
 
-                        await self.bot.event_bus.emit(
-                            StreamOnlineEvent(
-                                timestamp=datetime.now().isoformat(),
-                                broadcaster_name=nombre,
-                                title=titulo,
-                                category=categoria,
-                                started_at=started_at,
-                            )
+                    await self.bot.event_bus.emit(
+                        StreamOnlineEvent(
+                            timestamp=datetime.now().isoformat(),
+                            broadcaster_name=nombre,
+                            title=titulo,
+                            category=categoria,
+                            started_at=started_at,
                         )
-                        await self.bot.event_bus.emit(
-                            ViewerUpdateEvent(
-                                timestamp=datetime.now().isoformat(),
-                                count=viewer_count,
-                                diff=None,
-                            )
+                    )
+                    await self.bot.event_bus.emit(
+                        ViewerUpdateEvent(
+                            timestamp=datetime.now().isoformat(),
+                            count=viewer_count,
+                            diff=None,
                         )
-                    else:
-                        nombre = self._channel_map.get(channel_id, "")
-                        titulo = ""
-                        categoria = ""
-                        with contextlib.suppress(Exception):
-                            info = await self.bot.fetch_channel(
-                                broadcaster_id=int(channel_id)
-                            )
-                            if info:
-                                titulo = info.title or ""
-                                categoria = info.game_name or ""
-                                if info.user and (
-                                    info.user.display_name or info.user.name
-                                ):
-                                    nombre = (
-                                        info.user.display_name
-                                        or info.user.name
-                                        or nombre
-                                    )
+                    )
+                else:
+                    nombre = self._channel_map.get(channel_id, "")
+                    titulo = ""
+                    categoria = ""
+                    with contextlib.suppress(Exception):
+                        info = await self.bot.fetch_channel(
+                            broadcaster_id=int(channel_id)
+                        )
+                        if info:
+                            titulo = info.title or ""
+                            categoria = info.game_name or ""
+                            if info.user and (info.user.display_name or info.user.name):
+                                nombre = (
+                                    info.user.display_name or info.user.name or nombre
+                                )
 
-                        await self.bot.event_bus.emit(
-                            StreamOfflineEvent(
-                                timestamp=datetime.now().isoformat(),
-                                broadcaster_name=nombre,
-                                title=titulo,
-                                category=categoria,
-                            )
+                    await self.bot.event_bus.emit(
+                        StreamOfflineEvent(
+                            timestamp=datetime.now().isoformat(),
+                            broadcaster_name=nombre,
+                            title=titulo,
+                            category=categoria,
                         )
-            except Exception as e:
-                LOGGER.error("Error al verificar estado inicial del stream: %s", e)
+                    )
+        except Exception as e:
+            LOGGER.error("Error al verificar estado inicial de streams: %s", e)
 
     async def _viewer_poll_loop(self) -> None:
         """Loop que consulta el estado del stream y viewers periódicamente."""
@@ -249,91 +242,88 @@ class StreamComponent(commands.Component):
             if not self._channel_ids:
                 continue
 
-            chunk_size = 100
-            for i in range(0, len(self._channel_ids), chunk_size):
-                chunk_ids = self._channel_ids[i : i + chunk_size]
-                try:
-                    streams_iter = self.bot.fetch_streams(
-                        user_ids=[int(cid) for cid in chunk_ids]  # type: ignore[arg-type]
-                    )
-                    live_streams = {}
-                    async for stream in streams_iter:
-                        live_streams[str(stream.user.id)] = stream
+            try:
+                # Batch fetch all streams
+                user_ids_ints = [int(cid) for cid in self._channel_ids]
+                streams_iter = self.bot.fetch_streams(user_ids=user_ids_ints)  # type: ignore[arg-type]
+                streams_map = {}
+                async for stream in streams_iter:
+                    streams_map[str(stream.user.id)] = stream
 
-                    for channel_id in chunk_ids:
-                        stream_obj = live_streams.get(str(channel_id))
+                for channel_id in self._channel_ids:
+                    stream_obj = streams_map.get(channel_id)
 
-                        if stream_obj:
-                            viewer_count = stream_obj.viewer_count
-                            # Si antes estaba offline
-                            if not self._stream_online:
-                                self._stream_online = True
-                                self._last_viewer_count = viewer_count
-                                nombre = (
-                                    stream_obj.user.display_name
-                                    or stream_obj.user.name
-                                    or ""
+                    if stream_obj:
+                        viewer_count = stream_obj.viewer_count
+                        # Si antes estaba offline
+                        if not self._stream_online:
+                            self._stream_online = True
+                            self._last_viewer_count = viewer_count
+                            nombre = (
+                                stream_obj.user.display_name
+                                or stream_obj.user.name
+                                or ""
+                            )
+                            titulo = stream_obj.title or ""
+                            categoria = stream_obj.game_name or ""
+                            started_at = (
+                                stream_obj.started_at.isoformat()
+                                if hasattr(stream_obj.started_at, "isoformat")
+                                else str(stream_obj.started_at)
+                            )
+                            await self.bot.event_bus.emit(
+                                StreamOnlineEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    broadcaster_name=nombre,
+                                    title=titulo,
+                                    category=categoria,
+                                    started_at=started_at,
                                 )
-                                titulo = stream_obj.title or ""
-                                categoria = stream_obj.game_name or ""
-                                started_at = (
-                                    stream_obj.started_at.isoformat()
-                                    if hasattr(stream_obj.started_at, "isoformat")
-                                    else str(stream_obj.started_at)
+                            )
+                            await self.bot.event_bus.emit(
+                                ViewerUpdateEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    count=viewer_count,
+                                    diff=None,
                                 )
-                                await self.bot.event_bus.emit(
-                                    StreamOnlineEvent(
-                                        timestamp=datetime.now().isoformat(),
-                                        broadcaster_name=nombre,
-                                        title=titulo,
-                                        category=categoria,
-                                        started_at=started_at,
-                                    )
+                            )
+                        elif viewer_count != self._last_viewer_count:
+                            diff = (
+                                viewer_count - self._last_viewer_count
+                                if self._last_viewer_count is not None
+                                else None
+                            )
+                            self._last_viewer_count = viewer_count
+                            await self.bot.event_bus.emit(
+                                ViewerUpdateEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    count=viewer_count,
+                                    diff=diff,
                                 )
-                                await self.bot.event_bus.emit(
-                                    ViewerUpdateEvent(
-                                        timestamp=datetime.now().isoformat(),
-                                        count=viewer_count,
-                                        diff=None,
-                                    )
+                            )
+                    else:
+                        # Si antes estaba online pero ya no se encuentra
+                        if self._stream_online:
+                            self._stream_online = False
+                            self._last_viewer_count = None
+                            nombre = self._channel_map.get(channel_id, "")
+                            titulo = ""
+                            categoria = ""
+                            with contextlib.suppress(Exception):
+                                info = await self.bot.fetch_channel(
+                                    broadcaster_id=int(channel_id)
                                 )
-                            elif viewer_count != self._last_viewer_count:
-                                diff = (
-                                    viewer_count - self._last_viewer_count
-                                    if self._last_viewer_count is not None
-                                    else None
-                                )
-                                self._last_viewer_count = viewer_count
-                                await self.bot.event_bus.emit(
-                                    ViewerUpdateEvent(
-                                        timestamp=datetime.now().isoformat(),
-                                        count=viewer_count,
-                                        diff=diff,
-                                    )
-                                )
-                        else:
-                            # Si antes estaba online pero ya no se encuentra
-                            if self._stream_online:
-                                self._stream_online = False
-                                self._last_viewer_count = None
-                                nombre = self._channel_map.get(channel_id, "")
-                                titulo = ""
-                                categoria = ""
-                                with contextlib.suppress(Exception):
-                                    info = await self.bot.fetch_channel(
-                                        broadcaster_id=int(channel_id)
-                                    )
-                                    if info:
-                                        titulo = info.title or ""
-                                        categoria = info.game_name or ""
+                                if info:
+                                    titulo = info.title or ""
+                                    categoria = info.game_name or ""
 
-                                await self.bot.event_bus.emit(
-                                    StreamOfflineEvent(
-                                        timestamp=datetime.now().isoformat(),
-                                        broadcaster_name=nombre,
-                                        title=titulo,
-                                        category=categoria,
-                                    )
+                            await self.bot.event_bus.emit(
+                                StreamOfflineEvent(
+                                    timestamp=datetime.now().isoformat(),
+                                    broadcaster_name=nombre,
+                                    title=titulo,
+                                    category=categoria,
                                 )
-                except Exception as e:
-                    LOGGER.error("Error al consultar estado/viewers del stream: %s", e)
+                            )
+            except Exception as e:
+                LOGGER.error("Error al consultar estado/viewers del stream: %s", e)
