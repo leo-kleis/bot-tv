@@ -49,9 +49,11 @@ def get_port_process_info(port: int) -> tuple[int, str] | None:
 
     if sys.platform == "win32":
         try:
-            cmd = f"netstat -ano | findstr :{port}"
-            output = subprocess.check_output(cmd, shell=True, text=True)  # noqa: S602
+            cmd = ["netstat", "-ano"]
+            output = subprocess.check_output(cmd, text=True)  # noqa: S603
             for line in output.strip().splitlines():
+                if f":{port}" not in line:
+                    continue
                 parts = line.split()
                 if len(parts) >= 5 and f":{port}" in parts[1]:
                     pid = int(parts[-1])
@@ -68,8 +70,8 @@ def _get_process_name_by_pid(pid: int) -> str:
     import subprocess
 
     with contextlib.suppress(Exception):
-        cmd = f'tasklist /FI "PID eq {pid}" /FO CSV /NH'
-        output = subprocess.check_output(cmd, shell=True, text=True)  # noqa: S602
+        cmd = ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"]
+        output = subprocess.check_output(cmd, text=True)  # noqa: S603
         if output and "," in output:
             return output.split(",")[0].strip('"')
     return "Desconocido"
