@@ -17,7 +17,11 @@ export function FollowersSummary({
       <div class="two-col">
         <div class="section">
           <div class="section-header">
-            <span class="section-icon"><i class="fa-solid fa-chart-simple"></i></span> Resumen
+            <span class="section-icon"
+              ><i class="fa-solid fa-chart-simple"></i
+              ><i data-lucide="bar-chart-2" class="lucide-icon"></i
+            ></span>
+            Resumen
           </div>
           <div class="section-body">
             <div class="followers-stat">
@@ -66,7 +70,8 @@ export function FollowersSummary({
                   ? html`<span class="spinner"></span> Sincronizando...`
                   : !sync
                     ? html`<span class="spinner"></span> Inicializando bot...`
-                    : html`<i class="fa-solid fa-rotate"></i> Sincronizar ahora`
+                    : html`<i class="fa-solid fa-rotate"></i
+                        ><i data-lucide="refresh-cw" class="lucide-icon"></i> Sincronizar ahora`
               }
             </button>
 
@@ -101,7 +106,10 @@ export function FollowersSummary({
                     ? html`
                         <div class="section">
                           <div class="section-header" style="color:var(--success)">
-                            <span class="section-icon"><i class="fa-solid fa-user-plus"></i></span>
+                            <span class="section-icon"
+                              ><i class="fa-solid fa-user-plus"></i
+                              ><i data-lucide="user-plus" class="lucide-icon"></i
+                            ></span>
                             Nuevos (${allNewLabels.length})
                           </div>
                           <div class="section-body">
@@ -122,7 +130,10 @@ export function FollowersSummary({
                     ? html`
                         <div class="section">
                           <div class="section-header" style="color:var(--danger)">
-                            <span class="section-icon"><i class="fa-solid fa-user-minus"></i></span>
+                            <span class="section-icon"
+                              ><i class="fa-solid fa-user-minus"></i
+                              ><i data-lucide="user-minus" class="lucide-icon"></i
+                            ></span>
                             Dejaron de seguir (${allLostLabels.length})
                           </div>
                           <div class="section-body">

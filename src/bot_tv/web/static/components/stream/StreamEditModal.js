@@ -204,7 +204,8 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                       }}
                     />`
                   : html`<div class="category-box-art-placeholder">
-                      <i class="fa-solid fa-gamepad"></i>
+                      <i class="fa-solid fa-gamepad"></i
+                      ><i data-lucide="gamepad-2" class="lucide-icon"></i>
                     </div>`
               }
               <span class="category-item-name">${cat.name}</span>
@@ -276,7 +277,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
             <span>Editar Información del Stream</span>
           </div>
           <button class="stream-modal-close-btn" onClick=${onClose} title="Cerrar modal">
-            <i class="fa-solid fa-xmark"></i>
+            <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
           </button>
         </div>
 
@@ -286,7 +287,8 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
             errorMsg
               ? html`
                   <div class="stream-modal-alert">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <i class="fa-solid fa-triangle-exclamation"></i
+                    ><i data-lucide="alert-triangle" class="lucide-icon"></i>
                     <span>${errorMsg}</span>
                   </div>
                 `
@@ -338,7 +340,8 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                               }}
                             />`
                           : html`<div class="twitch-category-art-placeholder">
-                              <i class="fa-solid fa-gamepad"></i>
+                              <i class="fa-solid fa-gamepad"></i
+                              ><i data-lucide="gamepad-2" class="lucide-icon"></i>
                             </div>`
                       }
                       <div class="twitch-category-info">
@@ -351,7 +354,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                         title="Cambiar categoría"
                         disabled=${saving}
                       >
-                        <i class="fa-solid fa-xmark"></i>
+                        <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
                       </button>
                     </div>
                   `
@@ -360,7 +363,8 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
 
             <!-- Buscador de Categorías con Debounce -->
             <div class="category-search-box">
-              <i class="fa-solid fa-magnifying-glass search-box-icon"></i>
+              <i class="fa-solid fa-magnifying-glass search-box-icon"></i
+              ><i data-lucide="search" class="lucide-icon"></i>
               <input
                 type="text"
                 class="stream-modal-input category-search-input"
@@ -403,8 +407,10 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           >
             ${
               saving
-                ? html`<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`
-                : html`<i class="fa-solid fa-check"></i> Guardar Cambios`
+                ? html`<i class="fa-solid fa-spinner fa-spin"></i
+                    ><i data-lucide="loader" class="lucide-icon"></i> Guardando...`
+                : html`<i class="fa-solid fa-check"></i
+                    ><i data-lucide="check" class="lucide-icon"></i> Guardar Cambios`
             }
           </button>
         </div>

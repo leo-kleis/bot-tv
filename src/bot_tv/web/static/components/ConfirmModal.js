@@ -36,7 +36,8 @@ export function ConfirmModal({
         aria-labelledby="modal-title"
       >
         <span class="modal-icon" style="color: ${isDanger ? 'var(--danger)' : 'var(--warning)'}">
-          <i class="fa-solid fa-triangle-exclamation"></i>
+          <i class="fa-solid fa-triangle-exclamation"></i
+          ><i data-lucide="alert-triangle" class="lucide-icon"></i>
         </span>
 
         <h3 id="modal-title">${title}</h3>

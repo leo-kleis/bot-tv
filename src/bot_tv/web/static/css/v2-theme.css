@@ -1,0 +1,310 @@
+/* v2-theme.css — Nuevo Diseño Orientado a Control de Bot */
+/* Funciona únicamente bajo html[data-ui="v2"] para no pisar el diseño original */
+
+html[data-ui='v2'] {
+  /* Nueva Paleta de Colores de Alto Contraste para V2 */
+  --bg: #09090b;
+  --bg-gradient: radial-gradient(circle at top left, #1a1625 0%, #09090b 100%);
+  --surface: #121214;
+  --surface-solid: #18181b;
+  --surface2: #27272a;
+  --surface3: #3f3f46;
+
+  --accent: #9146ff; /* Twitch Purple */
+  --accent-dim: #772ce8;
+  --accent-glow: rgba(145, 70, 255, 0.2);
+  --accent-text: #bf94ff;
+
+  --text: #fafafa;
+  --text-2: #a1a1aa;
+  --text-muted: #71717a;
+
+  --border: #27272a;
+  --border-light: rgba(255, 255, 255, 0.05);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 4px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+}
+
+/* Ocultar iconos de FontAwesome en v2 y mostrar Lucide */
+html[data-ui='v2'] i.fa-solid,
+html[data-ui='v2'] i.fa-brands,
+html[data-ui='v2'] i.fa-regular {
+  display: none !important;
+}
+
+html[data-ui='v2'] i[data-lucide] {
+  display: inline-block;
+  vertical-align: middle;
+  width: 1em;
+  height: 1em;
+}
+
+/* Y al revés: ocultar Lucide en v1 */
+html:not([data-ui='v2']) i[data-lucide] {
+  display: none !important;
+}
+
+/* Componentes en v2 */
+
+/* Botones (flat look, hover effect minimalista) */
+html[data-ui='v2'] .btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+html[data-ui='v2'] .btn:hover {
+  background: var(--surface3);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+}
+html[data-ui='v2'] .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+html[data-ui='v2'] .btn-primary:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+html[data-ui='v2'] .btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+html[data-ui='v2'] .btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Tabs (Navegación minimalista) */
+html[data-ui='v2'] .tab-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+html[data-ui='v2'] .tab-btn {
+  color: var(--text-muted);
+}
+html[data-ui='v2'] .tab-btn.active {
+  color: var(--accent);
+}
+html[data-ui='v2'] .tab-btn::after {
+  background: var(--accent);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  height: 2px;
+}
+
+/* Sections y Cards */
+html[data-ui='v2'] .settings-section,
+html[data-ui='v2'] .followers-tab,
+html[data-ui='v2'] .chat-container,
+html[data-ui='v2'] .actions-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius);
+}
+
+/* Modals y Drawers */
+html[data-ui='v2'] .modal-content,
+html[data-ui='v2'] .history-drawer,
+html[data-ui='v2'] .profile-drawer {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+}
+
+/* Inputs */
+html[data-ui='v2'] input[type='text'],
+html[data-ui='v2'] input[type='number'],
+html[data-ui='v2'] textarea,
+html[data-ui='v2'] select,
+html[data-ui='v2'] .settings-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-xs);
+  transition: border-color 0.15s ease;
+}
+html[data-ui='v2'] input:focus,
+html[data-ui='v2'] textarea:focus,
+html[data-ui='v2'] select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* Scrollbar */
+html[data-ui='v2'] ::-webkit-scrollbar-thumb {
+  background: var(--surface3);
+  border-color: var(--surface);
+}
+html[data-ui='v2'] ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Rediseño Layout General y Cards V2 */
+html[data-ui='v2'] .app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: none;
+}
+
+html[data-ui='v2'] .stream-widget-container {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+html[data-ui='v2'] .stream-widget-content {
+  padding: 8px 16px;
+}
+
+html[data-ui='v2'] .chat-msg-group {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+html[data-ui='v2'] .chat-msg-group:hover {
+  background: var(--surface2);
+  border-color: var(--border-light);
+}
+
+html[data-ui='v2'] .user-avatar {
+  border-radius: 6px;
+}
+
+html[data-ui='v2'] .followers-table th {
+  background: var(--surface2);
+  color: var(--text-2);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-ui='v2'] .followers-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+}
+
+html[data-ui='v2'] .followers-table tbody tr:hover {
+  background: var(--surface2);
+}
+
+/* Modals Modernizados */
+html[data-ui='v2'] .modal-header {
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  background: var(--surface2);
+}
+
+html[data-ui='v2'] .modal-footer {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  background: var(--surface2);
+}
+
+html[data-ui='v2'] .history-drawer-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Switches V2 */
+html[data-ui='v2'] input[type='checkbox'].role-toggle-checkbox {
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  background: var(--surface3);
+  border-radius: 20px;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+html[data-ui='v2'] input[type='checkbox'].role-toggle-checkbox::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-ui='v2'] input[type='checkbox'].role-toggle-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+html[data-ui='v2'] input[type='checkbox'].role-toggle-checkbox:checked::after {
+  transform: translateX(16px);
+}
+
+/* Corrección visual para los Selectores de Configuración */
+html[data-ui='v2'] .settings-control-group select {
+  width: 100%;
+  max-width: 440px;
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13.5px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+html[data-ui='v2'] .settings-control-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* Rediseño de Stream Widget */
+html[data-ui='v2'] .stream-widget-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+html[data-ui='v2'] .stream-widget-cat {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+html[data-ui='v2'] .stream-edit-icon {
+  color: var(--text-muted);
+}
+html[data-ui='v2'] .stream-edit-icon:hover {
+  color: var(--accent);
+}
+
+/* Chat Author roles in V2 */
+html[data-ui='v2'] .chat-author[style*='color: var(--warning)'] {
+  color: #f59e0b !important;
+}
+
+html[data-ui='v2'] .chat-author[style*='color: var(--danger)'] {
+  color: #ef4444 !important;
+}

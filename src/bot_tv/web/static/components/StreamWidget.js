@@ -91,7 +91,7 @@ export function StreamWidget({
                     >Editar título / categoría</span
                   >`
             }
-            <i class="fa-solid fa-pen-to-square stream-edit-icon" aria-hidden="true"></i>
+            <i class="fa-solid fa-pen-to-square stream-edit-icon" aria-hidden="true"></i><i data-lucide="edit-2" class="lucide-icon"></i>
           </button>
         </${Tooltip}>
       </div>
@@ -100,7 +100,9 @@ export function StreamWidget({
         online && viewerCount != null
           ? html`
               <div class="viewers-badge" title="Espectadores en vivo">
-                <span class="eye-icon"><i class="fa-solid fa-eye"></i></span>
+                <span class="eye-icon"
+                  ><i class="fa-solid fa-eye"></i><i data-lucide="eye" class="lucide-icon"></i
+                ></span>
                 <span>${fmtViewers(viewerCount)}</span>
               </div>
               <button
@@ -110,7 +112,7 @@ export function StreamWidget({
                 aria-label="Ver usuarios en el chat"
               >
                 <span class="users-icon">
-                  <i class="fa-solid fa-users"></i>
+                  <i class="fa-solid fa-users"></i><i data-lucide="users" class="lucide-icon"></i>
                 </span>
                 <span>${ircCount}</span>
               </button>
@@ -123,7 +125,7 @@ export function StreamWidget({
                 aria-label="Ver usuarios en el chat"
               >
                 <span class="users-icon">
-                  <i class="fa-solid fa-users"></i>
+                  <i class="fa-solid fa-users"></i><i data-lucide="users" class="lucide-icon"></i>
                 </span>
                 <span>${ircCount}</span>
               </button>

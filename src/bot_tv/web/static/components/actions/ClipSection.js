@@ -20,7 +20,10 @@ export function ClipSection({ clips = [], streamOnline = false }) {
   return html`
     <div class="section">
       <div class="section-header">
-        <span class="section-icon"><i class="fa-solid fa-scissors"></i></span> Crear Clip
+        <span class="section-icon"
+          ><i class="fa-solid fa-scissors"></i><i data-lucide="scissors" class="lucide-icon"></i
+        ></span>
+        Crear Clip
       </div>
       <div class="section-body">
         <button
@@ -33,8 +36,10 @@ export function ClipSection({ clips = [], streamOnline = false }) {
             loading
               ? html`<span class="spinner"></span> Creando...`
               : !streamOnline
-                ? html`<i class="fa-solid fa-circle-xmark"></i> Canal offline`
-                : html`<i class="fa-solid fa-scissors"></i> Crear clip ahora`
+                ? html`<i class="fa-solid fa-circle-xmark"></i
+                    ><i data-lucide="x-circle" class="lucide-icon"></i> Canal offline`
+                : html`<i class="fa-solid fa-scissors"></i
+                    ><i data-lucide="scissors" class="lucide-icon"></i> Crear clip ahora`
           }
         </button>
         ${

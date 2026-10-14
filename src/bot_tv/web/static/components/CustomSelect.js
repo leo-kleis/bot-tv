@@ -154,7 +154,10 @@ export function CustomSelect({
         <span class="custom-select-value"
           >${selectedOpt ? selectedOpt.label : placeholder || 'Seleccionar...'}</span
         >
-        <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>
+        <span class="custom-select-arrow"
+          ><i class="fa-solid fa-chevron-down"></i
+          ><i data-lucide="chevron-down" class="lucide-icon"></i
+        ></span>
       </button>
     </div>
   `;

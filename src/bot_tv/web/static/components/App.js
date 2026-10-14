@@ -10,11 +10,32 @@ import { StreamEditModal } from '/static/components/stream/StreamEditModal.js';
 import { ConfirmModal } from '/static/components/ConfirmModal.js';
 
 const TABS = [
-  { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
-  { id: 'stream', icon: html`<i class="fa-solid fa-tv"></i>`, label: 'Stream' },
-  { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
-  { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
-  { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
+  {
+    id: 'chat',
+    icon: html`<i class="fa-solid fa-comments"></i
+      ><i data-lucide="message-square" class="lucide-icon"></i>`,
+    label: 'Chat',
+  },
+  {
+    id: 'stream',
+    icon: html`<i class="fa-solid fa-tv"></i><i data-lucide="tv" class="lucide-icon"></i>`,
+    label: 'Stream',
+  },
+  {
+    id: 'users',
+    icon: html`<i class="fa-solid fa-users"></i><i data-lucide="users" class="lucide-icon"></i>`,
+    label: 'Usuarios & Seguidores',
+  },
+  {
+    id: 'agent',
+    icon: html`<i class="fa-solid fa-robot"></i><i data-lucide="bot" class="lucide-icon"></i>`,
+    label: 'Agente',
+  },
+  {
+    id: 'settings',
+    icon: html`<i class="fa-solid fa-gear"></i><i data-lucide="settings" class="lucide-icon"></i>`,
+    label: 'Ajustes',
+  },
 ];
 
 function isMobileOrTabletDevice() {

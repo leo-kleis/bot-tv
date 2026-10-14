@@ -30,7 +30,7 @@ function ToastItem({ toast, dispatch }) {
         aria-label="Cerrar notificación"
         onClick=${() => dispatch({ type: 'REMOVE_TOAST', id: toast.id })}
       >
-        <i class="fa-solid fa-xmark"></i>
+        <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
       </button>
     </div>
   `;

@@ -19,7 +19,8 @@ export function ChatHeaderButton({
     >
       ${
         loading
-          ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+          ? html`<i class="fa-solid fa-spinner fa-spin"></i
+              ><i data-lucide="loader" class="lucide-icon"></i>`
           : html`<i class="fa-solid ${icon}"></i>`
       }
       <span>${label}</span>

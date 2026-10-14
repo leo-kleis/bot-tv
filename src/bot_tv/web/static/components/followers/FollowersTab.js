@@ -209,8 +209,10 @@ export function FollowersTab({ followers }) {
           style="display:flex; justify-content:space-between; align-items:center;"
         >
           <div>
-            <span class="section-icon"><i class="fa-solid fa-users"></i></span> Buscador de Usuarios
-            y Seguidores
+            <span class="section-icon"
+              ><i class="fa-solid fa-users"></i><i data-lucide="users" class="lucide-icon"></i
+            ></span>
+            Buscador de Usuarios y Seguidores
           </div>
           ${
             !loadingUsers && totalUsers > 0

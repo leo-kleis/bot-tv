@@ -143,7 +143,8 @@ export function FollowersFilterBar({
           onClick=${onClearFilters}
           title="Limpiar filtros"
         >
-          <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar
+          <i class="fa-solid fa-filter-circle-xmark"></i
+          ><i data-lucide="filter-x" class="lucide-icon"></i> Limpiar
         </button>
       </div>
     </div>

@@ -226,7 +226,8 @@ export function UserHistoryDrawer({ user, onClose }) {
             ${
               !loading
                 ? html`<span class="history-msg-count">
-                    <i class="fa-solid fa-message" style="font-size:9px;margin-right:3px;"></i>
+                    <i class="fa-solid fa-message" style="font-size:9px;margin-right:3px;"></i
+                    ><i data-lucide="message-circle" class="lucide-icon"></i>
                     ${formatCount(total)} mensajes
                   </span>`
                 : null
@@ -239,14 +240,15 @@ export function UserHistoryDrawer({ user, onClose }) {
           title="Cerrar historial"
           aria-label="Cerrar historial"
         >
-          <i class="fa-solid fa-xmark"></i>
+          <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
         </button>
       </div>
 
       <!-- Búsqueda y filtros -->
       <div class="history-search">
         <div class="history-search-input-wrap">
-          <i class="fa-solid fa-magnifying-glass history-search-icon"></i>
+          <i class="fa-solid fa-magnifying-glass history-search-icon"></i
+          ><i data-lucide="search" class="lucide-icon"></i>
           <input
             type="text"
             class="history-search-input"
@@ -275,7 +277,8 @@ export function UserHistoryDrawer({ user, onClose }) {
             searchInput || since || until
               ? html`
                   <button class="history-search-clear" onClick=${handleClearFilters}>
-                    <i class="fa-solid fa-xmark"></i> Limpiar
+                    <i class="fa-solid fa-xmark"></i
+                    ><i data-lucide="x" class="lucide-icon"></i> Limpiar
                   </button>
                 `
               : null
@@ -324,7 +327,8 @@ export function UserHistoryDrawer({ user, onClose }) {
             : messages.length === 0
               ? html`
                   <div class="history-empty">
-                    <i class="fa-solid fa-comment-slash"></i>
+                    <i class="fa-solid fa-comment-slash"></i
+                    ><i data-lucide="message-square-off" class="lucide-icon"></i>
                     <p>
                       ${
                         search || since || until

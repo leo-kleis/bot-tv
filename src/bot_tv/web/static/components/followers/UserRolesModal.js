@@ -23,7 +23,7 @@ export function UserRolesModal({ user, tempRoles, setTempRoles, onClose, onSave 
             style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px;"
             onClick=${onClose}
           >
-            <i class="fa-solid fa-xmark"></i>
+            <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
           </button>
         </div>
 

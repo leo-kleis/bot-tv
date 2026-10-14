@@ -42,6 +42,9 @@ export function SettingsTab({ dispatch }) {
     frequency: 60.0,
   });
   const [testingAudio, setTestingAudio] = useState(false);
+  const [uiVersion, setUiVersion] = useState(() => {
+    return localStorage.getItem('ui-version') || 'v1';
+  });
   const [savingAudio, setSavingAudio] = useState(false);
 
   useEffect(() => {
@@ -51,6 +54,17 @@ export function SettingsTab({ dispatch }) {
       }
     });
   }, []);
+
+  const handleUiVersionChange = e => {
+    const version = e.target.value;
+    setUiVersion(version);
+    localStorage.setItem('ui-version', version);
+    if (version === 'v2') {
+      document.documentElement.setAttribute('data-ui', 'v2');
+    } else {
+      document.documentElement.removeAttribute('data-ui');
+    }
+  };
 
   const handleKeepAliveToggle = async e => {
     const val = e.target.checked;
@@ -131,12 +145,51 @@ export function SettingsTab({ dispatch }) {
       <!-- Sección Agente -->
       <div class="settings-section">
         <h3 class="settings-section-title">
-          <i class="fa-solid fa-robot"></i> Configuración del Agente de IA
+          <i class="fa-solid fa-robot"></i
+          ><i data-lucide="bot" class="lucide-icon"></i> Configuración del Agente de IA
         </h3>
 
         <!-- Selección de Modelo -->
         <div style="margin-bottom: 20px;">
           <${ModelSection} />
+        </div>
+
+        <!-- Selector de Diseño UI -->
+        <div class="settings-control-group">
+          <label class="settings-label" for="ui-version-select"> Versión de Diseño (UI) </label>
+          <div style="margin-top:6px;min-width:0;">
+            <select
+              id="ui-version-select"
+              class="settings-select"
+              value=${uiVersion}
+              onChange=${handleUiVersionChange}
+            >
+              <option value="v1">Diseño Original (v1)</option>
+              <option value="v2">Diseño Moderno (v2)</option>
+            </select>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);margin-top:4px;display:block;">
+            Cambia entre la vista clásica y la nueva experiencia rediseñada. El cambio es inmediato.
+          </span>
+        </div>
+
+        <!-- Selector de Diseño UI -->
+        <div class="settings-control-group">
+          <label class="settings-label" for="ui-version-select"> Versión de Diseño (UI) </label>
+          <div style="margin-top:6px;min-width:0;">
+            <select
+              id="ui-version-select"
+              class="settings-select"
+              value=${uiVersion}
+              onChange=${handleUiVersionChange}
+            >
+              <option value="v1">Diseño Original (v1)</option>
+              <option value="v2">Diseño Moderno (v2)</option>
+            </select>
+          </div>
+          <span style="font-size:12px;color:var(--text-muted);margin-top:4px;display:block;">
+            Cambia entre la vista clásica y la nueva experiencia rediseñada. El cambio es inmediato.
+          </span>
         </div>
 
         <!-- Límite de Contexto -->
@@ -182,7 +235,8 @@ export function SettingsTab({ dispatch }) {
       <!-- Sección Chat -->
       <div class="settings-section">
         <h3 class="settings-section-title">
-          <i class="fa-solid fa-comments"></i> Personalización de Chat
+          <i class="fa-solid fa-comments"></i
+          ><i data-lucide="message-square" class="lucide-icon"></i> Personalización de Chat
         </h3>
 
         <div class="settings-control-group">
@@ -196,7 +250,7 @@ export function SettingsTab({ dispatch }) {
               title="Disminuir tamaño"
               aria-label="Disminuir tamaño de letra"
             >
-              <i class="fa-solid fa-minus"></i>
+              <i class="fa-solid fa-minus"></i><i data-lucide="minus" class="lucide-icon"></i>
             </button>
 
             <span class="font-current-val">${fontSize.toFixed(1)} px</span>
@@ -208,7 +262,7 @@ export function SettingsTab({ dispatch }) {
               title="Aumentar tamaño"
               aria-label="Aumentar tamaño de letra"
             >
-              <i class="fa-solid fa-plus"></i>
+              <i class="fa-solid fa-plus"></i><i data-lucide="plus" class="lucide-icon"></i>
             </button>
           </div>
 
@@ -304,7 +358,8 @@ export function SettingsTab({ dispatch }) {
       <!-- Sección Audio y Hardware -->
       <div class="settings-section">
         <h3 class="settings-section-title">
-          <i class="fa-solid fa-headphones"></i> Audio y Hardware (PC Anfitrión)
+          <i class="fa-solid fa-headphones"></i
+          ><i data-lucide="headphones" class="lucide-icon"></i> Audio y Hardware (PC Anfitrión)
         </h3>
 
         <div class="settings-toggle-row" style="margin-top: 0; padding-top: 0; border-top: none;">

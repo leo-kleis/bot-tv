@@ -15,7 +15,8 @@ export function FollowersPagination({ page, totalPages, totalUsers, currentCount
           onClick=${() => onPageChange(Math.max(1, page - 1))}
           disabled=${page === 1}
         >
-          <i class="fa-solid fa-chevron-left"></i> Anterior
+          <i class="fa-solid fa-chevron-left"></i
+          ><i data-lucide="chevron-left" class="lucide-icon"></i> Anterior
         </button>
         <span class="pagination-pages">
           ${getPageNumbers(page, totalPages).map((p, i) => {
@@ -39,7 +40,8 @@ export function FollowersPagination({ page, totalPages, totalUsers, currentCount
           onClick=${() => onPageChange(Math.min(totalPages, page + 1))}
           disabled=${page === totalPages}
         >
-          Siguiente <i class="fa-solid fa-chevron-right"></i>
+          Siguiente <i class="fa-solid fa-chevron-right"></i
+          ><i data-lucide="chevron-right" class="lucide-icon"></i>
         </button>
       </div>
     </div>

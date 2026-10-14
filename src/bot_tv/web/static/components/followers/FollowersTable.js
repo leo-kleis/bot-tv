@@ -42,7 +42,8 @@ export function FollowersTable({
                           ? html`<i
                               class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
                             ></i>`
-                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i
+                              ><i data-lucide="arrow-up-down" class="lucide-icon"></i>`
                       }
                     </th>
                     <th
@@ -56,7 +57,8 @@ export function FollowersTable({
                           ? html`<i
                               class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
                             ></i>`
-                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i
+                              ><i data-lucide="arrow-up-down" class="lucide-icon"></i>`
                       }
                     </th>
                     <th
@@ -70,7 +72,8 @@ export function FollowersTable({
                           ? html`<i
                               class="fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}"
                             ></i>`
-                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i>`
+                          : html`<i class="fa-solid fa-sort sort-icon-muted"></i
+                              ><i data-lucide="arrow-up-down" class="lucide-icon"></i>`
                       }
                     </th>
                     <th style="width: 100px; text-align: center;">Acción</th>
@@ -97,7 +100,8 @@ export function FollowersTable({
                                       ${
                                         u.nickname
                                           ? html`<span class="user-nickname-tag"
-                                              ><i class="fa-solid fa-signature"></i>
+                                              ><i class="fa-solid fa-signature"></i
+                                              ><i data-lucide="pen-tool" class="lucide-icon"></i>
                                               ${u.nickname}</span
                                             >`
                                           : null
@@ -120,7 +124,8 @@ export function FollowersTable({
                                         <i
                                           class="fa-solid fa-message"
                                           style="font-size:9px;margin-right:3px;"
-                                        ></i>
+                                        ></i
+                                        ><i data-lucide="message-circle" class="lucide-icon"></i>
                                         ${u.message_count.toLocaleString('es-ES')}
                                       </span>
                                     </div>
@@ -206,7 +211,8 @@ export function FollowersTable({
                               onClick=${() => onOpenProfile(u)}
                               title="Ver perfil y gestionar usuario"
                             >
-                              <i class="fa-solid fa-user-gear"></i> Ver Perfil
+                              <i class="fa-solid fa-user-gear"></i
+                              ><i data-lucide="user-cog" class="lucide-icon"></i> Ver Perfil
                             </button>
                           </div>
                         </td>

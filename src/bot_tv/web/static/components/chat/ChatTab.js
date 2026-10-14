@@ -494,7 +494,8 @@ export function ChatTab({
             !isAtBottom && displayMessages.length > 0
               ? html`
                   <button class="scroll-bottom-btn" onClick=${scrollToBottom}>
-                    <i class="fa-solid fa-arrow-down"></i> Mensajes nuevos
+                    <i class="fa-solid fa-arrow-down"></i
+                    ><i data-lucide="arrow-down" class="lucide-icon"></i> Mensajes nuevos
                   </button>
                 `
               : null
@@ -536,8 +537,10 @@ export function ChatTab({
             >
               ${
                 sending
-                  ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
-                  : html`<i class="fa-solid fa-paper-plane"></i>`
+                  ? html`<i class="fa-solid fa-spinner fa-spin"></i
+                      ><i data-lucide="loader" class="lucide-icon"></i>`
+                  : html`<i class="fa-solid fa-paper-plane"></i
+                      ><i data-lucide="send" class="lucide-icon"></i>`
               }
             </button>
           </form>
@@ -559,7 +562,8 @@ export function ChatTab({
             !ircConnected &&
             html`
               <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
-                <i class="fa-solid fa-triangle-exclamation"></i>
+                <i class="fa-solid fa-triangle-exclamation"></i
+                ><i data-lucide="alert-triangle" class="lucide-icon"></i>
               </span>
             `
           }
@@ -570,7 +574,10 @@ export function ChatTab({
             !ircConnected &&
             html`
               <div class="irc-disconnect-alert">
-                <span class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <span class="alert-icon"
+                  ><i class="fa-solid fa-triangle-exclamation"></i
+                  ><i data-lucide="alert-triangle" class="lucide-icon"></i
+                ></span>
                 <span class="alert-title">IRC Desconectado</span>
                 <span class="alert-desc">Intentando reconectar automáticamente...</span>
               </div>

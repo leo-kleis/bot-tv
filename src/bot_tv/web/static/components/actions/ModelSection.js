@@ -51,7 +51,10 @@ export function ModelSection() {
   return html`
     <div class="section">
       <div class="section-header">
-        <span class="section-icon"><i class="fa-solid fa-brain"></i></span> Modelo IA
+        <span class="section-icon"
+          ><i class="fa-solid fa-brain"></i><i data-lucide="brain" class="lucide-icon"></i
+        ></span>
+        Modelo IA
       </div>
       <div class="section-body">
         ${

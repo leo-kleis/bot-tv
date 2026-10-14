@@ -334,9 +334,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
               class="history-twitch-link"
               title="Abrir canal en Twitch"
             >
-              <i class="fa-brands fa-twitch"></i>
+              <i class="fa-brands fa-twitch"></i><i data-lucide="circle" class="lucide-icon"></i>
               <span>Twitch</span>
-              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i>
+              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i
+              ><i data-lucide="external-link" class="lucide-icon"></i>
             </a>
           </div>
           <div class="history-header-meta">
@@ -385,7 +386,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           </div>
         </div>
         <button class="history-header-close" onClick=${handleClose} title="Cerrar perfil">
-          <i class="fa-solid fa-xmark"></i>
+          <i class="fa-solid fa-xmark"></i><i data-lucide="x" class="lucide-icon"></i>
         </button>
       </div>
 
@@ -395,19 +396,23 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           class="history-drawer-tab-btn ${activeTab === 'info' ? 'active' : ''}"
           onClick=${() => setActiveTab('info')}
         >
-          <i class="fa-solid fa-user-gear"></i> Detalle y Apodo
+          <i class="fa-solid fa-user-gear"></i
+          ><i data-lucide="user-cog" class="lucide-icon"></i> Detalle y Apodo
         </button>
         <button
           class="history-drawer-tab-btn ${activeTab === 'roles' ? 'active' : ''}"
           onClick=${() => setActiveTab('roles')}
         >
-          <i class="fa-solid fa-shield-halved"></i> Roles y Moderación
+          <i class="fa-solid fa-shield-halved"></i
+          ><i data-lucide="shield" class="lucide-icon"></i> Roles y Moderación
         </button>
         <button
           class="history-drawer-tab-btn ${activeTab === 'history' ? 'active' : ''}"
           onClick=${() => setActiveTab('history')}
         >
-          <i class="fa-solid fa-comments"></i> Historial (${formatCount(total)})
+          <i class="fa-solid fa-comments"></i
+          ><i data-lucide="message-square" class="lucide-icon"></i> Historial
+          (${formatCount(total)})
         </button>
       </div>
 
@@ -435,7 +440,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               style="font-size:11px; padding:3px 8px; background:var(--surface3);"
                               onClick=${() => setEditingNick(true)}
                             >
-                              <i class="fa-solid fa-pen-to-square"></i> Editar
+                              <i class="fa-solid fa-pen-to-square"></i
+                              ><i data-lucide="edit-2" class="lucide-icon"></i> Editar
                             </button>
                           `
                         : null
@@ -460,7 +466,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               onClick=${handleSaveNickname}
                               disabled=${savingNick}
                             >
-                              ${savingNick ? html`<i class="fa-solid fa-spinner fa-spin"></i>` : 'Guardar'}
+                              ${savingNick ? html`<i class="fa-solid fa-spinner fa-spin"></i><i data-lucide="loader" class="lucide-icon"></i>` : 'Guardar'}
                             </button>
                             <button
                               class="btn btn-secondary"
@@ -545,7 +551,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                       style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted);"
                       >Gestión de Roles</span
                     >
-                    ${syncingRoles ? html`<span style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Sincronizando...</span>` : null}
+                    ${syncingRoles ? html`<span style="font-size:11px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i><i data-lucide="loader" class="lucide-icon"></i> Sincronizando...</span>` : null}
                   </div>
 
                   <div style="display:flex; flex-direction:column; gap:10px;">
@@ -597,9 +603,11 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                   >
                     ${
                       syncingRoles
-                        ? html`<i class="fa-solid fa-spinner fa-spin"></i> Sincronizando roles...`
+                        ? html`<i class="fa-solid fa-spinner fa-spin"></i
+                            ><i data-lucide="loader" class="lucide-icon"></i> Sincronizando roles...`
                         : savingRoles
-                          ? html`<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`
+                          ? html`<i class="fa-solid fa-spinner fa-spin"></i
+                              ><i data-lucide="loader" class="lucide-icon"></i> Guardando...`
                           : 'Guardar Roles'
                     }
                   </button>
@@ -671,7 +679,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                       <i
                         class="fa-solid fa-broom"
                         style="margin-right:6px; color:var(--warning);"
-                      ></i>
+                      ></i
+                      ><i data-lucide="circle" class="lucide-icon"></i>
                       Purgar mensajes
                     </button>
                     ${
@@ -683,7 +692,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               onClick=${() => setConfirmUnbanOpen(true)}
                               disabled=${actionInProgress}
                             >
-                              <i class="fa-solid fa-user-check" style="margin-right:6px;"></i>
+                              <i class="fa-solid fa-user-check" style="margin-right:6px;"></i
+                              ><i data-lucide="user-check" class="lucide-icon"></i>
                               Desbanear usuario
                             </button>
                           `
@@ -694,8 +704,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               onClick=${() => setConfirmBanOpen(true)}
                               disabled=${actionInProgress}
                             >
-                              <i class="fa-solid fa-ban" style="margin-right:6px;"></i> Banear
-                              usuario
+                              <i class="fa-solid fa-ban" style="margin-right:6px;"></i
+                              ><i data-lucide="ban" class="lucide-icon"></i> Banear usuario
                             </button>
                           `
                     }
@@ -713,7 +723,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
               <!-- Buscador y fechas -->
               <div class="history-search">
                 <div class="history-search-input-wrap">
-                  <i class="fa-solid fa-magnifying-glass history-search-icon"></i>
+                  <i class="fa-solid fa-magnifying-glass history-search-icon"></i
+                  ><i data-lucide="search" class="lucide-icon"></i>
                   <input
                     type="text"
                     class="history-search-input"
@@ -749,7 +760,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               setUntil('');
                             }}
                           >
-                            <i class="fa-solid fa-xmark"></i> Limpiar
+                            <i class="fa-solid fa-xmark"></i
+                            ><i data-lucide="x" class="lucide-icon"></i> Limpiar
                           </button>
                         `
                       : null
@@ -791,7 +803,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                       </div>`
                     : messages.length === 0
                       ? html`<div class="history-empty">
-                          <i class="fa-solid fa-comment-slash"></i>
+                          <i class="fa-solid fa-comment-slash"></i
+                          ><i data-lucide="message-square-off" class="lucide-icon"></i>
                           <p>No hay mensajes registrados.</p>
                         </div>`
                       : html`

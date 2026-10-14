@@ -15,13 +15,17 @@ export function DangerSection({ dispatch }) {
   return html`
     <div class="section">
       <div class="section-header" style="color:var(--danger)">
-        <span class="section-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Zona de
-        Peligro
+        <span class="section-icon"
+          ><i class="fa-solid fa-triangle-exclamation"></i
+          ><i data-lucide="alert-triangle" class="lucide-icon"></i
+        ></span>
+        Zona de Peligro
       </div>
       <div class="section-body">
         <div>
           <button id="btn-exit-confirm" class="btn btn-exit" onClick=${() => setConfirm(true)}>
-            <i class="fa-solid fa-power-off"></i> Apagar bot
+            <i class="fa-solid fa-power-off"></i
+            ><i data-lucide="power" class="lucide-icon"></i> Apagar bot
           </button>
         </div>
 

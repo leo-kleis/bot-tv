@@ -149,7 +149,8 @@ export function AgentTab({ conversations = [], dispatch }) {
                   onClick=${clearChat}
                   title="Borrar conversación y empezar un nuevo chat con el agente"
                 >
-                  <i class="fa-solid fa-trash" style="margin-right:4px"></i> Limpiar chat
+                  <i class="fa-solid fa-trash" style="margin-right:4px"></i
+                  ><i data-lucide="trash-2" class="lucide-icon"></i> Limpiar chat
                 </button>
               `
             : null

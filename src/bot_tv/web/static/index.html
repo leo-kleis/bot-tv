@@ -26,6 +26,10 @@
     <script>
       try {
         const savedFontSize = localStorage.getItem('font-size') || '14.5px';
+        const savedUiVersion = localStorage.getItem('ui-version') || 'v1';
+        if (savedUiVersion === 'v2') {
+          document.documentElement.setAttribute('data-ui', 'v2');
+        }
         document.documentElement.style.setProperty('--font-size', savedFontSize);
       } catch (_) {}
     </script>
@@ -79,6 +83,9 @@
     <link rel="stylesheet" href="/static/css/responsive.css" />
     <link rel="stylesheet" href="/static/css/stream.css" />
     <script src="https://player.twitch.tv/js/embed/v1.js" defer></script>
+    <!-- Lucide Icons (V2 UI) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="/static/css/v2-theme.css" />
   </head>
   <body>
     <div id="app">
