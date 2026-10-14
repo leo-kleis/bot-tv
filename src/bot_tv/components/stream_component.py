@@ -176,10 +176,10 @@ class StreamComponent(commands.Component):
                 )
                 live_streams = {}
                 async for stream in streams_iter:
-                    live_streams[str(stream.user.id)] = stream
+                    live_streams[stream.user.id] = stream
 
                 for channel_id in chunk_ids:
-                    stream = live_streams.get(str(channel_id))
+                    stream = live_streams.get(channel_id)
                     if stream:
                         self._stream_online = True
                         viewer_count = stream.viewer_count
@@ -258,10 +258,10 @@ class StreamComponent(commands.Component):
                     )
                     live_streams = {}
                     async for stream in streams_iter:
-                        live_streams[str(stream.user.id)] = stream
+                        live_streams[stream.user.id] = stream
 
                     for channel_id in chunk_ids:
-                        stream_obj = live_streams.get(str(channel_id))
+                        stream_obj = live_streams.get(channel_id)
 
                         if stream_obj:
                             viewer_count = stream_obj.viewer_count

@@ -11,8 +11,9 @@ import sys
 import twitchio
 
 from bot_tv.database import (
+    DatabaseConnectionError,
     TokenRepository,
-    create_pg_pool,
+    init_pg_pool,
 )
 from bot_tv.utils.env import BOT_ID, CLIENT_ID, OWNER_ID
 from bot_tv.utils.logger import setup_logging
@@ -237,7 +238,11 @@ def setup() -> None:
         LOGGER.info("=" * 65)
         LOGGER.info("Conectando a PostgreSQL...")
 
-        pool = await create_pg_pool(direct=True)
+        try:
+            pool = await init_pg_pool(direct=True)
+        except DatabaseConnectionError as exc:
+            LOGGER.critical("No se pudo conectar a PostgreSQL: %s", exc)
+            sys.exit(1)
         try:
             token_repo = TokenRepository(pool)
 
