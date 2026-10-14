@@ -8,8 +8,9 @@ from bot_tv.bot import Bot
 from bot_tv.console import AdminConsole
 from bot_tv.consumers.terminal import TerminalConsumer
 from bot_tv.database import (
+    DatabaseConnectionError,
     TokenRepository,
-    create_pg_pool,
+    init_pg_pool,
 )
 from bot_tv.event_bus import EventBus
 from bot_tv.utils.logger import setup_logging
@@ -26,12 +27,10 @@ def main() -> None:
         try:
             LOGGER.info("Conectando a la base de datos PostgreSQL...")
             try:
-                pool = await create_pg_pool()
-            except Exception as exc:
+                pool = await init_pg_pool()
+            except DatabaseConnectionError as exc:
                 LOGGER.critical(
-                    "No se pudo conectar a la base de datos PostgreSQL: %s. "
-                    "Verifica que la base de datos esté activa y que "
-                    "la variable DATABASE_URL sea correcta.",
+                    "No se pudo conectar a la base de datos PostgreSQL: %s",
                     exc,
                 )
                 sys.exit(1)
