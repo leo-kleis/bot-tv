@@ -8,6 +8,89 @@ import {
 } from '/static/components/followers/UserHistoryDrawer.js';
 import { formatDate } from '/static/components/followers/followersUtils.js';
 
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container) {
+  if (!container) return [];
+  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
+  const visible = elements.filter(
+    el => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+  );
+  return visible.length > 0 ? visible : elements;
+}
+
+function trapFocus(container, e) {
+  if (e.key !== 'Tab') return;
+
+  const focusables = getFocusableElements(container);
+  if (focusables.length === 0) {
+    e.preventDefault();
+    return;
+  }
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+
+  if (e.shiftKey) {
+    if (document.activeElement === first || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else {
+    if (document.activeElement === last || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+}
+
+function setupInertIsolation(drawerElement) {
+  if (!drawerElement) return () => {};
+
+  const inertedElements = [];
+  const appRoot = document.getElementById('app-root');
+
+  if (appRoot && !appRoot.contains(drawerElement)) {
+    if (!appRoot.hasAttribute('inert')) {
+      appRoot.setAttribute('inert', '');
+      inertedElements.push(appRoot);
+    }
+  } else {
+    let current = drawerElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const parent = current.parentElement;
+      if (parent) {
+        for (const child of parent.children) {
+          const isBackdrop = child.classList && child.classList.contains('history-backdrop');
+          if (
+            child !== current &&
+            !child.contains(drawerElement) &&
+            !isBackdrop &&
+            child.id !== 'stream-category-portal'
+          ) {
+            if (!child.hasAttribute('inert')) {
+              child.setAttribute('inert', '');
+              inertedElements.push(child);
+            }
+          }
+        }
+      }
+      current = parent;
+    }
+  }
+
+  return () => {
+    for (const el of inertedElements) {
+      if (el && typeof el.removeAttribute === 'function') {
+        el.removeAttribute('inert');
+      }
+    }
+  };
+}
+
+const TAB_IDS = ['info', 'roles', 'history'];
+
 export function UserProfileDrawer({ user, onClose, dispatch }) {
   if (!user) return null;
 
@@ -42,9 +125,75 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
   const [until, setUntil] = useState('');
   const messagesRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
+  const drawerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const restoreInertRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const isClosingRef = useRef(false);
+
+  const confirmBanOpenRef = useRef(confirmBanOpen);
+  confirmBanOpenRef.current = confirmBanOpen;
+  const confirmUnbanOpenRef = useRef(confirmUnbanOpen);
+  confirmUnbanOpenRef.current = confirmUnbanOpen;
+  const confirmPurgeOpenRef = useRef(confirmPurgeOpen);
+  confirmPurgeOpenRef.current = confirmPurgeOpen;
 
   const username = user.username || user.display_name;
   const displayName = userData.display_name || user.display_name || username;
+
+  function handleClose() {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setOpen(false);
+    if (restoreInertRef.current) {
+      restoreInertRef.current();
+      restoreInertRef.current = null;
+    }
+    if (window.history.state && window.history.state.botDrawer === 'user-profile') {
+      window.history.back();
+    }
+    setTimeout(() => {
+      if (onCloseRef.current) onCloseRef.current();
+    }, 300);
+  }
+
+  function handlePopState() {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setOpen(false);
+    if (restoreInertRef.current) {
+      restoreInertRef.current();
+      restoreInertRef.current = null;
+    }
+    setTimeout(() => {
+      if (onCloseRef.current) onCloseRef.current();
+    }, 300);
+  }
+
+  function handleTabKeyDown(e, currentTabId) {
+    let nextTabId = null;
+    const currentIndex = TAB_IDS.indexOf(currentTabId);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      nextTabId = TAB_IDS[(currentIndex + 1) % TAB_IDS.length];
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      nextTabId = TAB_IDS[(currentIndex - 1 + TAB_IDS.length) % TAB_IDS.length];
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      nextTabId = TAB_IDS[0];
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      nextTabId = TAB_IDS[TAB_IDS.length - 1];
+    }
+
+    if (nextTabId) {
+      setActiveTab(nextTabId);
+      const nextBtn = document.getElementById(`drawer-tab-${nextTabId}`);
+      if (nextBtn) nextBtn.focus();
+    }
+  }
 
   // Cargar datos consolidados de usuario (follow, roles, etc.) al abrir el drawer
   useEffect(() => {
@@ -74,18 +223,42 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     loadUserDetails();
   }, [username]);
 
-  // Animación de entrada, tecla Esc y soporte para botón atrás en Android
+  // Animación de entrada, inert isolation, focus trap, tecla Esc y botón atrás
   useEffect(() => {
-    const id = requestAnimationFrame(() => setOpen(true));
+    triggerRef.current = document.activeElement;
+    restoreInertRef.current = setupInertIsolation(drawerRef.current);
+
+    const id = requestAnimationFrame(() => {
+      setOpen(true);
+      if (drawerRef.current) {
+        const closeBtn = drawerRef.current.querySelector('.history-header-close');
+        if (closeBtn) {
+          closeBtn.focus();
+        } else {
+          const first = getFocusableElements(drawerRef.current)[0];
+          if (first) first.focus();
+        }
+      }
+    });
+
     window.history.pushState({ botDrawer: 'user-profile' }, '');
 
     function handleKeyDown(e) {
-      if (e.key === 'Escape') handleClose();
-    }
+      // Si un modal de confirmación está abierto, dejar que el modal gestione el foco y Escape
+      if (confirmBanOpenRef.current || confirmUnbanOpenRef.current || confirmPurgeOpenRef.current) {
+        return;
+      }
 
-    function handlePopState() {
-      setOpen(false);
-      setTimeout(onClose, 300);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleClose();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        trapFocus(drawerRef.current, e);
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -94,6 +267,14 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       cancelAnimationFrame(id);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('popstate', handlePopState);
+      if (restoreInertRef.current) {
+        restoreInertRef.current();
+        restoreInertRef.current = null;
+      }
+      const prevEl = triggerRef.current;
+      if (prevEl && typeof prevEl.focus === 'function' && document.body.contains(prevEl)) {
+        prevEl.focus();
+      }
     };
   }, []);
 
