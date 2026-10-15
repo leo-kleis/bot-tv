@@ -966,10 +966,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                             <button
                               class="history-search-clear"
                               onClick=${() => {
-                              setSearchInput('');
-                              setSince('');
-                              setUntil('');
-                            }}
+                                setSearchInput('');
+                                setSince('');
+                                setUntil('');
+                              }}
                             >
                               <i class="fa-solid fa-xmark"></i> Limpiar
                             </button>
@@ -1019,15 +1019,15 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                         : html`
                             <div class="history-msg-list">
                               ${messages.map(
-                              m => html`
-                                <div class="history-msg" key=${m.id || m.timestamp}>
-                                  <span class="history-msg-time"
-                                    >${formatTimestamp(m.timestamp)}</span
-                                  >
-                                  <span class="history-msg-text">${m.message || m.text}</span>
-                                </div>
-                              `
-                            )}
+                                m => html`
+                                  <div class="history-msg" key=${m.id || m.timestamp}>
+                                    <span class="history-msg-time"
+                                      >${formatTimestamp(m.timestamp)}</span
+                                    >
+                                    <span class="history-msg-text">${m.message || m.text}</span>
+                                  </div>
+                                `
+                              )}
                             </div>
                           `
                   }
