@@ -20,17 +20,65 @@ model User {
 }
 
 model ChatHistory {
-  id         String @id @db.Uuid @map("id")
-  channel_id String @map("channel_id")
-  user_id    String @map("user_id")
-  message    String @map("message")
-  timestamp  String @map("timestamp")
-
+  id         String   @id @db.Uuid @map("id")
+  channel_id String   @map("channel_id")
+  user_id    String   @map("user_id")
+  message    String   @map("message")
+  timestamp  String   @map("timestamp")
+  stream_id  String?  @map("stream_id")
 
   user User @relation(fields: [user_id], references: [user_id])
 
   @@index([channel_id, user_id], map: "idx_chat_history_channel_user")
+  @@index([stream_id, timestamp], map: "idx_chat_history_stream_ts")
   @@map("chat_history")
+}
+
+model StreamSession {
+  stream_id        String           @id @map("stream_id")
+  channel_id       String           @map("channel_id")
+  title            String?          @map("title")
+  category_name    String?          @map("category_name")
+  is_live          Boolean          @default(true) @map("is_live")
+  started_at       DateTime         @db.Timestamptz @map("started_at")
+  ended_at         DateTime?        @db.Timestamptz @map("ended_at")
+  last_seen_at     DateTime         @default(now()) @db.Timestamptz @map("last_seen_at")
+  peak_viewers     Int              @default(0) @map("peak_viewers")
+  close_reason     String?          @map("close_reason")
+
+  viewer_snapshots ViewerSnapshot[]
+  stream_events    StreamEvent[]
+
+  @@index([channel_id, started_at(sort: Desc)], map: "idx_stream_sessions_channel_started")
+  @@map("stream_sessions")
+}
+
+model ViewerSnapshot {
+  id           BigInt        @id @default(autoincrement()) @map("id")
+  stream_id    String        @map("stream_id")
+  channel_id   String        @map("channel_id")
+  viewer_count Int           @map("viewer_count")
+  recorded_at  DateTime      @default(now()) @db.Timestamptz @map("recorded_at")
+
+  session      StreamSession @relation(fields: [stream_id], references: [stream_id], onDelete: Cascade)
+
+  @@index([stream_id, recorded_at(sort: Desc)], map: "idx_viewer_snapshots_stream_ts")
+  @@map("viewer_snapshots")
+}
+
+model StreamEvent {
+  id          BigInt         @id @default(autoincrement()) @map("id")
+  stream_id   String?        @map("stream_id")
+  channel_id  String         @map("channel_id")
+  event_type  String         @map("event_type")
+  event_data  Json           @default("{}") @map("event_data")
+  timestamp   DateTime       @default(now()) @db.Timestamptz @map("timestamp")
+
+  session     StreamSession? @relation(fields: [stream_id], references: [stream_id], onDelete: SetNull)
+
+  @@index([stream_id, timestamp(sort: Desc)], map: "idx_stream_events_stream_ts")
+  @@index([stream_id, event_type], map: "idx_stream_events_stream_type")
+  @@map("stream_events")
 }
 
 

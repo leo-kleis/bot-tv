@@ -14,6 +14,15 @@ from bot_tv.web.api.agent import (
     endpoint_switch_model,
     endpoint_talk,
 )
+from bot_tv.web.api.analytics import (
+    endpoint_analytics_chat_activity,
+    endpoint_analytics_followers_growth,
+    endpoint_analytics_overview,
+    endpoint_analytics_stream_events,
+    endpoint_analytics_stream_sessions,
+    endpoint_analytics_top_chatters,
+    endpoint_analytics_viewers_timeline,
+)
 from bot_tv.web.api.audio import (
     endpoint_get_audio_keepalive,
     endpoint_set_audio_keepalive,
@@ -55,6 +64,13 @@ __all__ = [
     "_err",
     "_ok",
     "_parse_body",
+    "endpoint_analytics_chat_activity",
+    "endpoint_analytics_followers_growth",
+    "endpoint_analytics_overview",
+    "endpoint_analytics_stream_events",
+    "endpoint_analytics_stream_sessions",
+    "endpoint_analytics_top_chatters",
+    "endpoint_analytics_viewers_timeline",
     "endpoint_clear_agent_chat",
     "endpoint_create_clip",
     "endpoint_exit",

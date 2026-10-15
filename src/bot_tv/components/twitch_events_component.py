@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import twitchio
 from twitchio.ext import commands
@@ -110,6 +111,19 @@ class TwitchEventsComponent(commands.Component):
         from_username = from_user.name or ""
         from_display_name = from_user.display_name or from_username or "Alguien"
 
+        event_data: dict[str, Any] = {
+            "from_broadcaster": from_username,
+            "viewer_count": payload.viewer_count,
+            "from_display_name": from_display_name,
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.to_broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="raid",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchRaidEvent(
                 from_username=from_username,
@@ -128,6 +142,20 @@ class TwitchEventsComponent(commands.Component):
         username = payload.user.name or ""
         display_name = payload.user.display_name or username or "Alguien"
 
+        event_data: dict[str, Any] = {
+            "user_name": username,
+            "display_name": display_name,
+            "tier": payload.tier or "1000",
+            "gift": payload.gift,
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="subscription",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchSubscribeEvent(
                 username=username,
@@ -144,6 +172,23 @@ class TwitchEventsComponent(commands.Component):
         """Se ejecuta cuando se regalan suscripciones en el canal."""
         user_name = payload.user.name if payload.user else None
         display_name = payload.user.display_name if payload.user else "Regalo Anónimo"
+
+        event_data: dict[str, Any] = {
+            "user_name": user_name,
+            "display_name": display_name,
+            "tier": payload.tier or "1000",
+            "total": payload.total or 1,
+            "cumulative_total": payload.cumulative_total,
+            "anonymous": payload.anonymous,
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="subscription_gift",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchSubscriptionGiftEvent(
                 username=user_name,
@@ -165,6 +210,22 @@ class TwitchEventsComponent(commands.Component):
         # pyrefly: ignore [missing-attribute]
         msg = payload.message.text if payload.message else ""
 
+        event_data: dict[str, Any] = {
+            "user_name": username,
+            "display_name": display_name,
+            "tier": payload.tier or "1000",
+            "cumulative_months": payload.cumulative_months or 1,
+            "streak_months": payload.streak_months,
+            "message": msg or "",
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="subscription_message",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchSubscriptionMessageEvent(
                 username=username,
@@ -183,6 +244,22 @@ class TwitchEventsComponent(commands.Component):
         """Se ejecuta cuando un usuario hace un cheer con bits."""
         user_name = payload.user.name if payload.user else None
         display_name = payload.user.display_name if payload.user else "Anónimo"
+
+        event_data: dict[str, Any] = {
+            "bits": payload.bits or 0,
+            "message": payload.message or "",
+            "anonymous": payload.anonymous,
+            "user_name": user_name,
+            "display_name": display_name,
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="cheer",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchCheerEvent(
                 username=user_name,
@@ -203,13 +280,32 @@ class TwitchEventsComponent(commands.Component):
         username = payload.user.name or ""
         display_name = payload.user.display_name or username or "Alguien"
 
+        reward_title = payload.reward.title or "Recompensa"
+        reward_cost = payload.reward.cost or 0
+        user_input = payload.user_input or ""
+
+        event_data: dict[str, Any] = {
+            "reward_title": reward_title,
+            "reward_cost": reward_cost,
+            "user_input": user_input,
+            "user_name": username,
+            "display_name": display_name,
+        }
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=payload.broadcaster.id,
+                stream_id=self.bot.current_stream_id,
+                event_type="channel_points",
+                event_data=event_data,
+            )
+
         await self.bot.event_bus.emit(
             TwitchChannelPointsRedeemEvent(
                 username=username,
                 display_name=display_name,
-                reward_title=payload.reward.title or "Recompensa",
-                reward_cost=payload.reward.cost or 0,
-                user_input=payload.user_input or "",
+                reward_title=reward_title,
+                reward_cost=reward_cost,
+                user_input=user_input,
             )
         )
 

@@ -1,0 +1,4 @@
+node_modules/
+.venv/
+dist/
+src/bot_tv/web/static/vendor/**

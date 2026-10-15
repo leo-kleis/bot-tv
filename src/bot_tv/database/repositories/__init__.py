@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bot_tv.database.repositories.analytics_repo import AnalyticsRepository
 from bot_tv.database.repositories.base import BaseRepository
 from bot_tv.database.repositories.channel_user_repo import ChannelUserRepository
 from bot_tv.database.repositories.chat_repo import ChatRepository
@@ -11,6 +12,7 @@ from bot_tv.database.repositories.user_repo import UserRepository
 from bot_tv.database.repositories.user_roles import UserRolesMixin
 
 __all__ = [
+    "AnalyticsRepository",
     "BaseRepository",
     "ChannelUserRepository",
     "ChatRepository",
