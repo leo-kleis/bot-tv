@@ -17,7 +17,7 @@
   min-width: 0;
 }
 
-@media (max-width: 600px) and (min-height: 481px) {
+@media (max-width: 860px) and (min-height: 481px) {
   .two-col-grid {
     flex-direction: column;
     gap: 16px;

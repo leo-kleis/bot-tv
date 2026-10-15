@@ -72,13 +72,13 @@
 /* TABLETS Y ESCRITORIO (min-width: 601px and min-height: 481px) */
 @media (min-width: 601px) and (min-height: 481px) {
   .stream-tab {
-    padding: 24px;
+    padding: clamp(16px, 3vw, 24px);
   }
 
   .stream-player-wrapper {
     max-width: 1000px;
     max-height: 100%;
-    width: auto;
+    width: 100%;
     aspect-ratio: 16 / 9;
   }
 }

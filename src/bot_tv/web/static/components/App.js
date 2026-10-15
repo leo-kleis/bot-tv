@@ -14,38 +14,34 @@ const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
   { id: 'stream', icon: html`<i class="fa-solid fa-tv"></i>`, label: 'Stream' },
   { id: 'analytics', icon: html`<i class="fa-solid fa-chart-line"></i>`, label: 'Analíticas' },
-  { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
+  { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Comunidad' },
   { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
 ];
-
-function isMobileOrTabletDevice() {
-  if (typeof navigator === 'undefined') return false;
-  if (navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean') {
-    if (navigator.userAgentData.mobile) return true;
-  }
-  const ua = navigator.userAgent || '';
-  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua)) {
-    return true;
-  }
-  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) {
-    return true;
-  }
-  return false;
-}
 
 export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
   const [showIrcMobile, setShowIrcMobile] = useState(false);
   const [editStreamModalOpen, setEditStreamModalOpen] = useState(false);
   const [confirmExitOpen, setConfirmExitOpen] = useState(false);
-  const isMobileDevice = isMobileOrTabletDevice();
+  const [isSmallScreen, setIsSmallScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 600px)').matches;
+  });
 
   useEffect(() => {
-    if ((!state.stream.online || isMobileDevice) && active === 'stream') {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 600px)');
+    const handler = e => setIsSmallScreen(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if ((!state.stream.online || isSmallScreen) && active === 'stream') {
       setActive('chat');
     }
-  }, [state.stream.online, active, isMobileDevice]);
+  }, [state.stream.online, active, isSmallScreen]);
 
   // Limpiar contador no leído al ingresar a la pestaña de usuarios
   useEffect(() => {
@@ -189,7 +185,7 @@ export function App({ state, dispatch }) {
   ).length;
 
   const availableTabs = TABS.filter(t => {
-    if (t.id === 'stream' && isMobileDevice) return false;
+    if (t.id === 'stream' && isSmallScreen) return false;
     return true;
   });
 
