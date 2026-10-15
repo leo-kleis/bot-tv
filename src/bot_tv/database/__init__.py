@@ -6,6 +6,7 @@ from bot_tv.database.connection import (
     init_pg_pool,
 )
 from bot_tv.database.repositories import (
+    AnalyticsRepository,
     BaseRepository,
     ChannelUserRepository,
     ChatRepository,
@@ -17,6 +18,7 @@ from bot_tv.database.repositories import (
 from bot_tv.database.user_cache import UserMemoryCache
 
 __all__ = [
+    "AnalyticsRepository",
     "BaseRepository",
     "ChannelUserRepository",
     "ChatRepository",

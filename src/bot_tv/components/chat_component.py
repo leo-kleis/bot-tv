@@ -89,6 +89,8 @@ class ChatComponent(commands.Component):
                     user_id,
                     payload.text,
                     msg_id=msg_id,
+                    # pyrefly: ignore [unexpected-keyword]
+                    stream_id=self.bot.current_stream_id,
                 )
 
             # Verificar avatar si aún no se tiene

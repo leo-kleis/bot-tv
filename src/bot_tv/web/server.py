@@ -20,6 +20,13 @@ from starlette.websockets import WebSocket
 
 from bot_tv.utils.audio_keepalive import AUDIO_KEEP_ALIVE
 from bot_tv.web.api import (
+    endpoint_analytics_chat_activity,
+    endpoint_analytics_followers_growth,
+    endpoint_analytics_overview,
+    endpoint_analytics_stream_events,
+    endpoint_analytics_stream_sessions,
+    endpoint_analytics_top_chatters,
+    endpoint_analytics_viewers_timeline,
     endpoint_clear_agent_chat,
     endpoint_create_clip,
     endpoint_exit,
@@ -141,6 +148,38 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
             "/api/audio_keepalive/test",
             endpoint_test_audio_keepalive,
             methods=["POST"],
+        ),
+        # Analytics REST API
+        Route("/api/analytics/overview", endpoint_analytics_overview, methods=["GET"]),
+        Route(
+            "/api/analytics/chat_activity",
+            endpoint_analytics_chat_activity,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/analytics/top_chatters",
+            endpoint_analytics_top_chatters,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/analytics/followers_growth",
+            endpoint_analytics_followers_growth,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/analytics/viewers_timeline",
+            endpoint_analytics_viewers_timeline,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/analytics/stream_events",
+            endpoint_analytics_stream_events,
+            methods=["GET"],
+        ),
+        Route(
+            "/api/analytics/stream_sessions",
+            endpoint_analytics_stream_sessions,
+            methods=["GET"],
         ),
         # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
         Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),

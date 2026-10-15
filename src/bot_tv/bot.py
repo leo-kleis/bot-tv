@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
@@ -16,6 +17,7 @@ from bot_tv.components.followers_component import FollowersComponent
 from bot_tv.components.stream_component import StreamComponent
 from bot_tv.components.twitch_events_component import TwitchEventsComponent
 from bot_tv.database import (
+    AnalyticsRepository,
     ChannelUserRepository,
     ChatRepository,
     SettingsRepository,
@@ -52,6 +54,8 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self._irc_task: asyncio.Task[None] | None = None
         self.irc: TwitchIRCClient | None = None
 
+        self.current_stream_id: str | None = None
+
         # Instanciar repositorios y caché de memoria
         self.user_cache = UserMemoryCache()
         self.token_repo = TokenRepository(database)
@@ -59,6 +63,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.chat_repo = ChatRepository(database)
         self.channel_user_repo = ChannelUserRepository(database)
         self.settings_repo = SettingsRepository(database)
+        self.analytics_repo = AnalyticsRepository(database)
 
         super().__init__(
             client_id=CLIENT_ID,
@@ -152,6 +157,13 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def close(self, **options: Any) -> None:
         """Cancela tareas pendientes antes de cerrar el bot."""
+        if self.current_stream_id is not None:
+            with contextlib.suppress(Exception):
+                await self.analytics_repo.close_session(
+                    self.current_stream_id,
+                    datetime.now(UTC),
+                    "graceful_shutdown",
+                )
         await self.chat_repo.close()
         if self._irc_task and not self._irc_task.done():
             if self.irc:
