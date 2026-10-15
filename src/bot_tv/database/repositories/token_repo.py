@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import asyncpg
@@ -32,10 +33,25 @@ class TokenRepository(BaseRepository):
                           token    = EXCLUDED.token,
                           refresh  = EXCLUDED.refresh
         """
-        async with self._db.acquire() as conn:
-            await conn.execute(
-                query, user_id, username, encrypted_token, encrypted_refresh
-            )
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    await conn.execute(
+                        query, user_id, username, encrypted_token, encrypted_refresh
+                    )
+                break
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida al guardar token (%s). Reintentando...", e
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
 
     @staticmethod
     def get_user_subscriptions(
@@ -77,8 +93,24 @@ class TokenRepository(BaseRepository):
         self,
     ) -> tuple[list[tuple[str, str]], list[eventsub.SubscriptionPayload]]:
         """Carga los tokens de la DB, los desencripta y genera suscripciones."""
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch("SELECT * FROM tokens")
+        rows: list[asyncpg.Record] = []
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    rows = await conn.fetch("SELECT * FROM tokens")
+                break
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida al cargar tokens (%s). Reintentando...", e
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
 
         fernet = get_fernet()
         tokens: list[tuple[str, str]] = []
@@ -108,8 +140,25 @@ class TokenRepository(BaseRepository):
 
     async def get_all_tokens_metadata(self) -> list[dict[str, str]]:
         """Obtiene todos los registros de tokens desencriptados con sus metadatos."""
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch("SELECT * FROM tokens")
+        rows: list[asyncpg.Record] = []
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    rows = await conn.fetch("SELECT * FROM tokens")
+                break
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida en tokens (%s). Reintentando...",
+                        e,
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
 
         fernet = get_fernet()
         results: list[dict[str, str]] = []

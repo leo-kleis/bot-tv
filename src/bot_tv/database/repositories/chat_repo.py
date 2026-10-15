@@ -20,7 +20,7 @@ class ChatRepository(BaseRepository):
 
     def __init__(self, db: asyncpg.Pool) -> None:
         super().__init__(db)
-        self._msg_queue: list[tuple[str, str, str, str, str]] = []
+        self._msg_queue: list[tuple[str, str, str, str, str, str | None]] = []
         self._batch_task: asyncio.Task[None] | None = None
         self._flush_lock = asyncio.Lock()
 
@@ -41,12 +41,13 @@ class ChatRepository(BaseRepository):
         user_id: str,
         message: str,
         msg_id: str | None = None,
+        stream_id: str | None = None,
     ) -> None:
         """Encola un mensaje para su guardado en lote en chat_history."""
         if not msg_id:
             msg_id = str(uuid.uuid4())
         now = datetime.now(UTC).isoformat()
-        self._msg_queue.append((msg_id, channel_id, user_id, message, now))
+        self._msg_queue.append((msg_id, channel_id, user_id, message, now, stream_id))
         self.start_batch_worker()
 
         if len(self._msg_queue) >= MAX_BATCH_SIZE:
@@ -65,9 +66,9 @@ class ChatRepository(BaseRepository):
             try:
                 query = """
                     INSERT INTO chat_history (
-                        id, channel_id, user_id, message, timestamp
+                        id, channel_id, user_id, message, timestamp, stream_id
                     )
-                    VALUES ($1, $2, $3, $4, $5)
+                    VALUES ($1, $2, $3, $4, $5, $6)
                     ON CONFLICT (id) DO NOTHING
                 """
 

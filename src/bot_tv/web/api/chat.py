@@ -53,17 +53,15 @@ async def endpoint_send_chat_message(request: Request) -> Response:
     try:
         # 1. Obtener la información del canal destino (broadcaster)
         # El canal es aquel cuyo user_id != bot_id en tokens
-        async with bot.database.acquire() as connection:
-            row = await connection.fetchrow(
-                "SELECT user_id, username FROM tokens WHERE user_id != $1",
-                bot.bot_id,
-            )
-
-        if not row:
+        tokens_metadata = await bot.token_repo.get_all_tokens_metadata()
+        broadcaster_accounts = [
+            t for t in tokens_metadata if t["user_id"] != bot.bot_id
+        ]
+        if not broadcaster_accounts:
             return _err("No se encontró el canal (broadcaster) de destino.")
 
-        broadcaster_id = row["user_id"]
-        broadcaster_name = row["username"]
+        broadcaster_id = broadcaster_accounts[0]["user_id"]
+        broadcaster_name = broadcaster_accounts[0]["username"]
 
         canal_user = twitchio.PartialUser(
             id=broadcaster_id,
