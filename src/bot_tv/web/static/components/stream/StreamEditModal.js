@@ -1,6 +1,84 @@
 import { html, useState, useEffect, useRef, render } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container) {
+  if (!container) return [];
+  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
+  return elements.filter(
+    el => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+  );
+}
+
+function trapFocus(container, e) {
+  if (e.key !== 'Tab') return;
+
+  const focusables = getFocusableElements(container);
+  if (focusables.length === 0) {
+    e.preventDefault();
+    return;
+  }
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+
+  if (e.shiftKey) {
+    if (document.activeElement === first || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else {
+    if (document.activeElement === last || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+}
+
+function setupInertIsolation(modalElement) {
+  if (!modalElement) return () => {};
+
+  const inertedElements = [];
+  const appRoot = document.getElementById('app-root');
+
+  if (appRoot && !appRoot.contains(modalElement)) {
+    if (!appRoot.hasAttribute('inert')) {
+      appRoot.setAttribute('inert', '');
+      inertedElements.push(appRoot);
+    }
+  } else {
+    let current = modalElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const parent = current.parentElement;
+      if (parent) {
+        for (const child of parent.children) {
+          if (
+            child !== current &&
+            !child.contains(modalElement) &&
+            child.id !== 'stream-category-portal'
+          ) {
+            if (!child.hasAttribute('inert')) {
+              child.setAttribute('inert', '');
+              inertedElements.push(child);
+            }
+          }
+        }
+      }
+      current = parent;
+    }
+  }
+
+  return () => {
+    for (const el of inertedElements) {
+      if (el && typeof el.removeAttribute === 'function') {
+        el.removeAttribute('inert');
+      }
+    }
+  };
+}
+
 export function StreamEditModal({ initialTitle = '', initialCategory = '', onClose, onSaved }) {
   const [title, setTitle] = useState(initialTitle);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -19,6 +97,11 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   const [errorMsg, setErrorMsg] = useState(null);
 
   const categoryBoxRef = useRef(null);
+  const modalRef = useRef(null);
+  const dialogRef = useRef(null);
+  const triggerRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Cargar metadatos completos (portada box_art_url) si existe una categoría inicial
   useEffect(() => {
@@ -46,15 +129,48 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     }
   }, [initialCategory]);
 
-  // Manejador de tecla Esc y clic fuera del dropdown
+  // Aislamiento inert, foco inicial y restauración de foco al desmontar
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    const restoreInert = setupInertIsolation(modalRef.current);
+
+    const focusTimer = requestAnimationFrame(() => {
+      const titleInput = document.getElementById('stream-title-input');
+      if (titleInput) {
+        titleInput.focus();
+      } else if (dialogRef.current) {
+        const first = getFocusableElements(dialogRef.current)[0];
+        if (first) first.focus();
+      }
+    });
+
+    return () => {
+      cancelAnimationFrame(focusTimer);
+      restoreInert();
+
+      const prevEl = triggerRef.current;
+      if (prevEl && typeof prevEl.focus === 'function' && document.body.contains(prevEl)) {
+        prevEl.focus();
+      }
+    };
+  }, []);
+
+  // Manejador de tecla Esc, Tab (trap de foco) y clic fuera del dropdown
   useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'Escape') {
         if (dropdownOpen) {
           setDropdownOpen(false);
-        } else {
-          onClose();
+        } else if (onCloseRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          onCloseRef.current();
         }
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        trapFocus(dialogRef.current, e);
       }
     }
 
@@ -75,7 +191,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose, dropdownOpen]);
+  }, [dropdownOpen]);
 
   // Calcular posición del dropdown flotante
   const updateDropdownPos = () => {
@@ -268,14 +384,30 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     : null;
 
   return html`
-    <div class="stream-modal-backdrop" onClick=${e => e.target === e.currentTarget && onClose()}>
-      <div class="stream-modal-dialog" role="dialog" aria-modal="true">
+    <div
+      class="stream-modal-backdrop"
+      ref=${modalRef}
+      onClick=${e => e.target === e.currentTarget && onClose && onClose()}
+    >
+      <div
+        class="stream-modal-dialog"
+        ref=${dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stream-edit-modal-title"
+        aria-describedby=${errorMsg ? 'stream-edit-modal-desc' : undefined}
+      >
         <!-- Cabecera del Modal -->
         <div class="stream-modal-header">
           <div class="stream-modal-title">
-            <span>Editar Información del Stream</span>
+            <span id="stream-edit-modal-title">Editar Información del Stream</span>
           </div>
-          <button class="stream-modal-close-btn" onClick=${onClose} title="Cerrar modal">
+          <button
+            class="stream-modal-close-btn"
+            onClick=${onClose}
+            title="Cerrar modal"
+            aria-label="Cerrar modal"
+          >
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -285,7 +417,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           ${
             errorMsg
               ? html`
-                  <div class="stream-modal-alert">
+                  <div id="stream-edit-modal-desc" class="stream-modal-alert" role="alert">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <span>${errorMsg}</span>
                   </div>
