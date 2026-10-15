@@ -1,6 +1,12 @@
 import { html, useEffect } from 'preact-setup';
 import { getEventDetails } from './event-config.js';
 
+function isCriticalToast(toast) {
+  if (toast.isError === true) return true;
+  const type = (toast.type || '').toLowerCase();
+  return type === 'api_error' || type === 'error' || type === 'danger';
+}
+
 function ToastItem({ toast, dispatch }) {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -10,12 +16,15 @@ function ToastItem({ toast, dispatch }) {
   }, [toast.id, dispatch]);
 
   const details = getEventDetails(toast.type);
+  const isCritical = isCriticalToast(toast);
+  const role = isCritical ? 'alert' : 'status';
+  const ariaLive = isCritical ? 'assertive' : 'polite';
 
   return html`
     <div
       class="toast-card ${details.toastClassName || 'toast-mod'}"
-      role="alert"
-      aria-live="assertive"
+      role=${role}
+      aria-live=${ariaLive}
       aria-atomic="true"
     >
       <div class="toast-icon">
@@ -55,6 +64,7 @@ export function ToastOverlay({ toasts, dispatch, activeTab }) {
       type === 'danger' ||
       type === 'api_success' ||
       type === 'success' ||
+      type === 'mod_action' ||
       toast.isError === true ||
       toast.isWarning === true
     );
@@ -63,7 +73,7 @@ export function ToastOverlay({ toasts, dispatch, activeTab }) {
   if (visibleToasts.length === 0) return null;
 
   return html`
-    <div class="toast-overlay" role="region" aria-label="Notificaciones">
+    <div class="toast-overlay" role="region" aria-label="Notificaciones del sistema">
       ${visibleToasts.map(
         toast => html`<${ToastItem} key=${toast.id} toast=${toast} dispatch=${dispatch} />`
       )}
