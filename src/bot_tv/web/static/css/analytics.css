@@ -23,6 +23,7 @@
   gap: 16px;
   padding: 16px;
   -webkit-overflow-scrolling: touch;
+  container-type: inline-size;
 }
 
 /* --------------------------------------------------------------------------
@@ -790,8 +791,49 @@
   }
 }
 
-/* Escenario 3: Tablet y Escritorio (min-width: 601px and min-height: 481px) */
-@media (min-width: 601px) and (min-height: 481px) {
+/* Escenario 3: Tablet Portrait / Mediano (min-width: 601px and max-width: 1024px and min-height: 481px) */
+@media (min-width: 601px) and (max-width: 1024px) and (min-height: 481px) {
+  .analytics-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .analytics-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .analytics-chart-container {
+    height: 250px;
+  }
+
+  .analytics-chart-container.doughnut-container {
+    height: 230px;
+  }
+
+  .analytics-filter-bar {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .analytics-filter-item.session-filter {
+    flex: 1 1 200px;
+    min-width: 180px;
+  }
+
+  .analytics-filter-item.interval-filter,
+  .analytics-filter-item.period-filter {
+    flex: 1 1 120px;
+    min-width: 100px;
+  }
+
+  .analytics-filter-actions {
+    margin-left: auto;
+  }
+}
+
+/* Escenario 4: Desktop / Pantalla Grande (min-width: 1025px and min-height: 481px) */
+@media (min-width: 1025px) and (min-height: 481px) {
   .analytics-summary-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }

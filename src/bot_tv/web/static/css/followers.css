@@ -222,6 +222,7 @@
   min-height: 520px;
   position: relative;
   transition: opacity 0.2s ease;
+  container-type: inline-size;
 }
 
 .users-table-wrapper.loading .users-table,
@@ -626,7 +627,7 @@
   }
 }
 
-@media (max-width: 600px) and (min-height: 481px) {
+@media (max-width: 720px) and (min-height: 481px) {
   .pagination-bar {
     flex-direction: column;
     gap: 10px;

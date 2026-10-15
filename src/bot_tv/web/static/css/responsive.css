@@ -315,7 +315,7 @@
   }
 }
 
-/* TABLETS Y ESCRITORIO — Layout de 3 filas (solo fuera de landscape) */
+/* TABLETS Y ESCRITORIO — Layout base de 3 filas (solo fuera de landscape) */
 @media (min-width: 601px) and (min-height: 481px) {
   #app-root {
     display: grid;
@@ -333,8 +333,67 @@
   }
 }
 
-/* PANTALLAS ANCHAS (>600px) — IRC visible inline, sin drawer movil (solo fuera de landscape) */
-@media (min-width: 601px) and (min-height: 481px) {
+/* TABLETS Y PANTALLAS MEDIANAS (601px a 1024px) — IRC como Drawer Deslizable a demanda */
+@media (min-width: 601px) and (max-width: 1024px) and (min-height: 481px) {
+  .irc-panel {
+    position: absolute;
+    top: 0;
+    right: -280px;
+    width: 270px;
+    height: 100%;
+    z-index: var(--z-irc-drawer);
+    isolation: isolate;
+    border-left: 1px solid var(--border);
+    border-top: none;
+    border-bottom: none;
+    background: rgba(18, 16, 23, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: none;
+    border-radius: 20px 0 0 20px;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .chat-tab.irc-open-mobile .irc-panel {
+    transform: translateX(-280px);
+    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
+  }
+
+  .irc-overlay-mobile {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: calc(var(--z-irc-drawer) - 1);
+    animation: fade-in 0.25s ease-out;
+  }
+
+  .chat-panel {
+    border-right: none;
+  }
+
+  .viewers-badge.clickable {
+    cursor: pointer;
+    pointer-events: auto;
+  }
+}
+
+/* PANTALLAS GRANDES Y ESCRITORIO (>= 1025px) — IRC visible inline fijo */
+@media (min-width: 1025px) and (min-height: 481px) {
+  .chat-tab .irc-panel {
+    position: static;
+    transform: none;
+    width: 270px;
+    flex-shrink: 0;
+    box-shadow: none;
+    border-radius: 0;
+    border-left: 1px solid var(--border);
+  }
+
   .chat-tab.irc-open-mobile .irc-panel {
     transform: none;
   }

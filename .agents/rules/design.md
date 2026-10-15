@@ -14,13 +14,15 @@ Breakpoints oficiales del proyecto:
 
 | Escenario | Condición | Layout General |
 |---|---|---|
-| Mobile portrait | `(max-width: 600px) and (min-height: 481px)` | Flex column (`header` → `content` → `tab-bar`) |
-| Landscape | `(max-height: 480px)` | Grid 2 filas (`header` horizontal + `sidebar`/`content`) |
-| Desktop/Tablet | `(min-width: 601px) and (min-height: 481px)` | Grid 3 filas (`header` + `tab-bar` + `content`) |
+| Mobile portrait | `(max-width: 600px) and (min-height: 481px)` | Flex column (`header` → `content` → `tab-bar`). IRC como Drawer deslizable. |
+| Tablet portrait / mediano | `(min-width: 601px) and (max-width: 1024px) and (min-height: 481px)` | Grid 3 filas (`header` + `tab-bar` + `content`). IRC como Drawer deslizable/táctil a demanda. Grillas adaptativas (3 columnas KPI, 1 columna charts). |
+| Desktop / grande | `(min-width: 1025px) and (min-height: 481px)` | Grid 3 filas (`header` + `tab-bar` + `content`). IRC inline fijo (270px). Grillas expandidas (5 columnas KPI, 2 columnas charts). |
+| Landscape | `(max-height: 480px)` | Grid 2 filas (`header` horizontal + `sidebar`/`content`). |
 
-### Reglas para consultas secundarias e intermedias:
+### Reglas para consultas secundarias, intermedias y Container Queries:
 - **Consultas por ancho intermedio en componentes** (por ejemplo `max-width: 1480px`, `1050px`, `768px`): Si alteran el layout estructural o columnas de grilla, **DEBEN** incluir siempre `and (min-height: 481px)` para no colisionar con el escenario Landscape.
 - **Landscape en dispositivos modernos**: Los teléfonos inteligentes modernos en posición horizontal superan casi invariablemente los 600px de ancho (típicamente entre 667px y 932px). Por tanto, las reglas de landscape móvil no deben asumir un `max-width: 600px`. El eje determinante de landscape es estrictamente `(max-height: 480px)`.
+- **Micro-Layout con Container Queries (`container-type: inline-size`)**: Los componentes complejos (tarjetas de KPI en analíticas, tablas con vista apilada en seguidores, resúmenes) deben desacoplarse del ancho global del viewport. Se debe declarar `container-type: inline-size` en el contenedor y utilizar `@container (min-width/max-width: ...)` o funciones fluidas (`minmax()`, `repeat(auto-fit, ...)`).
 - **Excepción**: Reglas que no definen layout (como ocultar iconos accesorios o ajustar colores) pueden usar media queries simples sin exclusividad.
 
 ---
