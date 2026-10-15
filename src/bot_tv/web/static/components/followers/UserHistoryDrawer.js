@@ -1,9 +1,89 @@
-import { html } from 'preact-setup';
-import { useState, useEffect, useRef, useCallback } from '/static/vendor/preact-hooks.module.js';
+import { html, useState, useEffect, useRef, useCallback } from 'preact-setup';
 import { apiGet } from '/static/components/api.js';
 
 const BATCH_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 500;
+
+const FOCUSABLE_SELECTOR =
+  'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusableElements(container) {
+  if (!container) return [];
+  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
+  const visible = elements.filter(
+    el => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+  );
+  return visible.length > 0 ? visible : elements;
+}
+
+function trapFocus(container, e) {
+  if (e.key !== 'Tab') return;
+
+  const focusables = getFocusableElements(container);
+  if (focusables.length === 0) {
+    e.preventDefault();
+    return;
+  }
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+
+  if (e.shiftKey) {
+    if (document.activeElement === first || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      last.focus();
+    }
+  } else {
+    if (document.activeElement === last || !container.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+}
+
+function setupInertIsolation(drawerElement) {
+  if (!drawerElement) return () => {};
+
+  const inertedElements = [];
+  const appRoot = document.getElementById('app-root');
+
+  if (appRoot && !appRoot.contains(drawerElement)) {
+    if (!appRoot.hasAttribute('inert')) {
+      appRoot.setAttribute('inert', '');
+      inertedElements.push(appRoot);
+    }
+  } else {
+    let current = drawerElement;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const parent = current.parentElement;
+      if (parent) {
+        for (const child of parent.children) {
+          const isBackdrop = child.classList && child.classList.contains('history-backdrop');
+          if (
+            child !== current &&
+            !child.contains(drawerElement) &&
+            !isBackdrop &&
+            child.id !== 'stream-category-portal'
+          ) {
+            if (!child.hasAttribute('inert')) {
+              child.setAttribute('inert', '');
+              inertedElements.push(child);
+            }
+          }
+        }
+      }
+      current = parent;
+    }
+  }
+
+  return () => {
+    for (const el of inertedElements) {
+      if (el && typeof el.removeAttribute === 'function') {
+        el.removeAttribute('inert');
+      }
+    }
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -117,17 +197,69 @@ export function UserHistoryDrawer({ user, onClose }) {
 
   const messagesRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
+  const drawerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const restoreInertRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const isClosingRef = useRef(false);
 
-  // Activar animación de entrada y atajo de teclado Escape
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setOpen(true));
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') handleClose();
+  function handleClose() {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setOpen(false);
+    if (restoreInertRef.current) {
+      restoreInertRef.current();
+      restoreInertRef.current = null;
     }
+    setTimeout(() => {
+      if (onCloseRef.current) onCloseRef.current();
+    }, 300); // esperar animación de salida
+  }
+
+  // Activar animación de entrada, focus management, aislamiento inert y atajos de teclado
+  useEffect(() => {
+    triggerRef.current = document.activeElement;
+    restoreInertRef.current = setupInertIsolation(drawerRef.current);
+
+    const id = requestAnimationFrame(() => {
+      setOpen(true);
+      if (drawerRef.current) {
+        const closeBtn = drawerRef.current.querySelector('.history-header-close');
+        if (closeBtn) {
+          closeBtn.focus();
+        } else {
+          const first = getFocusableElements(drawerRef.current)[0];
+          if (first) first.focus();
+        }
+      }
+    });
+
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        trapFocus(drawerRef.current, e);
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       cancelAnimationFrame(id);
       window.removeEventListener('keydown', handleKeyDown);
+      if (restoreInertRef.current) {
+        restoreInertRef.current();
+        restoreInertRef.current = null;
+      }
+      const prevEl = triggerRef.current;
+      if (prevEl && typeof prevEl.focus === 'function' && document.body.contains(prevEl)) {
+        prevEl.focus();
+      }
     };
   }, []);
 
@@ -177,11 +309,6 @@ export function UserHistoryDrawer({ user, onClose }) {
     setUntil('');
   }
 
-  function handleClose() {
-    setOpen(false);
-    setTimeout(onClose, 300); // esperar animación de salida
-  }
-
   const displayName = user.display_name || user.username;
   const showUsername =
     user.display_name && user.display_name.toLowerCase() !== user.username.toLowerCase();
@@ -189,11 +316,17 @@ export function UserHistoryDrawer({ user, onClose }) {
   return html`
     <div class="history-backdrop" onClick=${handleClose} />
 
-    <div class="history-drawer ${open ? 'open' : ''}">
+    <div
+      class="history-drawer ${open ? 'open' : ''}"
+      ref=${drawerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-history-drawer-title"
+    >
       <!-- Header -->
       <div class="history-header">
         <div class="history-header-info">
-          <span class="history-header-name">${displayName}</span>
+          <span class="history-header-name" id="user-history-drawer-title">${displayName}</span>
           <div class="history-header-meta">
             ${
               showUsername
@@ -251,6 +384,7 @@ export function UserHistoryDrawer({ user, onClose }) {
             type="text"
             class="history-search-input"
             placeholder="Buscar en mensajes..."
+            aria-label="Buscar en mensajes"
             value=${searchInput}
             onInput=${e => setSearchInput(e.target.value)}
           />
@@ -262,6 +396,7 @@ export function UserHistoryDrawer({ user, onClose }) {
             onChange=${e => setSince(e.target.value)}
             max=${until || ''}
             title="Desde"
+            aria-label="Fecha desde"
           />
           <span class="history-search-sep">—</span>
           <input
@@ -270,6 +405,7 @@ export function UserHistoryDrawer({ user, onClose }) {
             onChange=${e => setUntil(e.target.value)}
             min=${since || ''}
             title="Hasta"
+            aria-label="Fecha hasta"
           />
           ${
             searchInput || since || until
