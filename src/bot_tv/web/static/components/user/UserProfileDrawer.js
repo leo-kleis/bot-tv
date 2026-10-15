@@ -340,14 +340,6 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     }
   }
 
-  function handleClose() {
-    setOpen(false);
-    if (window.history.state && window.history.state.botDrawer === 'user-profile') {
-      window.history.back();
-    }
-    setTimeout(onClose, 300);
-  }
-
   // Guardar Apodo
   async function handleSaveNickname() {
     setSavingNick(true);
@@ -502,12 +494,18 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
   return html`
     <div class="history-backdrop" onClick=${handleClose} />
 
-    <div class="history-drawer ${open ? 'open' : ''}">
+    <div
+      class="history-drawer ${open ? 'open' : ''}"
+      ref=${drawerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-profile-drawer-title"
+    >
       <!-- Cabecera de Perfil -->
       <div class="history-header">
         <div class="history-header-info">
           <div style="display:flex; align-items:center; gap:8px; min-width:0;">
-            <span class="history-header-name">${displayName}</span>
+            <span class="history-header-name" id="user-profile-drawer-title">${displayName}</span>
             <a
               href="https://twitch.tv/${encodeURIComponent(username)}"
               target="_blank"
@@ -565,28 +563,51 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
             }
           </div>
         </div>
-        <button class="history-header-close" onClick=${handleClose} title="Cerrar perfil">
+        <button
+          class="history-header-close"
+          onClick=${handleClose}
+          title="Cerrar perfil"
+          aria-label="Cerrar perfil"
+        >
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
       <!-- Navegación por Pestañas Internas del Drawer -->
-      <div class="history-drawer-tabs">
+      <div class="history-drawer-tabs" role="tablist" aria-label="Secciones del perfil">
         <button
+          id="drawer-tab-info"
+          role="tab"
+          aria-selected=${activeTab === 'info'}
+          aria-controls="drawer-panel-info"
+          tabindex=${activeTab === 'info' ? 0 : -1}
           class="history-drawer-tab-btn ${activeTab === 'info' ? 'active' : ''}"
           onClick=${() => setActiveTab('info')}
+          onKeyDown=${e => handleTabKeyDown(e, 'info')}
         >
           <i class="fa-solid fa-user-gear"></i> Detalle y Apodo
         </button>
         <button
+          id="drawer-tab-roles"
+          role="tab"
+          aria-selected=${activeTab === 'roles'}
+          aria-controls="drawer-panel-roles"
+          tabindex=${activeTab === 'roles' ? 0 : -1}
           class="history-drawer-tab-btn ${activeTab === 'roles' ? 'active' : ''}"
           onClick=${() => setActiveTab('roles')}
+          onKeyDown=${e => handleTabKeyDown(e, 'roles')}
         >
           <i class="fa-solid fa-shield-halved"></i> Roles y Moderación
         </button>
         <button
+          id="drawer-tab-history"
+          role="tab"
+          aria-selected=${activeTab === 'history'}
+          aria-controls="drawer-panel-history"
+          tabindex=${activeTab === 'history' ? 0 : -1}
           class="history-drawer-tab-btn ${activeTab === 'history' ? 'active' : ''}"
           onClick=${() => setActiveTab('history')}
+          onKeyDown=${e => handleTabKeyDown(e, 'history')}
         >
           <i class="fa-solid fa-comments"></i> Historial (${formatCount(total)})
         </button>
@@ -596,7 +617,13 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       ${
         activeTab === 'info'
           ? html`
-              <div class="history-drawer-panel">
+              <div
+                id="drawer-panel-info"
+                role="tabpanel"
+                aria-labelledby="drawer-tab-info"
+                tabindex="0"
+                class="history-drawer-panel"
+              >
                 <!-- Apodo Local -->
                 <div
                   style="background:var(--surface2); border:1px solid var(--border-2); border-radius:var(--radius-sm); padding:14px;"
@@ -633,6 +660,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                               value=${nickname}
                               onInput=${e => setNickname(e.target.value)}
                               placeholder="Sin apodo"
+                              aria-label="Apodo en la app"
                               disabled=${savingNick}
                             />
                             <button
@@ -714,7 +742,13 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       ${
         activeTab === 'roles'
           ? html`
-              <div class="history-drawer-panel roles-panel">
+              <div
+                id="drawer-panel-roles"
+                role="tabpanel"
+                aria-labelledby="drawer-tab-roles"
+                tabindex="0"
+                class="history-drawer-panel roles-panel"
+              >
                 <!-- Asignación de Roles -->
                 <div
                   style="background:var(--surface2); border:1px solid var(--border-2); border-radius:var(--radius-sm); padding:14px;"
@@ -891,93 +925,100 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       ${
         activeTab === 'history'
           ? html`
-              <!-- Buscador y fechas -->
-              <div class="history-search">
-                <div class="history-search-input-wrap">
-                  <i class="fa-solid fa-magnifying-glass history-search-icon"></i>
-                  <input
-                    type="text"
-                    class="history-search-input"
-                    placeholder="Buscar en mensajes..."
-                    value=${searchInput}
-                    onInput=${e => setSearchInput(e.target.value)}
-                  />
-                </div>
-                <div class="history-search-dates">
-                  <input
-                    type="date"
-                    value=${since}
-                    onChange=${e => setSince(e.target.value)}
-                    max=${until || ''}
-                    title="Desde"
-                  />
-                  <span class="history-search-sep">—</span>
-                  <input
-                    type="date"
-                    value=${until}
-                    onChange=${e => setUntil(e.target.value)}
-                    min=${since || ''}
-                    title="Hasta"
-                  />
-                  ${
-                    searchInput || since || until
-                      ? html`
-                          <button
-                            class="history-search-clear"
-                            onClick=${() => {
+              <div
+                id="drawer-panel-history"
+                role="tabpanel"
+                aria-labelledby="drawer-tab-history"
+                tabindex="0"
+                style="display:flex; flex-direction:column; flex:1; min-height:0;"
+              >
+                <!-- Buscador y fechas -->
+                <div class="history-search">
+                  <div class="history-search-input-wrap">
+                    <i class="fa-solid fa-magnifying-glass history-search-icon"></i>
+                    <input
+                      type="text"
+                      class="history-search-input"
+                      placeholder="Buscar en mensajes..."
+                      value=${searchInput}
+                      onInput=${e => setSearchInput(e.target.value)}
+                    />
+                  </div>
+                  <div class="history-search-dates">
+                    <input
+                      type="date"
+                      value=${since}
+                      onChange=${e => setSince(e.target.value)}
+                      max=${until || ''}
+                      title="Desde"
+                    />
+                    <span class="history-search-sep">—</span>
+                    <input
+                      type="date"
+                      value=${until}
+                      onChange=${e => setUntil(e.target.value)}
+                      min=${since || ''}
+                      title="Hasta"
+                    />
+                    ${
+                      searchInput || since || until
+                        ? html`
+                            <button
+                              class="history-search-clear"
+                              onClick=${() => {
                               setSearchInput('');
                               setSince('');
                               setUntil('');
                             }}
-                          >
-                            <i class="fa-solid fa-xmark"></i> Limpiar
-                          </button>
-                        `
-                      : null
-                  }
+                            >
+                              <i class="fa-solid fa-xmark"></i> Limpiar
+                            </button>
+                          `
+                        : null
+                    }
+                  </div>
                 </div>
-              </div>
 
-              <!-- Lista de mensajes -->
-              <div class="history-messages" ref=${messagesRef} onScroll=${handleScroll}>
-                ${
-                  loadingMore
-                    ? html`<div class="history-load-more">
-                        <span class="history-spinner"></span> Cargando anteriores...
-                      </div>`
-                    : hasMore
-                      ? html`<div
-                          class="history-load-more"
-                          style="color:var(--text-muted);font-size:11px;"
-                        >
-                          Sube para cargar más
+                <!-- Lista de mensajes -->
+                <div class="history-messages" ref=${messagesRef} onScroll=${handleScroll}>
+                  ${
+                    loadingMore
+                      ? html`<div class="history-load-more">
+                          <span class="history-spinner"></span> Cargando anteriores...
                         </div>`
-                      : messages.length > 0
+                      : hasMore
                         ? html`<div
                             class="history-load-more"
                             style="color:var(--text-muted);font-size:11px;"
                           >
-                            Inicio del historial
+                            Sube para cargar más
                           </div>`
-                        : null
-                }
-                ${
-                  loading
-                    ? html`<div class="history-empty">
-                        <span
-                          class="history-spinner"
-                          style="width:20px;height:20px;border-width:3px;"
-                        ></span>
-                        <p>Cargando mensajes...</p>
-                      </div>`
-                    : messages.length === 0
+                        : messages.length > 0
+                          ? html`<div
+                              class="history-load-more"
+                              style="color:var(--text-muted);font-size:11px;"
+                            >
+                              Inicio del historial
+                            </div>`
+                          : null
+                  }
+                  ${
+                    loading
                       ? html`<div class="history-empty">
-                          <i class="fa-solid fa-comment-slash"></i>
-                          <p>No hay mensajes registrados.</p>
+                          <span
+                            class="history-spinner"
+                            style="width:20px;height:20px;border-width:3px;"
+                          ></span>
+                          <p>Cargando mensajes...</p>
                         </div>`
-                      : html`
-                          <div class="history-msg-list">
-                            ${messages.map(
+                      : messages.length === 0
+                        ? html`<div class="history-empty">
+                            <i class="fa-solid fa-comment-slash"></i>
+                            <p>No hay mensajes registrados.</p>
+                          </div>`
+                        : html`
+                            <div class="history-msg-list">
+                              ${messages.map(
                               m => html`
                                 <div class="history-msg" key=${m.id || m.timestamp}>
                                   <span class="history-msg-time"
@@ -987,9 +1028,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
                                 </div>
                               `
                             )}
-                          </div>
-                        `
-                }
+                            </div>
+                          `
+                  }
+                </div>
               </div>
             `
           : null
