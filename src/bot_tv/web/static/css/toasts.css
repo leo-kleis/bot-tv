@@ -88,7 +88,9 @@
   color: var(--text-muted);
   font-size: 14px;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
+  min-width: var(--target-size-min, 24px);
+  min-height: var(--target-size-min, 24px);
   border-radius: 4px;
   margin-left: 8px;
   flex-shrink: 0;
@@ -98,6 +100,11 @@
   transition:
     color 0.2s ease,
     background 0.2s ease;
+}
+
+.toast-close:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .toast-close:hover {

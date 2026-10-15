@@ -29,15 +29,19 @@
     transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
+.tab-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
 .tab-btn .tab-icon {
   font-size: 20px;
   line-height: 1;
   transition: transform 0.2s ease;
 }
 .tab-btn .tab-label {
-  font-size: 9px;
+  font-size: var(--font-xs, 11px);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -47,7 +51,7 @@
   right: calc(50% - 18px);
   background: var(--alert-sub, #38a169);
   color: #ffffff;
-  font-size: 9px;
+  font-size: var(--font-xs, 11px);
   font-weight: 700;
   min-width: 15px;
   height: 15px;

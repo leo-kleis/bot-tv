@@ -186,13 +186,18 @@
   color: var(--text);
   font-family: var(--font);
   font-size: 13.5px;
-  outline: none;
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
 
 .settings-select:focus {
   border-color: var(--accent);
+  box-shadow: var(--focus-glow);
+}
+
+.settings-select:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .settings-audio-footer {

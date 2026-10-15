@@ -419,11 +419,14 @@
   box-shadow: 0 4px 16px rgba(155, 92, 255, 0.35);
   animation: button-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  outline: none;
   z-index: var(--z-floating);
   max-width: min(280px, calc(100vw - 24px));
   white-space: nowrap;
   user-select: none;
+}
+.scroll-bottom-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 .scroll-bottom-btn:hover {
   box-shadow: 0 6px 20px rgba(155, 92, 255, 0.45);
@@ -636,7 +639,6 @@
   color: var(--text);
   font-family: inherit;
   font-size: 0.9rem;
-  outline: none;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
@@ -645,7 +647,12 @@
 
 .chat-input-field:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow);
+  box-shadow: var(--focus-glow);
+}
+
+.chat-input-field:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .chat-input-field:disabled,
@@ -866,6 +873,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  min-height: var(--target-size-min, 24px);
   background: var(--surface2);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-xs);
@@ -877,7 +885,11 @@
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
-  outline: none;
+}
+
+.chat-header-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .chat-header-btn:hover:not(:disabled) {
