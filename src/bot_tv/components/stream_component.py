@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import datetime
+import re
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import twitchio
 from twitchio.ext import commands
+from twitchio.http import Route
 
 from bot_tv.events import (
     StreamOfflineEvent,
@@ -22,6 +24,24 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 VIEWER_POLL_INTERVAL = 60
+
+_DURATION_REGEX = re.compile(
+    r"(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?"
+)
+
+
+def parse_twitch_duration(duration_str: str) -> timedelta:
+    """Parsea una cadena de duración de Twitch (ej. '3h8m33s', '45m') a timedelta."""
+    if not duration_str:
+        return timedelta()
+    match = _DURATION_REGEX.fullmatch(duration_str)
+    if not match:
+        return timedelta()
+    parts = match.groupdict()
+    hours = int(parts["hours"]) if parts.get("hours") else 0
+    minutes = int(parts["minutes"]) if parts.get("minutes") else 0
+    seconds = int(parts["seconds"]) if parts.get("seconds") else 0
+    return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
 class StreamComponent(commands.Component):
@@ -38,6 +58,76 @@ class StreamComponent(commands.Component):
         self._last_viewer_count: int | None = None
         self._stream_online: bool = False
         self._channel_ids: list[str] = []
+        self._channel_map: dict[str, str] = {}
+        self._offline_counts: dict[str, int] = {}
+
+    async def _reconcile_orphan_sessions(self) -> None:
+        """Reconcilia sesiones huérfanas al iniciar el bot."""
+        try:
+            orphans = await self.bot.analytics_repo.get_orphan_sessions()
+        except Exception:
+            LOGGER.exception("Error al consultar sesiones huérfanas.")
+            return
+
+        for orphan in orphans:
+            orphan_stream_id = str(orphan["stream_id"])
+            channel_id = str(orphan["channel_id"])
+            try:
+                # Consultar si sigue en vivo
+                is_still_live = False
+                streams_iter = self.bot.fetch_streams(user_ids=[int(channel_id)])
+                async for stream in streams_iter:
+                    if stream.id == orphan_stream_id:
+                        is_still_live = True
+                        self.bot.current_stream_id = orphan_stream_id
+                        self._stream_online = True
+                    break
+
+                if is_still_live:
+                    continue
+
+                # Si ya terminó, intentar obtener el VOD correspondiente
+                vod_found = False
+                route = Route(
+                    "GET",
+                    "videos",
+                    params={"user_id": channel_id, "type": "archive", "first": 20},
+                )
+                try:
+                    resp = await self.bot.http.request(route)
+                    if isinstance(resp, dict):
+                        videos = resp.get("data", [])
+                        for vod in videos:
+                            if str(vod.get("stream_id")) == orphan_stream_id:
+                                started_at = orphan["started_at"]
+                                if isinstance(started_at, str):
+                                    started_at = datetime.fromisoformat(started_at)
+                                if started_at.tzinfo is None:
+                                    started_at = started_at.replace(tzinfo=UTC)
+
+                                duration = parse_twitch_duration(
+                                    vod.get("duration", "")
+                                )
+                                ended_at = started_at + duration
+                                await self.bot.analytics_repo.close_session(
+                                    orphan_stream_id, ended_at, "orphan_recovery_vod"
+                                )
+                                vod_found = True
+                                break
+                except Exception:
+                    LOGGER.debug(
+                        "Error al consultar VOD para la sesión huérfana %s",
+                        orphan_stream_id,
+                    )
+
+                if not vod_found:
+                    await self.bot.analytics_repo.close_orphan_session_fast(
+                        orphan_stream_id
+                    )
+            except Exception:
+                LOGGER.exception(
+                    "Error al reconciliar sesión huérfana %s", orphan_stream_id
+                )
 
     # ── Ciclo de vida ───────────────────────────────────────────────
 
@@ -64,6 +154,7 @@ class StreamComponent(commands.Component):
             LOGGER.warning("StreamComponent: no hay canales para monitorear.")
             return
 
+        await self._reconcile_orphan_sessions()
         await self._check_initial_status()
         self._viewer_task = asyncio.create_task(self._viewer_poll_loop())
 
@@ -81,6 +172,9 @@ class StreamComponent(commands.Component):
         """Se ejecuta cuando un stream se pone online (EventSub)."""
         self._stream_online = True
         self._last_viewer_count = None
+        self.bot.current_stream_id = payload.id
+        channel_id = payload.broadcaster.id
+        self._offline_counts[channel_id] = 0
 
         titulo = ""
         categoria = ""
@@ -93,13 +187,28 @@ class StreamComponent(commands.Component):
 
         nombre = payload.broadcaster.display_name or payload.broadcaster.name or ""
 
-        started_at = None
-        if hasattr(payload, "started_at") and payload.started_at:
-            started_at = (
-                payload.started_at.isoformat()
-                if hasattr(payload.started_at, "isoformat")
-                else str(payload.started_at)
+        started_at = (
+            payload.started_at
+            if hasattr(payload, "started_at") and payload.started_at
+            else datetime.now(UTC)
+        )
+
+        with contextlib.suppress(Exception):
+            await self.bot.analytics_repo.create_or_get_session(
+                channel_id=channel_id,
+                stream_id=payload.id,
+                started_at=started_at,
+                title=titulo,
+                category_name=categoria,
             )
+
+        if hasattr(payload, "started_at") and payload.started_at:
+            if hasattr(payload.started_at, "isoformat"):
+                started_at_str = payload.started_at.isoformat()
+            else:
+                started_at_str = str(payload.started_at)
+        else:
+            started_at_str = datetime.now(UTC).isoformat()
 
         await self.bot.event_bus.emit(
             StreamOnlineEvent(
@@ -107,7 +216,7 @@ class StreamComponent(commands.Component):
                 broadcaster_name=nombre,
                 title=titulo,
                 category=categoria,
-                started_at=started_at,
+                started_at=started_at_str,
             )
         )
 
@@ -116,8 +225,19 @@ class StreamComponent(commands.Component):
         """Se ejecuta cuando un stream se pone offline (EventSub)."""
         self._stream_online = False
         self._last_viewer_count = None
-
         channel_id = payload.broadcaster.id
+        self._offline_counts[channel_id] = 0
+
+        target_stream_id = self.bot.current_stream_id or getattr(payload, "id", None)
+        if target_stream_id:
+            with contextlib.suppress(Exception):
+                await self.bot.analytics_repo.close_session(
+                    target_stream_id,
+                    datetime.now(UTC),
+                    "eventsub_offline",
+                )
+        self.bot.current_stream_id = None
+
         nombre = (
             payload.broadcaster.display_name
             or payload.broadcaster.name
@@ -126,7 +246,7 @@ class StreamComponent(commands.Component):
         titulo = ""
         categoria = ""
         with contextlib.suppress(Exception):
-            info = await self.bot.fetch_channel(broadcaster_id=channel_id)
+            info = await self.bot.fetch_channel(broadcaster_id=int(channel_id))
             if info:
                 titulo = info.title or ""
                 categoria = info.game_name or ""
@@ -184,11 +304,30 @@ class StreamComponent(commands.Component):
                         self._stream_online = True
                         viewer_count = stream.viewer_count
                         self._last_viewer_count = viewer_count
+                        self._offline_counts[channel_id] = 0
+                        self.bot.current_stream_id = stream.id
 
                         nombre = stream.user.display_name or stream.user.name or ""
                         titulo = stream.title or ""
                         categoria = stream.game_name or ""
-                        started_at = (
+                        started_at = stream.started_at
+
+                        with contextlib.suppress(Exception):
+                            await self.bot.analytics_repo.create_or_get_session(
+                                channel_id=channel_id,
+                                stream_id=stream.id,
+                                started_at=started_at,
+                                title=titulo,
+                                category_name=categoria,
+                            )
+                            await self.bot.analytics_repo.save_viewer_snapshot(
+                                channel_id, stream.id, viewer_count
+                            )
+                            await self.bot.analytics_repo.update_session_viewers(
+                                stream.id, viewer_count
+                            )
+
+                        started_at_str = (
                             stream.started_at.isoformat()
                             if hasattr(stream.started_at, "isoformat")
                             else str(stream.started_at)
@@ -200,7 +339,7 @@ class StreamComponent(commands.Component):
                                 broadcaster_name=nombre,
                                 title=titulo,
                                 category=categoria,
-                                started_at=started_at,
+                                started_at=started_at_str,
                             )
                         )
                         await self.bot.event_bus.emit(
@@ -211,6 +350,7 @@ class StreamComponent(commands.Component):
                             )
                         )
                     else:
+                        self._offline_counts[channel_id] = 0
                         nombre = self._channel_map.get(channel_id, "")
                         titulo = ""
                         categoria = ""
@@ -265,10 +405,17 @@ class StreamComponent(commands.Component):
 
                         if stream_obj:
                             viewer_count = stream_obj.viewer_count
-                            # Si antes estaba offline
-                            if not self._stream_online:
+                            self._offline_counts[channel_id] = 0
+
+                            # Reconexión o stream online no detectado por EventSub
+                            if (
+                                not self._stream_online
+                                or self.bot.current_stream_id != stream_obj.id
+                            ):
                                 self._stream_online = True
                                 self._last_viewer_count = viewer_count
+                                self.bot.current_stream_id = stream_obj.id
+
                                 nombre = (
                                     stream_obj.user.display_name
                                     or stream_obj.user.name
@@ -276,7 +423,18 @@ class StreamComponent(commands.Component):
                                 )
                                 titulo = stream_obj.title or ""
                                 categoria = stream_obj.game_name or ""
-                                started_at = (
+                                started_at = stream_obj.started_at
+
+                                with contextlib.suppress(Exception):
+                                    await self.bot.analytics_repo.create_or_get_session(
+                                        channel_id=channel_id,
+                                        stream_id=stream_obj.id,
+                                        started_at=started_at,
+                                        title=titulo,
+                                        category_name=categoria,
+                                    )
+
+                                started_at_str = (
                                     stream_obj.started_at.isoformat()
                                     if hasattr(stream_obj.started_at, "isoformat")
                                     else str(stream_obj.started_at)
@@ -287,7 +445,7 @@ class StreamComponent(commands.Component):
                                         broadcaster_name=nombre,
                                         title=titulo,
                                         category=categoria,
-                                        started_at=started_at,
+                                        started_at=started_at_str,
                                     )
                                 )
                                 await self.bot.event_bus.emit(
@@ -311,29 +469,54 @@ class StreamComponent(commands.Component):
                                         diff=diff,
                                     )
                                 )
-                        else:
-                            # Si antes estaba online pero ya no se encuentra
-                            if self._stream_online:
-                                self._stream_online = False
-                                self._last_viewer_count = None
-                                nombre = self._channel_map.get(channel_id, "")
-                                titulo = ""
-                                categoria = ""
-                                with contextlib.suppress(Exception):
-                                    info = await self.bot.fetch_channel(
-                                        broadcaster_id=int(channel_id)
-                                    )
-                                    if info:
-                                        titulo = info.title or ""
-                                        categoria = info.game_name or ""
 
-                                await self.bot.event_bus.emit(
-                                    StreamOfflineEvent(
-                                        timestamp=datetime.now().isoformat(),
-                                        broadcaster_name=nombre,
-                                        title=titulo,
-                                        category=categoria,
-                                    )
+                            # En cada tick con stream online:
+                            with contextlib.suppress(Exception):
+                                await self.bot.analytics_repo.save_viewer_snapshot(
+                                    channel_id, stream_obj.id, viewer_count
                                 )
+                                await self.bot.analytics_repo.update_session_viewers(
+                                    stream_obj.id, viewer_count
+                                )
+                        else:
+                            # Anti-flapping: umbral de 2 ciclos consecutivos (120s)
+                            if self._stream_online:
+                                self._offline_counts[channel_id] = (
+                                    self._offline_counts.get(channel_id, 0) + 1
+                                )
+                                if self._offline_counts[channel_id] >= 2:
+                                    self._stream_online = False
+                                    self._last_viewer_count = None
+                                    self._offline_counts[channel_id] = 0
+
+                                    target_stream_id = self.bot.current_stream_id
+                                    if target_stream_id:
+                                        with contextlib.suppress(Exception):
+                                            await self.bot.analytics_repo.close_session(
+                                                target_stream_id,
+                                                datetime.now(UTC),
+                                                "poll_offline_timeout",
+                                            )
+                                        self.bot.current_stream_id = None
+
+                                    nombre = self._channel_map.get(channel_id, "")
+                                    titulo = ""
+                                    categoria = ""
+                                    with contextlib.suppress(Exception):
+                                        info = await self.bot.fetch_channel(
+                                            broadcaster_id=int(channel_id)
+                                        )
+                                        if info:
+                                            titulo = info.title or ""
+                                            categoria = info.game_name or ""
+
+                                    await self.bot.event_bus.emit(
+                                        StreamOfflineEvent(
+                                            timestamp=datetime.now().isoformat(),
+                                            broadcaster_name=nombre,
+                                            title=titulo,
+                                            category=categoria,
+                                        )
+                                    )
                 except Exception as e:
                     LOGGER.error("Error al consultar estado/viewers del stream: %s", e)

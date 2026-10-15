@@ -2,6 +2,7 @@ import { html, useState, useEffect } from 'preact-setup';
 import { StreamWidget } from '/static/components/StreamWidget.js';
 import { StreamTab } from '/static/components/stream/StreamTab.js';
 import { ChatTab } from '/static/components/chat/ChatTab.js';
+import { AnalyticsTab } from '/static/components/analytics/AnalyticsTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab } from '/static/components/agent/AgentTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
@@ -12,6 +13,7 @@ import { ConfirmModal } from '/static/components/ConfirmModal.js';
 const TABS = [
   { id: 'chat', icon: html`<i class="fa-solid fa-comments"></i>`, label: 'Chat' },
   { id: 'stream', icon: html`<i class="fa-solid fa-tv"></i>`, label: 'Stream' },
+  { id: 'analytics', icon: html`<i class="fa-solid fa-chart-line"></i>`, label: 'Analíticas' },
   { id: 'users', icon: html`<i class="fa-solid fa-users"></i>`, label: 'Usuarios & Seguidores' },
   { id: 'agent', icon: html`<i class="fa-solid fa-robot"></i>`, label: 'Agente' },
   { id: 'settings', icon: html`<i class="fa-solid fa-gear"></i>`, label: 'Ajustes' },
@@ -209,6 +211,7 @@ export function App({ state, dispatch }) {
           `
         }
         ${active === 'stream' && html` <${StreamTab} channel=${state.stream.broadcasterName} /> `}
+        ${active === 'analytics' && html`<${AnalyticsTab} />`}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
         ${
           active === 'agent' &&
