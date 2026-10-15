@@ -55,6 +55,20 @@
   --alert-mod: #f87171;
   --alert-mod-icon: #fca5a5;
 
+  /* Tokens de Accesibilidad y Foco (WCAG 2.2) */
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
+  --focus-glow: 0 0 0 3px var(--accent-glow);
+
+  /* Tokens de Objetivos Táctiles y Dimensiones */
+  --touch-target-min: 44px;
+  --target-size-min: 24px;
+
+  /* Escala tipográfica segura (piso de 11px) */
+  --font-xs: 11px;
+  --font-sm: 12.5px;
+  --font-base: 14.5px;
+
   /* Z-index scale */
   --z-floating: 20;
   --z-dropdown-wrap: 30;
@@ -91,23 +105,49 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  -webkit-user-select: none;
-  user-select: none;
   touch-action: manipulation;
 }
 
-/* Permitir selección y copiado de texto en entradas, mensajes de chat y conversación del agente */
-input,
-textarea,
-[contenteditable='true'],
-.chat-msg-body,
-.sys-text,
-.chat-author,
-.agent-convo,
-.convo-q,
-.convo-a {
-  -webkit-user-select: text;
-  user-select: text;
+/* Evitar selección accidental únicamente en elementos de control interactivos puros */
+button,
+.btn,
+.tab-btn,
+.tab-bar,
+.app-header,
+.conn-indicator,
+.custom-select-trigger,
+.custom-select-arrow,
+.viewers-badge,
+.tab-badge,
+.irc-badge {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Indicador de foco por teclado universal accesible */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* Respeto a preferencias del sistema: Movimiento Reducido */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Respeto a preferencias del sistema: Alto Contraste / Forced Colors */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
 }
 
 #app {

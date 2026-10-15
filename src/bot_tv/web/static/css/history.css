@@ -186,6 +186,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.history-header-close:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
 .history-header-close:hover {
   color: var(--text);
   background: var(--surface3);
@@ -230,12 +235,17 @@
   font-family: var(--font);
   font-size: 13px;
   padding: 8px 12px 8px 36px;
-  outline: none;
   transition: border-color 0.2s;
 }
 
 .history-search-input:focus {
   border-color: var(--accent-dim);
+  box-shadow: var(--focus-glow);
+}
+
+.history-search-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .history-search-dates {
@@ -255,12 +265,17 @@
   font-family: var(--font);
   font-size: 12px;
   padding: 5px 8px;
-  outline: none;
   transition: border-color 0.2s;
 }
 
 .history-search-dates input[type='date']:focus {
   border-color: var(--accent-dim);
+  box-shadow: var(--focus-glow);
+}
+
+.history-search-dates input[type='date']:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .history-search-sep {

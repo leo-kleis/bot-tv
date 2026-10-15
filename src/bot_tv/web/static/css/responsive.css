@@ -194,14 +194,14 @@
     font-size: 18px;
   }
   #app-root .tab-btn .tab-label {
-    font-size: 8px;
+    font-size: var(--font-xs, 11px);
   }
   #app-root .tab-btn .tab-badge {
     top: 4px;
     right: calc(50% - 15px);
-    font-size: 8px;
-    min-width: 13px;
-    height: 13px;
+    font-size: var(--font-xs, 11px);
+    min-width: 14px;
+    height: 14px;
     padding: 0 3px;
   }
 
@@ -229,12 +229,12 @@
     font-size: 13px;
   }
   #app-root .stream-meta-row {
-    font-size: 10.5px;
+    font-size: var(--font-xs, 11px);
   }
   #app-root .stream-category-tag {
     max-width: 100%;
     flex-shrink: 0;
-    font-size: 9.5px;
+    font-size: var(--font-xs, 11px);
     padding: 0 4px;
   }
   #app-root .viewers-badge {
@@ -333,8 +333,8 @@
   }
 }
 
-/* PANTALLAS ANCHAS (>600px) — IRC visible inline, sin drawer movil */
-@media (min-width: 601px) {
+/* PANTALLAS ANCHAS (>600px) — IRC visible inline, sin drawer movil (solo fuera de landscape) */
+@media (min-width: 601px) and (min-height: 481px) {
   .chat-tab.irc-open-mobile .irc-panel {
     transform: none;
   }
@@ -361,17 +361,17 @@
     font-size: 12.5px;
   }
   .stream-meta-row {
-    font-size: 10px;
+    font-size: var(--font-xs, 11px);
   }
   .stream-category-tag {
     max-width: 100%;
     flex-shrink: 0;
-    font-size: 9px;
+    font-size: var(--font-xs, 11px);
     padding: 0 3px;
   }
   .viewers-badge {
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: var(--font-xs, 11px);
     min-height: auto;
     gap: 4px;
   }
@@ -389,15 +389,15 @@
     font-size: 17px;
   }
   .tab-btn .tab-label {
-    font-size: 8px;
+    font-size: var(--font-xs, 11px);
     letter-spacing: 0.02em;
   }
   .tab-btn .tab-badge {
     top: 2px;
     right: calc(50% - 15px);
-    font-size: 8px;
-    min-width: 13px;
-    height: 13px;
+    font-size: var(--font-xs, 11px);
+    min-width: 14px;
+    height: 14px;
     padding: 0 3px;
   }
 
