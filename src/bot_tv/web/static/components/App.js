@@ -108,6 +108,53 @@ export function App({ state, dispatch }) {
     }
   }
 
+  function handleTabKeyDown(e) {
+    const isArrowNext = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    const isArrowPrev = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+    const isHome = e.key === 'Home';
+    const isEnd = e.key === 'End';
+
+    if (!isArrowNext && !isArrowPrev && !isHome && !isEnd) {
+      return;
+    }
+
+    const enabledTabs = availableTabs.filter(t => !(t.id === 'stream' && !state.stream.online));
+    if (enabledTabs.length === 0) return;
+
+    const focusedTabId = document.activeElement?.id?.startsWith('tab-btn-')
+      ? document.activeElement.id.replace('tab-btn-', '')
+      : active;
+
+    let currentIndex = enabledTabs.findIndex(t => t.id === focusedTabId);
+    if (currentIndex === -1) {
+      currentIndex = enabledTabs.findIndex(t => t.id === active);
+    }
+    if (currentIndex === -1) {
+      currentIndex = 0;
+    }
+
+    let targetIndex = currentIndex;
+    if (isArrowNext) {
+      targetIndex = (currentIndex + 1) % enabledTabs.length;
+    } else if (isArrowPrev) {
+      targetIndex = (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+    } else if (isHome) {
+      targetIndex = 0;
+    } else if (isEnd) {
+      targetIndex = enabledTabs.length - 1;
+    }
+
+    e.preventDefault();
+    const targetTab = enabledTabs[targetIndex];
+    if (targetTab) {
+      handleTabSelect(targetTab.id);
+      const targetEl = document.getElementById(`tab-btn-${targetTab.id}`);
+      if (targetEl) {
+        targetEl.focus();
+      }
+    }
+  }
+
   function handleToggleIrc(open) {
     if (open) {
       window.history.pushState({ overlay: 'irc-mobile' }, '');
@@ -164,7 +211,12 @@ export function App({ state, dispatch }) {
         />
       </header>
 
-      <nav class="tab-bar" role="tablist">
+      <nav
+        class="tab-bar"
+        role="tablist"
+        aria-label="Navegación principal"
+        onKeyDown=${handleTabKeyDown}
+      >
         ${availableTabs.map(t => {
           const isDisabled = t.id === 'stream' && !state.stream.online;
           const showBadge = t.id === 'users' && unreadCount > 0;
@@ -175,6 +227,8 @@ export function App({ state, dispatch }) {
               class="tab-btn ${active === t.id ? 'active' : ''} ${isDisabled ? 'disabled' : ''}"
               role="tab"
               aria-selected=${active === t.id}
+              aria-controls="panel-${t.id}"
+              tabindex=${active === t.id ? 0 : -1}
               disabled=${isDisabled}
               onClick=${() => {
                 if (!isDisabled) {
@@ -195,7 +249,13 @@ export function App({ state, dispatch }) {
         })}
       </nav>
 
-      <main class="tab-content" role="main">
+      <main
+        class="tab-content"
+        role="tabpanel"
+        id="panel-${active}"
+        aria-labelledby="tab-btn-${active}"
+        tabindex="0"
+      >
         ${
           active === 'chat' &&
           html`
