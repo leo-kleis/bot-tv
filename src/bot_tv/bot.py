@@ -103,10 +103,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def get_channels(self) -> list[dict[str, str]]:
         """Retorna la lista de canales configurados (excluyendo al bot)."""
-        tokens_metadata = await self.token_repo.get_all_tokens_metadata()
+        accounts = await self.token_repo.get_accounts_summary()
         return [
             {"user_id": row["user_id"], "username": row["username"]}
-            for row in tokens_metadata
+            for row in accounts
             if row["user_id"] != self.bot_id
         ]
 
@@ -117,11 +117,11 @@ class Bot(TokenPersistMixin, commands.AutoBot):
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
         await self.user_repo.preload_cache(self.user_cache)
-        tokens_metadata = await self.token_repo.get_all_tokens_metadata()
+        accounts = await self.token_repo.get_accounts_summary()
 
         bot_name = self.bot_id
         canales: list[str] = []
-        for row in tokens_metadata:
+        for row in accounts:
             if row["user_id"] == self.bot_id:
                 bot_name = row["username"]
             else:

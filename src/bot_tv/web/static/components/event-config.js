@@ -1,3 +1,5 @@
+import { sanitizeHttpUrl } from 'lib/utils';
+
 // Mapeo centralizado de tipo de evento Twitch a configuraciones de visualización en Chat y Toasts.
 export const EVENT_CONFIG = {
   twitch_follow: {
@@ -234,11 +236,18 @@ export const EVENT_CONFIG = {
     sysClassName: 'sys-mod-green',
     toastClassName: 'toast-mod-green',
     toastTitle: '¡Clip Creado!',
-    chatHtml: (data, html) =>
-      html`${'¡Nuevo clip generado! '}<a href="${data.url}" target="_blank" rel="noopener"
-          >${data.url}</a
-        >`,
-    toastText: data => `¡Nuevo clip generado!: ${data.url}`,
+    chatHtml: (data, html) => {
+      const safeUrl = sanitizeHttpUrl(data.url);
+      return safeUrl
+        ? html`${'¡Nuevo clip generado! '}<a
+              href=${safeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              >${safeUrl}</a
+            >`
+        : html`${'¡Nuevo clip generado!'}`;
+    },
+    toastText: data => `¡Nuevo clip generado!: ${sanitizeHttpUrl(data.url)}`,
   },
 
   api_success: {

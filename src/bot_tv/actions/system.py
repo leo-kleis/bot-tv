@@ -29,16 +29,14 @@ async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
         LOGGER.error("ClipComponent no encontrado.")
         return "Componente ClipComponent no disponible."
 
-    future: asyncio.Future[_ClipEvent | str] = asyncio.get_event_loop().create_future()
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[_ClipEvent | str] = loop.create_future()
 
-    original_emit = bot.event_bus.emit
-
-    async def capture_and_restore(event: object) -> None:
-        if isinstance(event, _ClipEvent) and not future.done():
+    async def on_clip(event: _ClipEvent) -> None:
+        if not future.done():
             future.set_result(event)
-        await original_emit(event)
 
-    bot.event_bus.emit = capture_and_restore  # type: ignore[assignment]
+    bot.event_bus.subscribe(_ClipEvent, on_clip)
 
     try:
         await component.hacer_clip(raise_on_error=True)
@@ -49,6 +47,6 @@ async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
         msg = str(e) or "Fallo al crear el clip en Twitch"
         result = f"Error al crear el clip: {msg}"
     finally:
-        bot.event_bus.emit = original_emit  # type: ignore[assignment]
+        bot.event_bus.unsubscribe(_ClipEvent, on_clip)
 
     return result

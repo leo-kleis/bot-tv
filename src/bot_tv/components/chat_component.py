@@ -18,12 +18,18 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+_MAX_VERIFIED_CACHE = 2000
+
+
 class ChatComponent(commands.Component):
     """Componente de chat: mensajes en consola + comandos generales."""
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
         self._verified_avatars: set[str] = set()
+        self._checked_follows: set[tuple[str, str]] = set()
+        self._inflight_enrich: set[str] = set()
+        self._enrich_sem = asyncio.Semaphore(5)
         self._tasks: set[asyncio.Task[None]] = set()
 
     def _get_chatter_role_cached(self, user_id: str, broadcaster_id: str | int) -> str:
@@ -93,41 +99,65 @@ class ChatComponent(commands.Component):
                     stream_id=self.bot.current_stream_id,
                 )
 
-            # Verificar avatar si aún no se tiene
-            profile_image_url = cache.get_profile_image_url(user_id)
-            if profile_image_url is None or user_id not in self._verified_avatars:
-                try:
-                    fetched_users = await self.bot.fetch_users(ids=[int(user_id)])
-                    if fetched_users:
-                        profile_image = fetched_users[0].profile_image
-                        if profile_image:
-                            new_url = profile_image.url
-                            if new_url != profile_image_url:
-                                await self.bot.user_repo.set_profile_image_url(
-                                    user_id, new_url, cache=cache
-                                )
-                            self._verified_avatars.add(user_id)
-                except Exception:
-                    LOGGER.debug("No se pudo obtener avatar para user_id=%s", user_id)
+            if user_id in self._inflight_enrich:
+                return
+            self._inflight_enrich.add(user_id)
+            try:
+                async with self._enrich_sem:
+                    # Verificar avatar si aún no se tiene
+                    profile_image_url = cache.get_profile_image_url(user_id)
+                    if (
+                        profile_image_url is None
+                        or user_id not in self._verified_avatars
+                    ):
+                        try:
+                            fetched_users = await self.bot.fetch_users(
+                                ids=[int(user_id)]
+                            )
+                            if fetched_users:
+                                profile_image = fetched_users[0].profile_image
+                                if profile_image:
+                                    new_url = profile_image.url
+                                    if new_url != profile_image_url:
+                                        await self.bot.user_repo.set_profile_image_url(
+                                            user_id, new_url, cache=cache
+                                        )
+                                    if (
+                                        len(self._verified_avatars)
+                                        > _MAX_VERIFIED_CACHE
+                                    ):
+                                        self._verified_avatars.clear()
+                                    self._verified_avatars.add(user_id)
+                        except Exception:
+                            LOGGER.debug(
+                                "No se pudo obtener avatar para user_id=%s", user_id
+                            )
 
-            # Verificar follow_info si no está en caché
-            cached_roles = cache.get_user_roles(user_id, broadcaster_id)
-            if not cached_roles or not cached_roles.get("followed_at"):
-                try:
-                    follow = await chatter.follow_info()
-                    if follow and follow.followed_at:
-                        await self.bot.channel_user_repo.upsert_channel_user_roles(
-                            broadcaster_id,
-                            user_id,
-                            is_moderator=chatter.moderator,
-                            is_vip=chatter.vip,
-                            is_subscriber=chatter.subscriber,
-                            cache=cache,
-                        )
-                except Exception:
-                    LOGGER.debug(
-                        "No se pudo consultar follow_info para user_id=%s", user_id
-                    )
+                    # Verificar follow_info si no está en caché y no fue consultado aún
+                    follow_key = (broadcaster_id, user_id)
+                    cached_roles = cache.get_user_roles(user_id, broadcaster_id)
+                    if (
+                        not cached_roles or not cached_roles.get("followed_at")
+                    ) and follow_key not in self._checked_follows:
+                        if len(self._checked_follows) > _MAX_VERIFIED_CACHE:
+                            self._checked_follows.clear()
+                        self._checked_follows.add(follow_key)
+                        try:
+                            follow = await chatter.follow_info()
+                            if follow and follow.followed_at:
+                                await self.bot.channel_user_repo.set_user_follow_status(
+                                    broadcaster_id,
+                                    user_id,
+                                    follow.followed_at.isoformat(),
+                                    cache=cache,
+                                )
+                        except Exception:
+                            LOGGER.debug(
+                                "No se pudo consultar follow_info para user_id=%s",
+                                user_id,
+                            )
+            finally:
+                self._inflight_enrich.discard(user_id)
 
         except Exception:
             LOGGER.exception(

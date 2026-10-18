@@ -56,9 +56,17 @@ class BotCompleter(Completer):
             cmd = words_before[0].lower()
             if cmd in ("is_bot", "apodo"):
                 with contextlib.suppress(Exception):
-                    async with self.bot.database.acquire() as conn:
-                        rows = await conn.fetch("SELECT username FROM users")
-                    usernames = [row["username"] for row in rows]
+                    cached_users = [
+                        u["username"]
+                        for u in self.bot.user_cache._users.values()
+                        if u.get("username")
+                    ]
+                    if cached_users:
+                        usernames = cached_users
+                    else:
+                        async with self.bot.database.acquire() as conn:
+                            rows = await conn.fetch("SELECT username FROM users")
+                        usernames = [row["username"] for row in rows]
                     for username in usernames:
                         if username.lower().startswith(word_before.lower()):
                             yield Completion(username, start_position=-len(word_before))

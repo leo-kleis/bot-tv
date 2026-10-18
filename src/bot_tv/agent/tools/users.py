@@ -76,7 +76,7 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            limit = max(1, limit)
+            limit = max(1, min(limit, 100))
             offset = max(0, offset)
             rows, _ = await bot.user_repo.list_users_with_filters(
                 channel_id=channel_id,

@@ -1,6 +1,25 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
+
+_DURATION_REGEX = re.compile(
+    r"(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?"
+)
+
+
+def parse_twitch_duration(duration_str: str) -> int:
+    """Parsea una cadena de duración de Twitch (ej. '3h8m33s', '45m') a segundos."""
+    if not duration_str:
+        return 0
+    match = _DURATION_REGEX.fullmatch(duration_str)
+    if not match:
+        return 0
+    parts = match.groupdict()
+    hours = int(parts["hours"]) if parts.get("hours") else 0
+    minutes = int(parts["minutes"]) if parts.get("minutes") else 0
+    seconds = int(parts["seconds"]) if parts.get("seconds") else 0
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def format_date(iso_str: str | None) -> str:

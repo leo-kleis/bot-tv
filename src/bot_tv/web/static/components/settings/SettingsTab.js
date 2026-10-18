@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from 'preact-setup';
+import { html, useState, useEffect, useRef } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { ModelSection } from '/static/components/actions/ModelSection.js';
 import { DangerSection } from '/static/components/actions/DangerSection.js';
@@ -6,6 +6,7 @@ import { DangerSection } from '/static/components/actions/DangerSection.js';
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 const STEP = 0.5;
+const SLIDER_DEBOUNCE_MS = 250;
 
 export function SettingsTab({ dispatch }) {
   const [fontSize, setFontSize] = useState(() => {
@@ -23,6 +24,16 @@ export function SettingsTab({ dispatch }) {
   const [savingLimit, setSavingLimit] = useState(false);
   const [limitSavedMsg, setLimitSavedMsg] = useState('');
 
+  const contextLimitTimerRef = useRef(null);
+  const limitSavedTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (contextLimitTimerRef.current) clearTimeout(contextLimitTimerRef.current);
+      if (limitSavedTimerRef.current) clearTimeout(limitSavedTimerRef.current);
+    };
+  }, []);
+
   const [hideBots, setHideBots] = useState(
     () => localStorage.getItem('hide-bot-messages') === 'true'
   );
@@ -32,54 +43,6 @@ export function SettingsTab({ dispatch }) {
     setHideBots(val);
     localStorage.setItem('hide-bot-messages', String(val));
     window.dispatchEvent(new Event('storage-settings-changed'));
-  };
-
-  const [keepAlive, setKeepAlive] = useState({
-    supported: true,
-    enabled: false,
-    running: false,
-    volume: 3.0,
-    frequency: 60.0,
-  });
-  const [testingAudio, setTestingAudio] = useState(false);
-  const [savingAudio, setSavingAudio] = useState(false);
-
-  useEffect(() => {
-    apiGet('/api/audio_keepalive').then(res => {
-      if (res.ok && res.data) {
-        setKeepAlive(res.data);
-      }
-    });
-  }, []);
-
-  const handleKeepAliveToggle = async e => {
-    const val = e.target.checked;
-    setSavingAudio(true);
-    const res = await apiPost('/api/audio_keepalive', {
-      enabled: val,
-      volume: keepAlive.volume,
-      frequency: keepAlive.frequency,
-    });
-    setSavingAudio(false);
-    if (res.ok && res.data) {
-      setKeepAlive(res.data);
-    }
-  };
-
-  const handleVolumeChange = async e => {
-    const newVol = parseFloat(e.target.value);
-    setKeepAlive(prev => ({ ...prev, volume: newVol }));
-    await apiPost('/api/audio_keepalive', {
-      enabled: keepAlive.enabled,
-      volume: newVol,
-      frequency: keepAlive.frequency,
-    });
-  };
-
-  const handleTestAudio = async () => {
-    setTestingAudio(true);
-    await apiPost('/api/audio_keepalive/test');
-    setTimeout(() => setTestingAudio(false), 600);
   };
 
   useEffect(() => {
@@ -92,18 +55,25 @@ export function SettingsTab({ dispatch }) {
     });
   }, []);
 
-  async function handleContextLimitChange(newVal) {
+  function handleContextLimitChange(newVal) {
     const val = Math.max(0, parseInt(newVal, 10) || 0);
     setContextLimit(val);
-    setSavingLimit(true);
     setLimitSavedMsg('');
 
-    const res = await apiPost('/api/agent/context_limit', { limit: val });
-    setSavingLimit(false);
-    if (res.ok) {
-      setLimitSavedMsg('Guardado');
-      setTimeout(() => setLimitSavedMsg(''), 2000);
+    if (contextLimitTimerRef.current) {
+      clearTimeout(contextLimitTimerRef.current);
     }
+    contextLimitTimerRef.current = setTimeout(async () => {
+      contextLimitTimerRef.current = null;
+      setSavingLimit(true);
+      const res = await apiPost('/api/agent/context_limit', { limit: val });
+      setSavingLimit(false);
+      if (res.ok) {
+        setLimitSavedMsg('Guardado');
+        if (limitSavedTimerRef.current) clearTimeout(limitSavedTimerRef.current);
+        limitSavedTimerRef.current = setTimeout(() => setLimitSavedMsg(''), 2000);
+      }
+    }, SLIDER_DEBOUNCE_MS);
   }
 
   const updateFontSize = newSize => {
@@ -298,98 +268,6 @@ export function SettingsTab({ dispatch }) {
               >
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Sección Audio y Hardware -->
-      <div class="settings-section">
-        <h3 class="settings-section-title">
-          <i class="fa-solid fa-headphones"></i> Audio y Hardware (PC Anfitrión)
-        </h3>
-
-        <div class="settings-toggle-row" style="margin-top: 0; padding-top: 0; border-top: none;">
-          <input
-            id="keep-alive-checkbox"
-            type="checkbox"
-            class="role-toggle-checkbox"
-            checked=${keepAlive.enabled}
-            onChange=${handleKeepAliveToggle}
-            disabled=${savingAudio || !keepAlive.supported}
-            aria-label="Evitar suspensión de audífonos en el PC anfitrión"
-          />
-          <div class="settings-toggle-info">
-            <span class="settings-label">Anti-suspensión de audífonos (PC Host)</span>
-            <span class="settings-subtext">
-              Reproduce un tono grave sordo tenue continuo (60 Hz) directamente en el hardware de
-              audio del PC del bot, evitando que los audífonos entren en reposo con 0% de CPU.
-            </span>
-          </div>
-        </div>
-
-        ${
-          keepAlive.enabled
-            ? html`
-                <div class="settings-audio-options">
-                  <div class="settings-control-group">
-                    <div
-                      style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"
-                    >
-                      <span class="settings-label">Volumen tenue de fondo</span>
-                      <span
-                        style="font-size: 13px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums;"
-                      >
-                        ${keepAlive.volume.toFixed(1)}%
-                      </span>
-                    </div>
-                    <div
-                      style="display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0;"
-                    >
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="15.0"
-                        step="0.5"
-                        value=${keepAlive.volume}
-                        onInput=${handleVolumeChange}
-                        style="flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer;"
-                        aria-label="Selector de volumen tenue"
-                      />
-                    </div>
-                    <span style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
-                      Ajusta al mínimo audible suficiente para que tus audífonos no activen su
-                      compuerta de reposo.
-                    </span>
-                  </div>
-                </div>
-              `
-            : null
-        }
-
-        <div class="settings-audio-footer">
-          <div class="keepalive-status-badge ${keepAlive.running ? 'is-active' : ''}">
-            <span class="keepalive-status-dot"></span>
-            <span>
-              ${
-                keepAlive.running
-                  ? 'Tono tenue activo en PC (0% CPU)'
-                  : keepAlive.enabled
-                    ? 'Iniciando en PC...'
-                    : 'Inactivo'
-              }
-            </span>
-          </div>
-
-          <button
-            type="button"
-            class="btn btn-sm"
-            onClick=${handleTestAudio}
-            disabled=${testingAudio || !keepAlive.supported}
-            title="Reproduce un tono breve de prueba directamente en el PC anfitrión"
-            aria-label="Probar sonido en PC anfitrión"
-          >
-            <i class="fa-solid ${testingAudio ? 'fa-spinner fa-spin' : 'fa-volume-high'}"></i>
-            ${testingAudio ? 'Sonando...' : 'Probar en PC'}
-          </button>
         </div>
       </div>
 

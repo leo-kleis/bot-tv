@@ -52,7 +52,7 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            limit = max(1, limit)
+            limit = max(1, min(limit, 100))
             rows = await bot.channel_user_repo.search_followers(
                 channel_id=channel_id,
                 search_term=search_term,
@@ -123,7 +123,7 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
 
         try:
             channel_id = await get_broadcaster_id(bot)
-            limit = max(1, limit)
+            limit = max(1, min(limit, 100))
             rows = await bot.channel_user_repo.get_recent_followers(
                 channel_id=channel_id, limit=limit, active_only=active_only
             )
@@ -157,7 +157,7 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            limit = max(1, limit)
+            limit = max(1, min(limit, 100))
             rows = await bot.channel_user_repo.get_recent_unfollowers(
                 channel_id=channel_id, limit=limit
             )

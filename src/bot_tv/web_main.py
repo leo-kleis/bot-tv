@@ -68,8 +68,8 @@ def main() -> None:
                 )
 
                 LOGGER.info("Verificando disponibilidad del puerto web %d...", WEB_PORT)
-                if is_port_in_use(WEB_PORT):
-                    info = get_port_process_info(WEB_PORT)
+                if await asyncio.to_thread(is_port_in_use, WEB_PORT):
+                    info = await asyncio.to_thread(get_port_process_info, WEB_PORT)
                     if info:
                         pid, process_name = info
                         LOGGER.critical(
@@ -107,8 +107,7 @@ def main() -> None:
                     subs=subs,
                     event_bus=event_bus,
                 ) as bot:
-                    for pair in tokens:
-                        await bot.add_token(*pair)
+                    await bot.load_initial_tokens(tokens)
 
                     agent = TalkAgent(bot, model=GEMINI_MODEL)
                     await agent.initialize()
@@ -143,6 +142,7 @@ def main() -> None:
                         loop="none",
                         ssl_keyfile=ssl_keyfile,
                         ssl_certfile=ssl_certfile,
+                        timeout_graceful_shutdown=2,
                     )
                     server = uvicorn.Server(config)
                     app.state.server = server
@@ -167,7 +167,7 @@ def main() -> None:
                     if pending:
                         _done_after, pending = await asyncio.wait(
                             pending,
-                            timeout=2.0,
+                            timeout=5.0,
                         )
 
                     for task in pending:

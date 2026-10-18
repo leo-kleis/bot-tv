@@ -18,6 +18,7 @@ DEFAULT_BUFFER_SIZE = 500
 
 # Tipo de callback suscriptor
 Subscriber = Callable[[object], Awaitable[None]]
+EventCallback = Callable[[T], Awaitable[None]]
 
 
 class EventBus:
@@ -36,7 +37,7 @@ class EventBus:
     def subscribe(
         self,
         event_type: type[T],
-        callback: Callable[[T], Awaitable[None]],
+        callback: EventCallback[T],
     ) -> None:
         """Registra un callback para un tipo de evento.
 
@@ -47,6 +48,16 @@ class EventBus:
             self._subscribers[event_type] = []
         # TypeVar no es perfectamente covariante aquí, el cast es seguro
         self._subscribers[event_type].append(callback)  # type: ignore[arg-type]
+
+    def unsubscribe(
+        self,
+        event_type: type[T],
+        callback: EventCallback[T],
+    ) -> None:
+        """Elimina un callback registrado para un tipo de evento."""
+        if event_type in self._subscribers:
+            with contextlib.suppress(ValueError):
+                self._subscribers[event_type].remove(callback)  # type: ignore[arg-type]
 
     async def emit(self, event: object) -> None:
         """Despacha un evento a todos los suscriptores registrados para su tipo.
@@ -62,8 +73,8 @@ class EventBus:
             self._history[event_type] = deque(maxlen=self._buffer_size)
         self._history[event_type].append(event)
 
-        # Despachar a suscriptores
-        subscribers = self._subscribers.get(event_type, [])
+        # Despachar a suscriptores (copia para permitir unsubscribe durante emit)
+        subscribers = list(self._subscribers.get(event_type, []))
         for callback in subscribers:
             try:
                 await callback(event)

@@ -148,6 +148,45 @@ button,
     outline: 2px solid Highlight !important;
     outline-offset: 2px !important;
   }
+
+  .stat-card,
+  .analytics-card,
+  .analytics-chart-card,
+  .settings-section,
+  .twitch-category-card,
+  .users-table-wrapper,
+  .modal-card,
+  .modal-info-box,
+  .stream-modal-dialog,
+  .conn-popover,
+  .custom-select-dropdown,
+  .category-dropdown-list,
+  .context-menu,
+  .toast-card,
+  .irc-panel,
+  .history-drawer {
+    border: 1px solid CanvasText !important;
+  }
+
+  button,
+  .btn,
+  .custom-select-trigger,
+  .chat-clip-btn,
+  .chat-header-btn,
+  .chat-send-btn,
+  .scroll-bottom-btn,
+  .analytics-refresh-btn,
+  .font-btn,
+  .viewers-badge,
+  .tab-badge,
+  .irc-badge,
+  .status-indicator-badge,
+  .stream-category-tag,
+  .user-nickname-tag,
+  .role-toggle-slider,
+  .role-toggle-checkbox {
+    border: 1px solid ButtonText !important;
+  }
 }
 
 #app {

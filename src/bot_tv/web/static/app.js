@@ -4,6 +4,10 @@ import { useWebSocket } from '/static/hooks/useWebSocket.js';
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 const MAX_CHAT = 300;
+const MAX_PARTED_USERS = 200;
+const MAX_AGENT_CONVERSATIONS = 100;
+
+let nextMsgUid = 1;
 
 // ── Estado inicial ───────────────────────────────────────────────────────────
 function makeInitialState() {
@@ -40,6 +44,9 @@ function makeInitialState() {
 // ── Reducer ───────────────────────────────────────────────────────────────────
 function reducer(state, action) {
   switch (action.type) {
+    case 'WS_BATCH':
+      return Array.isArray(action.events) ? action.events.reduce(reducer, state) : state;
+
     case 'WS_CONNECTED':
       return { ...state, connected: true, exited: false, initialLoad: false };
 
@@ -47,6 +54,7 @@ function reducer(state, action) {
       return { ...state, connected: false, historyLoaded: false, initialLoad: false };
 
     case 'HISTORY_END':
+    case 'history_end':
       return { ...state, historyLoaded: true };
 
     case 'irc_status':
@@ -65,7 +73,11 @@ function reducer(state, action) {
       if (exists) {
         return state;
       }
-      const msgs = [...state.chatMessages, newMsg];
+      const msgWithUid = {
+        ...newMsg,
+        _uid: newMsg._uid || newMsg.message_id || newMsg.id || `msg-${nextMsgUid++}`,
+      };
+      const msgs = [...state.chatMessages, msgWithUid];
       return { ...state, chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs };
     }
 
@@ -122,6 +134,22 @@ function reducer(state, action) {
       } else {
         next.set(key, { ...action.data, present: false, partedAt: nowISO });
       }
+
+      // Limitar usuarios desconectados (present === false) a MAX_PARTED_USERS
+      const partedEntries = [];
+      for (const [k, u] of next.entries()) {
+        if (u.present === false) {
+          partedEntries.push([k, u.partedAt || u.timestamp || '']);
+        }
+      }
+      if (partedEntries.length > MAX_PARTED_USERS) {
+        partedEntries.sort((a, b) => a[1].localeCompare(b[1]));
+        const toDelete = partedEntries.length - MAX_PARTED_USERS;
+        for (let i = 0; i < toDelete; i++) {
+          next.delete(partedEntries[i][0]);
+        }
+      }
+
       return { ...state, ircUsers: next };
     }
 
@@ -310,6 +338,7 @@ function reducer(state, action) {
         : [action.data, ...state.clips].slice(0, 20);
 
       const systemMsg = {
+        _uid: `msg-${nextMsgUid++}`,
         isSystem: true,
         type: action.type,
         timestamp: action.data.timestamp || new Date().toISOString(),
@@ -338,7 +367,7 @@ function reducer(state, action) {
             response: null,
             model: null,
           },
-        ],
+        ].slice(-MAX_AGENT_CONVERSATIONS),
       };
     }
 
@@ -354,7 +383,11 @@ function reducer(state, action) {
           list.push(action.data);
         }
       }
-      return { ...state, agentConversations: list };
+      return {
+        ...state,
+        agentConversations:
+          list.length > MAX_AGENT_CONVERSATIONS ? list.slice(-MAX_AGENT_CONVERSATIONS) : list,
+      };
     }
 
     case 'agent_clear_history':
@@ -404,6 +437,7 @@ function reducer(state, action) {
       });
 
       const systemMsg = {
+        _uid: `msg-${nextMsgUid++}`,
         isSystem: true,
         type: action.type,
         timestamp: action.data.timestamp || new Date().toISOString(),
@@ -487,6 +521,7 @@ function reducer(state, action) {
       });
 
       const systemMsg = {
+        _uid: `msg-${nextMsgUid++}`,
         isSystem: true,
         type: action.type,
         timestamp: action.data.timestamp || new Date().toISOString(),
@@ -553,6 +588,7 @@ function reducer(state, action) {
       });
 
       const systemMsg = {
+        _uid: `msg-${nextMsgUid++}`,
         isSystem: true,
         type: action.type,
         timestamp: action.data.timestamp || new Date().toISOString(),
@@ -594,6 +630,7 @@ function reducer(state, action) {
     case 'twitch_chat_clear_user':
     case 'twitch_message_delete': {
       const systemMsg = {
+        _uid: `msg-${nextMsgUid++}`,
         isSystem: true,
         type: action.type,
         timestamp: action.data.timestamp || new Date().toISOString(),

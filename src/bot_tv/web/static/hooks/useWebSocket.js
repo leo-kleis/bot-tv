@@ -8,6 +8,23 @@ export function useWebSocket(dispatch) {
 
   useEffect(() => {
     let destroyed = false;
+    let queue = [];
+    let rafId = null;
+
+    function flushQueue() {
+      rafId = null;
+      if (destroyed || queue.length === 0) return;
+      const batch = queue;
+      queue = [];
+      dispatch({ type: 'WS_BATCH', events: batch });
+    }
+
+    function enqueue(item) {
+      queue.push(item);
+      if (rafId === null) {
+        rafId = requestAnimationFrame(flushQueue);
+      }
+    }
 
     // Timeout de seguridad de 2.5s para no bloquear la UI en el pantalla de carga si el servidor está apagado
     const initTimer = setTimeout(() => {
@@ -45,12 +62,24 @@ export function useWebSocket(dispatch) {
       ws.onmessage = e => {
         try {
           const msg = JSON.parse(e.data);
-          if (msg.type === 'history_end') {
-            dispatch({ type: 'HISTORY_END' });
-          } else if (msg.type === 'dev_reload') {
+          if (msg.type === 'dev_reload') {
             window.location.reload();
+            return;
+          }
+          if (msg.type === 'history_batch' && Array.isArray(msg.data)) {
+            for (const item of msg.data) {
+              if (item && item.type) {
+                enqueue(
+                  item.type === 'history_end'
+                    ? { type: 'HISTORY_END' }
+                    : { type: item.type, data: item.data }
+                );
+              }
+            }
+          } else if (msg.type === 'history_end') {
+            enqueue({ type: 'HISTORY_END' });
           } else {
-            dispatch({ type: msg.type, data: msg.data });
+            enqueue({ type: msg.type, data: msg.data });
           }
         } catch {}
       };
@@ -86,22 +115,28 @@ export function useWebSocket(dispatch) {
       }
     };
 
-    window.addEventListener('online', handleWakeup);
-    window.addEventListener('pageshow', handleWakeup);
-    window.addEventListener('focus', handleWakeup);
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         handleWakeup();
       }
-    });
+    };
+
+    window.addEventListener('online', handleWakeup);
+    window.addEventListener('pageshow', handleWakeup);
+    window.addEventListener('focus', handleWakeup);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       destroyed = true;
       clearTimeout(initTimer);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       window.removeEventListener('online', handleWakeup);
       window.removeEventListener('pageshow', handleWakeup);
       window.removeEventListener('focus', handleWakeup);
-      document.removeEventListener('visibilitychange', handleWakeup);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (timeoutIdRef.current) clearTimeout(timeoutIdRef.current);
       if (wsRef.current) {
         const socket = wsRef.current;

@@ -136,6 +136,102 @@ function IrcUser({ user, onUserClick }) {
   `;
 }
 
+function ChatInputBar({ accounts, selectedSenderId, onSelectSender, dispatch }) {
+  const [inputText, setInputText] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const inputRef = useRef(null);
+  const timeoutsRef = useRef([]);
+
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  async function handleSend(e) {
+    if (e) e.preventDefault();
+    if (!inputText.trim() || !selectedSenderId || sendingMsg) return;
+
+    setSendingMsg(true);
+    const messageText = inputText;
+
+    const res = await apiPost('/api/send_chat_message', {
+      sender_id: selectedSenderId,
+      message: messageText,
+    });
+
+    setSendingMsg(false);
+
+    if (res.ok) {
+      setInputText('');
+    } else if (dispatch) {
+      const toastId = Date.now().toString() + Math.random().toString(36).slice(2, 11);
+      dispatch({
+        type: 'ADD_TOAST',
+        toast: {
+          id: toastId,
+          type: 'api_error',
+          data: { message: `No se pudo enviar: ${res.error || 'error desconocido'}` },
+        },
+      });
+      const tid = setTimeout(() => {
+        dispatch({ type: 'REMOVE_TOAST', id: toastId });
+        timeoutsRef.current = timeoutsRef.current.filter(t => t !== tid);
+      }, 5000);
+      timeoutsRef.current.push(tid);
+    }
+
+    const focusTid = setTimeout(() => {
+      inputRef.current?.focus();
+      timeoutsRef.current = timeoutsRef.current.filter(t => t !== focusTid);
+    }, 50);
+    timeoutsRef.current.push(focusTid);
+  }
+
+  return html`
+    <div class="chat-input-container">
+      <form onSubmit=${handleSend} class="chat-input-form">
+        ${
+          accounts.length > 0
+            ? html`
+                <${CustomSelect}
+                  className="chat-select-field"
+                  value=${selectedSenderId}
+                  onChange=${onSelectSender}
+                  disabled=${sendingMsg}
+                  options=${accounts.map(acc => ({
+                    value: acc.user_id,
+                    label: `${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})`,
+                  }))}
+                />
+              `
+            : null
+        }
+        <input
+          type="text"
+          class="chat-input-field"
+          ref=${inputRef}
+          placeholder="Escribe un mensaje al chat..."
+          value=${inputText}
+          onInput=${e => setInputText(e.target.value)}
+          disabled=${sendingMsg}
+        />
+        <button
+          type="submit"
+          class="chat-send-btn"
+          disabled=${!inputText.trim() || sendingMsg || !selectedSenderId}
+        >
+          ${
+            sendingMsg
+              ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
+              : html`<i class="fa-solid fa-paper-plane"></i>`
+          }
+        </button>
+      </form>
+    </div>
+  `;
+}
+
 export function ChatTab({
   chatMessages,
   ircUsers,
@@ -146,16 +242,12 @@ export function ChatTab({
   streamOnline = false,
 }) {
   const feedRef = useRef(null);
-  const inputRef = useRef(null);
   const autoScrollRef = useRef(true);
-  const timeoutsRef = useRef([]);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
   // Estados de cuentas y mensajería
   const [accounts, setAccounts] = useState([]);
   const [selectedSenderId, setSelectedSenderId] = useState('');
-  const [inputText, setInputText] = useState('');
-  const [sending, setSending] = useState(false);
   const [clipping, setClipping] = useState(false);
   const [clearingChat, setClearingChat] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
@@ -176,6 +268,19 @@ export function ChatTab({
     window.addEventListener('storage-settings-changed', handleStorageUpdate);
     return () => window.removeEventListener('storage-settings-changed', handleStorageUpdate);
   }, []);
+
+  // Cerrar panel IRC móvil al presionar Escape
+  useEffect(() => {
+    if (!showIrcMobile) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onToggleIrc(false);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showIrcMobile, onToggleIrc]);
 
   const displayMessages = useMemo(() => {
     if (!hideBots) return chatMessages;
@@ -256,13 +361,6 @@ export function ChatTab({
     loadAccounts();
   }, []);
 
-  // Limpiar timeouts al desmontar
-  useEffect(() => {
-    return () => {
-      timeoutsRef.current.forEach(clearTimeout);
-    };
-  }, []);
-
   // Auto-scroll solo si el usuario no subió manualmente
   useEffect(() => {
     const el = feedRef.current;
@@ -284,48 +382,6 @@ export function ChatTab({
     el.scrollTop = el.scrollHeight;
     setIsAtBottom(true);
     autoScrollRef.current = true;
-  }
-
-  async function handleSend(e) {
-    if (e) e.preventDefault();
-    if (!inputText.trim() || !selectedSenderId || sending) return;
-
-    setSending(true);
-    const messageText = inputText;
-
-    const res = await apiPost('/api/send_chat_message', {
-      sender_id: selectedSenderId,
-      message: messageText,
-    });
-
-    setSending(false);
-
-    if (res.ok) {
-      setInputText('');
-    } else {
-      if (dispatch) {
-        const toastId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-        dispatch({
-          type: 'ADD_TOAST',
-          toast: {
-            id: toastId,
-            type: 'api_error',
-            data: { message: `No se pudo enviar: ${res.error || 'error desconocido'}` },
-          },
-        });
-        const tid = setTimeout(() => {
-          dispatch({ type: 'REMOVE_TOAST', id: toastId });
-          timeoutsRef.current = timeoutsRef.current.filter(t => t !== tid);
-        }, 5000);
-        timeoutsRef.current.push(tid);
-      }
-    }
-
-    const focusTid = setTimeout(() => {
-      inputRef.current?.focus();
-      timeoutsRef.current = timeoutsRef.current.filter(t => t !== focusTid);
-    }, 50);
-    timeoutsRef.current.push(focusTid);
   }
 
   // Abrir perfil de usuario desde clic o menú contextual
@@ -415,7 +471,7 @@ export function ChatTab({
         <div class="chat-panel-header">
           <div style="display:flex;align-items:center;gap:8px;min-width:0;">
             <span>Chat</span>
-            <span style="color:var(--text-muted);font-size:10px">${chatMessages.length} msgs</span>
+            <span style="color:var(--text-muted);font-size:11px">${chatMessages.length} msgs</span>
           </div>
           <div style="display:flex;gap:8px;min-width:0;">
             <${ChatHeaderButton}
@@ -466,20 +522,21 @@ export function ChatTab({
                     </div>
                   `
                 : displayMessages.map((m, i) => {
+                    const msgKey = m._uid || m.message_id || m.id || m.timestamp;
                     if (m.isSystem) {
-                      return html`<${ChatMessageSystem} key=${m.timestamp + i} msg=${m} />`;
+                      return html`<${ChatMessageSystem} key=${msgKey} msg=${m} />`;
                     }
                     const prev = displayMessages[i - 1];
                     const isGrouped = prev && !prev.isSystem && prev.user_id === m.user_id;
                     return isGrouped
                       ? html`<${ChatMessageCont}
-                          key=${m.timestamp + i}
+                          key=${msgKey}
                           msg=${m}
                           emotesMap=${emotesMap}
                           onMsgContext=${handleMsgContextMenu}
                         />`
                       : html`<${ChatMessageGroup}
-                          key=${m.timestamp + i}
+                          key=${msgKey}
                           msg=${m}
                           emotesMap=${emotesMap}
                           onUserClick=${(e, uData) => handleOpenUserProfile(uData)}
@@ -502,46 +559,12 @@ export function ChatTab({
         </div>
 
         <!-- Caja de Texto para Enviar Mensaje -->
-        <div class="chat-input-container">
-          <form onSubmit=${handleSend} class="chat-input-form">
-            ${
-              accounts.length > 0
-                ? html`
-                    <${CustomSelect}
-                      className="chat-select-field"
-                      value=${selectedSenderId}
-                      onChange=${setSelectedSenderId}
-                      disabled=${sending}
-                      options=${accounts.map(acc => ({
-                        value: acc.user_id,
-                        label: `${acc.username} (${acc.type === 'bot' ? 'Bot' : 'Broadcaster'})`,
-                      }))}
-                    />
-                  `
-                : null
-            }
-            <input
-              type="text"
-              class="chat-input-field"
-              ref=${inputRef}
-              placeholder="Escribe un mensaje al chat..."
-              value=${inputText}
-              onInput=${e => setInputText(e.target.value)}
-              disabled=${sending}
-            />
-            <button
-              type="submit"
-              class="chat-send-btn"
-              disabled=${!inputText.trim() || sending || !selectedSenderId}
-            >
-              ${
-                sending
-                  ? html`<i class="fa-solid fa-spinner fa-spin"></i>`
-                  : html`<i class="fa-solid fa-paper-plane"></i>`
-              }
-            </button>
-          </form>
-        </div>
+        <${ChatInputBar}
+          accounts=${accounts}
+          selectedSenderId=${selectedSenderId}
+          onSelectSender=${setSelectedSenderId}
+          dispatch=${dispatch}
+        />
       </div>
 
       <!-- Overlay móvil -->
@@ -552,7 +575,12 @@ export function ChatTab({
       }
 
       <!-- Panel IRC Usuarios (derecha) -->
-      <div class="irc-panel">
+      <aside
+        class="irc-panel"
+        role=${showIrcMobile ? 'dialog' : undefined}
+        aria-modal=${showIrcMobile ? 'true' : undefined}
+        aria-label=${showIrcMobile ? 'Usuarios en el chat' : undefined}
+      >
         <div class="irc-panel-header">
           <span>En canal</span>
           ${
@@ -598,7 +626,7 @@ export function ChatTab({
                 )
           }
         </div>
-      </div>
+      </aside>
     </div>
 
     <!-- Menú Contextual Flotante -->

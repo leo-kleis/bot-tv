@@ -14,7 +14,7 @@ from bot_tv.actions.moderation import (
     action_purge_user,
     action_unban_user,
 )
-from bot_tv.web.api.helpers import _err, _ok, _parse_body
+from bot_tv.web.api.helpers import _err, _get_str, _ok, _parse_body
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -26,8 +26,8 @@ async def endpoint_moderation_ban(request: Request) -> Response:
     """Endpoint POST /api/moderation/ban."""
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
-    reason = body.get("reason", "").strip() or None
+    username = _get_str(body, "username")
+    reason = _get_str(body, "reason") or None
 
     if not username:
         return _err("Campo 'username' requerido.")
@@ -43,7 +43,7 @@ async def endpoint_moderation_unban(request: Request) -> Response:
     """Endpoint POST /api/moderation/unban."""
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
+    username = _get_str(body, "username")
 
     if not username:
         return _err("Campo 'username' requerido.")
@@ -59,8 +59,8 @@ async def endpoint_moderation_delete_message(request: Request) -> Response:
     """Endpoint POST /api/moderation/delete_message."""
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
-    message_id = body.get("message_id", "").strip() or None
+    username = _get_str(body, "username")
+    message_id = _get_str(body, "message_id") or None
 
     res = await action_delete_messages(bot, username, message_id=message_id)
     if not res.ok:
@@ -79,7 +79,7 @@ async def endpoint_moderation_purge(request: Request) -> Response:
     """Endpoint POST /api/moderation/purge."""
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
+    username = _get_str(body, "username")
 
     if not username:
         return _err("Campo 'username' requerido.")

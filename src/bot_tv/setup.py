@@ -15,7 +15,7 @@ from bot_tv.database import (
     TokenRepository,
     init_pg_pool,
 )
-from bot_tv.utils.env import BOT_ID, CLIENT_ID, OWNER_ID
+from bot_tv.utils.env import BOT_ID, CLIENT_ID, CLIENT_SECRET, OWNER_ID
 from bot_tv.utils.logger import setup_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -225,10 +225,10 @@ def setup() -> None:
     """Punto de entrada del script de configuración."""
     setup_logging(level=logging.INFO)
 
-    if not CLIENT_ID:
+    if not CLIENT_ID or not CLIENT_SECRET:
         LOGGER.critical(
-            "Falta la variable TWITCH_CLIENT_ID en el archivo .env. "
-            "Configúrala antes de ejecutar el setup."
+            "Faltan las variables TWITCH_CLIENT_ID o TWITCH_CLIENT_SECRET en .env. "
+            "Configúralas antes de ejecutar el setup."
         )
         sys.exit(1)
 

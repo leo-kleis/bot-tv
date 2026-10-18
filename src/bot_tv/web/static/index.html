@@ -23,7 +23,10 @@
     <script>
       try {
         const savedFontSize = localStorage.getItem('font-size') || '14.5px';
-        document.documentElement.style.setProperty('--font-size', savedFontSize);
+        const num = parseFloat(savedFontSize);
+        if (!Number.isNaN(num) && num >= 12 && num <= 22) {
+          document.documentElement.style.setProperty('--font-size', num + 'px');
+        }
       } catch (_) {}
     </script>
 
@@ -36,6 +39,7 @@
           "htm": "/static/vendor/htm.module.js",
           "preact-setup": "/static/lib/preact-setup.js",
           "lib/utils": "/static/lib/utils.js",
+          "lib/a11y": "/static/lib/a11y.js",
           "chart.js": "/static/vendor/chart.js-auto.esm.js"
         }
       }

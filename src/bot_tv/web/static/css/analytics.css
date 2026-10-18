@@ -77,7 +77,7 @@
 }
 
 .analytics-filter-label i {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--accent);
 }
 
@@ -177,7 +177,7 @@
 }
 
 .analytics-card-label {
-  font-size: 10px;
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -668,7 +668,7 @@
   }
 
   .analytics-filter-label {
-    font-size: 9.5px;
+    font-size: var(--font-xs);
   }
 
   .analytics-filter-item.session-filter {
@@ -709,13 +709,13 @@
   }
 
   .analytics-card-label {
-    font-size: 8.5px;
+    font-size: var(--font-xs);
   }
 
   .analytics-card-icon {
     width: 20px;
     height: 20px;
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
 
   .analytics-card-value {
@@ -723,11 +723,11 @@
   }
 
   .analytics-card-subtitle {
-    font-size: 9.5px;
+    font-size: var(--font-xs);
   }
 
   .status-indicator-badge {
-    font-size: 10px;
+    font-size: var(--font-xs);
     padding: 1px 4px;
   }
 
@@ -746,7 +746,7 @@
   }
 
   .analytics-chart-subtitle {
-    font-size: 9.5px;
+    font-size: var(--font-xs);
   }
 
   .analytics-chart-container {

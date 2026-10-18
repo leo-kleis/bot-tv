@@ -1,4 +1,4 @@
-import { html, useState, useRef } from 'preact-setup';
+import { html, useState, useRef, useEffect } from 'preact-setup';
 
 export function Tooltip({
   text,
@@ -7,11 +7,17 @@ export function Tooltip({
   disabled = false,
   children,
 }) {
-  if (!text || disabled) return children;
-
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  if (!text || disabled) return children;
 
   const show = e => {
     clearTimeout(timeoutRef.current);

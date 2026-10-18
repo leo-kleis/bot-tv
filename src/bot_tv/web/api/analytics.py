@@ -18,6 +18,10 @@ LOGGER = logging.getLogger(__name__)
 MSG_CHANNEL_REQUIRED = (
     "Parámetro 'channel_id' requerido o no se pudo determinar el canal predeterminado."
 )
+MSG_INTERNAL_ERROR = "Error interno del servidor."
+MSG_SERVICE_UNAVAILABLE = "Servicio de analíticas no disponible."
+MAX_INTERVAL_MINUTES = 1440
+MAX_ANALYTICS_LIMIT = 100
 
 
 def _serialize(obj: Any) -> Any:
@@ -100,6 +104,7 @@ async def endpoint_analytics_chat_activity(request: Request) -> Response:
             return _json_err(
                 "El parámetro 'interval_minutes' debe ser un número entero positivo."
             )
+        interval_minutes = min(interval_minutes, MAX_INTERVAL_MINUTES)
 
         activity = await repo.get_chat_activity(
             channel_id=channel_id,
@@ -109,10 +114,10 @@ async def endpoint_analytics_chat_activity(request: Request) -> Response:
         return _json_ok(activity)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar actividad del chat: %s", e)
-        return _json_err(f"Error al obtener actividad del chat: {e}", status_code=500)
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_top_chatters(request: Request) -> Response:
@@ -140,6 +145,7 @@ async def endpoint_analytics_top_chatters(request: Request) -> Response:
                 raise ValueError
         except ValueError, TypeError:
             return _json_err("El parámetro 'limit' debe ser un número entero positivo.")
+        limit = min(limit, MAX_ANALYTICS_LIMIT)
 
         now = datetime.now(UTC)
         since: datetime | None
@@ -160,10 +166,10 @@ async def endpoint_analytics_top_chatters(request: Request) -> Response:
         return _json_ok(top_chatters)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar top chatters: %s", e)
-        return _json_err(f"Error al obtener top chatters: {e}", status_code=500)
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_followers_growth(request: Request) -> Response:
@@ -201,12 +207,10 @@ async def endpoint_analytics_followers_growth(request: Request) -> Response:
         return _json_ok(growth)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar crecimiento de seguidores: %s", e)
-        return _json_err(
-            f"Error al obtener crecimiento de seguidores: {e}", status_code=500
-        )
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_viewers_timeline(request: Request) -> Response:
@@ -224,12 +228,10 @@ async def endpoint_analytics_viewers_timeline(request: Request) -> Response:
         return _json_ok(timeline)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar línea de tiempo de espectadores: %s", e)
-        return _json_err(
-            f"Error al obtener línea de tiempo de espectadores: {e}", status_code=500
-        )
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_stream_events(request: Request) -> Response:
@@ -248,12 +250,10 @@ async def endpoint_analytics_stream_events(request: Request) -> Response:
         return _json_ok({"summary": summary, "timeline": timeline})
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar eventos de la transmisión: %s", e)
-        return _json_err(
-            f"Error al obtener eventos de la transmisión: {e}", status_code=500
-        )
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_stream_sessions(request: Request) -> Response:
@@ -272,17 +272,16 @@ async def endpoint_analytics_stream_sessions(request: Request) -> Response:
                 raise ValueError
         except ValueError, TypeError:
             return _json_err("El parámetro 'limit' debe ser un número entero positivo.")
+        limit = min(limit, MAX_ANALYTICS_LIMIT)
 
         sessions = await repo.get_stream_sessions(channel_id=channel_id, limit=limit)
         return _json_ok(sessions)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consultar sesiones de transmisión: %s", e)
-        return _json_err(
-            f"Error al obtener sesiones de transmisión: {e}", status_code=500
-        )
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)
 
 
 async def endpoint_analytics_overview(request: Request) -> Response:
@@ -301,13 +300,9 @@ async def endpoint_analytics_overview(request: Request) -> Response:
 
         session: dict[str, Any] | None = None
         if target_stream_id:
-            recent_sessions = await repo.get_stream_sessions(
-                channel_id=channel_id, limit=50
+            session = await repo.get_stream_session_by_id(
+                target_stream_id, channel_id=channel_id
             )
-            for s in recent_sessions:
-                if str(s.get("stream_id")) == target_stream_id:
-                    session = s
-                    break
         else:
             recent_sessions = await repo.get_stream_sessions(
                 channel_id=channel_id, limit=1
@@ -347,15 +342,8 @@ async def endpoint_analytics_overview(request: Request) -> Response:
             )
 
         total_messages = 0
-        if target_stream_id and channel_id:
-            activity = await repo.get_chat_activity(
-                channel_id=channel_id,
-                stream_id=target_stream_id,
-                interval_minutes=60,
-            )
-            total_messages = sum(
-                int(item.get("message_count") or 0) for item in activity
-            )
+        if target_stream_id:
+            total_messages = await repo.get_stream_message_count(target_stream_id)
 
         overview_data = {
             "stream_id": target_stream_id,
@@ -372,9 +360,7 @@ async def endpoint_analytics_overview(request: Request) -> Response:
         return _json_ok(overview_data)
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
-        return _json_err(str(e), status_code=503)
+        return _json_err(MSG_SERVICE_UNAVAILABLE, status_code=503)
     except Exception as e:
         LOGGER.exception("Error al consolidar resumen de analíticas: %s", e)
-        return _json_err(
-            f"Error al consolidar resumen de analíticas: {e}", status_code=500
-        )
+        return _json_err(MSG_INTERNAL_ERROR, status_code=500)

@@ -77,6 +77,9 @@ def is_rate_limit_error(e: Exception) -> tuple[bool, float | None]:
     return False, None
 
 
+_MAX_HISTORY_TURNS = 50
+
+
 class TalkAgent:
     """Orquesta la interacción con el SDK con rate limiting e historial."""
 
@@ -89,6 +92,7 @@ class TalkAgent:
         self.current_model = model
         self.context_limit = 0  # 0 = Ilimitado
         self._history: list[dict[str, str]] = []
+        self._chat_lock = asyncio.Lock()
         self.rate_limiter = RateLimiter()
         self.tools = build_agent_tools(bot)
         self._tasks: set[asyncio.Task[None]] = set()
@@ -164,143 +168,156 @@ class TalkAgent:
 
     async def chat(self, message: str) -> str:
         """Envía un mensaje al agente resolviendo rate limits e historial."""
+        async with self._chat_lock:
+            model_to_use = self.current_model
+            fallback_used = False
 
-        model_to_use = self.current_model
-        fallback_used = False
+            # Verificar rate limit del modelo activo
+            if not self.rate_limiter.can_request(model_to_use):
+                fallback = self.rate_limiter.find_best_fallback(model_to_use)
+                if fallback is None:
+                    status = self.rate_limiter.get_status(model_to_use)
+                    display_name = AVAILABLE_MODELS[model_to_use].display_name
+                    msg_err = f"[Rate Limit] Límite alcanzado para {display_name}."
+                    if status.next_slot_in is not None:
+                        msg_err += f" Próximo slot libre en {status.next_slot_in:.0f}s."
+                    return msg_err
+                model_to_use = fallback
+                fallback_used = True
 
-        # Verificar rate limit del modelo activo
-        if not self.rate_limiter.can_request(model_to_use):
-            fallback = self.rate_limiter.find_best_fallback(model_to_use)
-            if fallback is None:
-                status = self.rate_limiter.get_status(model_to_use)
-                display_name = AVAILABLE_MODELS[model_to_use].display_name
-                msg_err = f"[Rate Limit] Límite alcanzado para {display_name}."
-                if status.next_slot_in is not None:
-                    msg_err += f" Próximo slot libre en {status.next_slot_in:.0f}s."
-                return msg_err
+            broadcaster_info = ""
+            channels = await self.bot.get_channels()
+            if channels:
+                b_names = ", ".join(
+                    f"@{c['username']} (ID: {c['user_id']})" for c in channels
+                )
+                broadcaster_info = f"\n- Canal(es) Broadcaster: {b_names}"
 
-        broadcaster_info = ""
-        channels = await self.bot.get_channels()
-        if channels:
-            b_names = ", ".join(
-                f"@{c['username']} (ID: {c['user_id']})" for c in channels
+            now_local = datetime.datetime.now()
+            now_utc = datetime.datetime.now(datetime.UTC)
+
+            # Formatear historial conversacional según el límite configurado
+            history_text = ""
+            if self._history:
+                history_to_use = (
+                    self._history[-self.context_limit :]
+                    if self.context_limit > 0
+                    else self._history
+                )
+                turns = []
+                for turn in history_to_use:
+                    turns.append(f"Usuario: {turn['question']}")
+                    turns.append(f"Agente: {turn['response']}")
+                history_text = (
+                    "\n\nHISTORIAL DE CONVERSACIÓN RECIENTE CON EL USUARIO "
+                    "(solo como referencia de contexto previo):\n"
+                    "<conversation_history>\n"
+                    + "\n".join(turns)
+                    + "\n</conversation_history>"
+                )
+
+            dynamic_instructions = (
+                f"{SYSTEM_INSTRUCTIONS}\n\n"
+                f"CONTEXTO DEL SISTEMA:\n"
+                f"- Local del sistema: {now_local.strftime('%d %b %Y, %H:%M:%S')}\n"
+                f"- UTC (Base de datos): {now_utc.strftime('%d %b %Y, %H:%M:%S')}"
+                f"{broadcaster_info}"
+                f"{history_text}"
             )
-            broadcaster_info = f"\n- Canal(es) Broadcaster: {b_names}"
 
-        now_local = datetime.datetime.now()
-        now_utc = datetime.datetime.now(datetime.UTC)
-
-        # Formatear historial conversacional según el límite configurado
-        history_text = ""
-        if self._history:
-            history_to_use = (
-                self._history[-self.context_limit :]
-                if self.context_limit > 0
-                else self._history
-            )
-            turns = []
-            for turn in history_to_use:
-                turns.append(f"Usuario: {turn['question']}")
-                turns.append(f"Agente: {turn['response']}")
-            history_text = (
-                "\n\nHISTORIAL DE CONVERSACIÓN RECIENTE CON EL USUARIO:\n"
-                + "\n".join(turns)
+            config = LocalAgentConfig(
+                system_instructions=dynamic_instructions,
+                tools=self.tools,
+                model=model_to_use,
             )
 
-        dynamic_instructions = (
-            f"{SYSTEM_INSTRUCTIONS}\n\n"
-            f"CONTEXTO DEL SISTEMA:\n"
-            f"- Local del sistema: {now_local.strftime('%d %b %Y, %H:%M:%S')}\n"
-            f"- UTC (Base de datos): {now_utc.strftime('%d %b %Y, %H:%M:%S')}"
-            f"{broadcaster_info}"
-            f"{history_text}"
-        )
+            try:
+                async with Agent(config) as agent:
+                    response = await agent.chat(message)
 
-        config = LocalAgentConfig(
-            system_instructions=dynamic_instructions,
-            tools=self.tools,
-            model=model_to_use,
-        )
+                    # Registrar consumo localmente y en base de datos
+                    self.rate_limiter.record_request(model_to_use)
+                    await self.bot.settings_repo.log_api_consumption(
+                        model_to_use, time.time(), "request"
+                    )
 
-        try:
-            async with Agent(config) as agent:
-                response = await agent.chat(message)
+                    clean_text = await response.text()
+                    text = clean_text
+                    if fallback_used:
+                        fallback_display = AVAILABLE_MODELS[model_to_use].display_name
+                        text = f"[Fallback: {fallback_display}] {clean_text}"
 
-                # Registrar consumo localmente y en base de datos
-                self.rate_limiter.record_request(model_to_use)
-                await self.bot.settings_repo.log_api_consumption(
-                    model_to_use, time.time(), "request"
-                )
+                    # Guardar turno en el historial conversacional y limitar a 50
+                    self._history.append({"question": message, "response": clean_text})
+                    self._history = self._history[-_MAX_HISTORY_TURNS:]
+                    return text
 
-                text = await response.text()
-                if fallback_used:
-                    fallback_display = AVAILABLE_MODELS[model_to_use].display_name
-                    text = f"[Fallback: {fallback_display}] {text}"
+            except Exception as e:
+                is_limit, retry_after = is_rate_limit_error(e)
+                if is_limit:
+                    LOGGER.warning(
+                        "Error de proveedor/límite para %s (retry_after: %s)",
+                        model_to_use,
+                        retry_after,
+                    )
+                    self.rate_limiter.record_rate_limit_hit(
+                        model_to_use, retry_after or 30.0
+                    )
+                    await self.bot.settings_repo.log_api_consumption(
+                        model_to_use,
+                        time.time(),
+                        f"hit:{retry_after or 30.0}",
+                    )
 
-                # Guardar turno en el historial conversacional
-                self._history.append({"question": message, "response": text})
-                return text
-
-        except Exception as e:
-            is_limit, retry_after = is_rate_limit_error(e)
-            if is_limit:
-                LOGGER.warning(
-                    "Error de proveedor/límite para %s (retry_after: %s)",
-                    model_to_use,
-                    retry_after,
-                )
-                self.rate_limiter.record_rate_limit_hit(
-                    model_to_use, retry_after or 30.0
-                )
-                await self.bot.settings_repo.log_api_consumption(
-                    model_to_use,
-                    time.time(),
-                    f"hit:{retry_after or 30.0}",
-                )
-
-                # Si no se usaba un fallback previamente, intentar uno automáticamente
-                if not fallback_used:
-                    fallback = self.rate_limiter.find_best_fallback(model_to_use)
-                    if fallback:
-                        LOGGER.info(
-                            "Reintentando consulta con modelo de respaldo: %s",
-                            fallback,
-                        )
-                        fb_config = LocalAgentConfig(
-                            system_instructions=dynamic_instructions,
-                            tools=self.tools,
-                            model=fallback,
-                        )
-                        try:
-                            async with Agent(fb_config) as fb_agent:
-                                fb_resp = await fb_agent.chat(message)
-                                self.rate_limiter.record_request(fallback)
-                                await self.bot.settings_repo.log_api_consumption(
-                                    fallback, time.time(), "request"
-                                )
-                                fb_text = await fb_resp.text()
-                                fb_disp = AVAILABLE_MODELS[fallback].display_name
-                                return f"[Fallback: {fb_disp}] {fb_text}"
-                        except Exception as fb_err:
-                            LOGGER.error(
-                                "Error también en modelo de respaldo %s: %s",
+                    # Si no se usaba un fallback antes, intentar uno automáticamente
+                    if not fallback_used:
+                        fallback = self.rate_limiter.find_best_fallback(model_to_use)
+                        if fallback:
+                            LOGGER.info(
+                                "Reintentando consulta con modelo de respaldo: %s",
                                 fallback,
-                                fb_err,
                             )
+                            fb_config = LocalAgentConfig(
+                                system_instructions=dynamic_instructions,
+                                tools=self.tools,
+                                model=fallback,
+                            )
+                            try:
+                                async with Agent(fb_config) as fb_agent:
+                                    fb_resp = await fb_agent.chat(message)
+                                    self.rate_limiter.record_request(fallback)
+                                    await self.bot.settings_repo.log_api_consumption(
+                                        fallback, time.time(), "request"
+                                    )
+                                    clean_text = await fb_resp.text()
+                                    self._history.append(
+                                        {"question": message, "response": clean_text}
+                                    )
+                                    self._history = self._history[-_MAX_HISTORY_TURNS:]
+                                    fb_disp = AVAILABLE_MODELS[fallback].display_name
+                                    return f"[Fallback: {fb_disp}] {clean_text}"
+                            except Exception as fb_err:
+                                LOGGER.error(
+                                    "Error también en modelo de respaldo %s: %s",
+                                    fallback,
+                                    fb_err,
+                                )
 
-                status = self.rate_limiter.get_status(model_to_use)
-                display_name = AVAILABLE_MODELS[model_to_use].display_name
-                msg_err = (
-                    f"[Sobrecarga / Límite] El modelo {display_name} "
-                    "no está disponible temporalmente (HTTP 429/503)."
+                    status = self.rate_limiter.get_status(model_to_use)
+                    display_name = AVAILABLE_MODELS[model_to_use].display_name
+                    msg_err = (
+                        f"[Sobrecarga / Límite] El modelo {display_name} "
+                        "no está disponible temporalmente (HTTP 429/503)."
+                    )
+
+                    if status.next_slot_in is not None:
+                        msg_err += f" Reintenta en {status.next_slot_in:.0f}s."
+                    return msg_err
+
+                LOGGER.exception(
+                    "Error al procesar consulta con el agente de IA: %s", e
                 )
-
-                if status.next_slot_in is not None:
-                    msg_err += f" Reintenta en {status.next_slot_in:.0f}s."
-                return msg_err
-
-            LOGGER.exception("Error al procesar consulta con el agente de IA: %s", e)
-            return (
-                f"Lo siento, ocurrió un error al procesar tu solicitud "
-                f"con el agente de IA: {e}"
-            )
+                return (
+                    f"Lo siento, ocurrió un error al procesar tu solicitud "
+                    f"con el agente de IA: {e}"
+                )

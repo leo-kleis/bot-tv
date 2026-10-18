@@ -29,10 +29,14 @@ export function AnalyticsTab() {
   const [streamEvents, setStreamEvents] = useState(null);
 
   const isMountedRef = useRef(true);
+  const batchControllerRef = useRef(null);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (batchControllerRef.current) {
+        batchControllerRef.current.abort();
+      }
     };
   }, []);
 
@@ -47,6 +51,13 @@ export function AnalyticsTab() {
   const fetchAnalyticsData = useCallback(
     async (sessionId, interval, currentPeriod, isBackground = false) => {
       if (!isMountedRef.current) return;
+      if (batchControllerRef.current) {
+        batchControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      batchControllerRef.current = controller;
+      const { signal } = controller;
+
       if (!isBackground) {
         setLoading(true);
       } else {
@@ -64,19 +75,21 @@ export function AnalyticsTab() {
 
         const [overviewRes, timelineRes, chatRes, chattersRes, growthRes, eventsRes] =
           await Promise.allSettled([
-            apiGet('/api/analytics/overview'),
+            apiGet('/api/analytics/overview', { signal }),
             sessionId
-              ? apiGet(`/api/analytics/viewers_timeline${streamParam}`)
+              ? apiGet(`/api/analytics/viewers_timeline${streamParam}`, { signal })
               : Promise.resolve(null),
-            sessionId ? apiGet(`/api/analytics/chat_activity${chatParam}`) : Promise.resolve(null),
-            apiGet(`/api/analytics/top_chatters${topChattersParam}`),
-            apiGet(`/api/analytics/followers_growth${growthParam}`),
             sessionId
-              ? apiGet(`/api/analytics/stream_events${streamParam}`)
+              ? apiGet(`/api/analytics/chat_activity${chatParam}`, { signal })
+              : Promise.resolve(null),
+            apiGet(`/api/analytics/top_chatters${topChattersParam}`, { signal }),
+            apiGet(`/api/analytics/followers_growth${growthParam}`, { signal }),
+            sessionId
+              ? apiGet(`/api/analytics/stream_events${streamParam}`, { signal })
               : Promise.resolve(null),
           ]);
 
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || signal.aborted) return;
 
         if (
           overviewRes.status === 'fulfilled' &&
@@ -123,11 +136,11 @@ export function AnalyticsTab() {
           setStreamEvents(null);
         }
       } catch (err) {
-        if (isMountedRef.current) {
+        if (isMountedRef.current && !signal.aborted) {
           setError(err.message || 'Error al obtener datos analíticos');
         }
       } finally {
-        if (isMountedRef.current) {
+        if (isMountedRef.current && !signal.aborted) {
           setLoading(false);
           setRefreshing(false);
         }

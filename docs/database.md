@@ -31,8 +31,8 @@ Almacena la información global de los usuarios que interactúan con el bot.
 Representa la relación de cada usuario con cada canal en el que el bot está activo, incluyendo su seguimiento y roles específicos del canal.
 - `channel_id` (TEXT, PK): ID del canal (broadcaster) al que pertenece el usuario.
 - `user_id` (TEXT, PK, FK): ID del usuario que apunta a `users.user_id`.
-- `followed_at` (TEXT): Fecha y hora en la que comenzó a seguir.
-- `unfollowed_at` (TEXT): Fecha y hora en la que dejó de seguir.
+- `followed_at` (TIMESTAMPTZ): Fecha y hora en la que comenzó a seguir.
+- `unfollowed_at` (TIMESTAMPTZ): Fecha y hora en la que dejó de seguir.
 - `is_moderator` (BOOLEAN): Indica si es moderador en este canal específico.
 - `is_vip` (BOOLEAN): Indica si tiene rango VIP en este canal específico.
 - `is_subscriber` (BOOLEAN): Indica si está suscrito a este canal específico.
@@ -46,7 +46,7 @@ Almacena el historial de mensajes de los canales.
 - `channel_id` (TEXT): ID del canal donde se escribió el mensaje.
 - `user_id` (TEXT, FK): ID del usuario que envió el mensaje (`users.user_id`).
 - `message` (TEXT): Contenido del mensaje de chat.
-- `timestamp` (TEXT): Marca de tiempo del mensaje.
+- `timestamp` (TIMESTAMPTZ): Marca de tiempo del mensaje.
 
 ### Tabla: `tokens`
 Persistencia de tokens OAuth encriptados simétricamente con Fernet.

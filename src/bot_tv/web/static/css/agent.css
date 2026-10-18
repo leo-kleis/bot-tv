@@ -144,11 +144,11 @@
     font-size: inherit;
   }
   .convo-meta {
-    font-size: 0.65em;
+    font-size: var(--font-xs);
   }
   .agent-model-info {
     padding: 4px 12px 2px;
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
   .agent-input-area {
     padding: 6px 12px;

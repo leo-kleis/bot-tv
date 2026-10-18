@@ -71,14 +71,9 @@ class ClipComponent(commands.Component):
                 return
 
             # 1. Buscar a nuestro propio broadcaster (dueño del canal a clipear)
-            # Acorde a bot.py, el canal es aquel cuyo user_id != bot_id
-            async with self.bot.database.acquire() as connection:
-                row = await connection.fetchrow(
-                    "SELECT user_id, username, token FROM tokens WHERE user_id != $1",
-                    self.bot.bot_id,
-                )
+            channels = await self.bot.get_channels()
 
-            if not row:
+            if not channels:
                 LOGGER.error(
                     "%sNo se encontró la cuenta del CANAL para hacer el clip.%s",
                     ROJO,
@@ -90,8 +85,8 @@ class ClipComponent(commands.Component):
                     )
                 return
 
-            broadcaster_id = row["user_id"]
-            broadcaster_name = row["username"]
+            broadcaster_id = channels[0]["user_id"]
+            broadcaster_name = channels[0]["username"]
 
             # 2. Obtener el partial_user para usarlo en el llamado
             canal_user = twitchio.PartialUser(

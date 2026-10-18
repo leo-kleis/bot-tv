@@ -51,7 +51,7 @@ Las razones de este diseño radican en:
 | **Stream** | [`StreamTab.js`](file:///c:/Users/kleis/Repo/bot-tv/src/bot_tv/web/static/components/stream/StreamTab.js) | - Reproductor interactivo oficial embebido de Twitch (`Twitch.Player`).<br>- Desactivación automática inteligente en pantallas táctiles y móviles para optimizar batería y datos. |
 | **Seguidores / Usuarios** | [`FollowersTab.js`](file:///c:/Users/kleis/Repo/bot-tv/src/bot_tv/web/static/components/followers/FollowersTab.js) | - Tarjetas de métricas: total de seguidores, altas y bajas en la sesión activa.<br>- Barra interactiva con porcentaje en vivo del proceso de sincronización con la API de Twitch.<br>- Botón de sincronización manual con protección contra llamadas concurrentes.<br>- Filtro por texto en nombre de usuario o apodo con debounce.<br>- Filtros por rol (Mod, VIP, Sub, Bot, Visitante).<br>- Filtros por estado de seguimiento (Seguidor activo, Dejó de seguir, Nunca siguió).<br>- Filtros por historial (Con mensajes registrados o Sin mensajes).<br>- Filtro por rangos de fecha ("desde - hasta") de seguimiento o baja.<br>- Tabla con paginación de 50 registros y ordenamiento dinámico por columnas.<br>- Botón de acceso directo para abrir el perfil extendido de cada usuario. |
 | **Agente IA** | [`AgentTab.js`](file:///c:/Users/kleis/Repo/bot-tv/src/bot_tv/web/static/components/agent/AgentTab.js) | - Interfaz de chat directa con el asistente Google Gemini.<br>- Indicador en tiempo real de consumo de cuotas del modelo (RPM actual vs límite y estado de bloqueo con cuenta regresiva).<br>- Indicación del modelo exacto que generó cada respuesta (incluyendo avisos de fallback).<br>- Botón para vaciar la memoria conversacional del agente.<br>- Atajos de teclado: Shift+Enter para nueva línea, Enter para enviar. |
-| **Ajustes** | [`SettingsTab.js`](file:///c:/Users/kleis/Repo/bot-tv/src/bot_tv/web/static/components/settings/SettingsTab.js) | - **Modelo IA**: Selector de modelo Gemini en caliente y ajuste numérico del límite de turnos de contexto (0 = ilimitado).<br>- **Chat**: Control deslizante de tamaño de fuente (12px a 22px) con previsualización en vivo persistido en `localStorage` e interruptor para ocultar bots.<br>- **Hardware Host (Audio)**: Control del servicio anti-suspensión de auriculares inalámbricos en el PC anfitrión, ajuste de volumen (0.5% - 15%), indicador luminoso de ejecución en segundo plano y botón de prueba sonora.<br>- **Zona de Peligro**: Botón para apagar de forma ordenada todo el sistema (bot, servidor web y base de datos) con modal de confirmación. |
+| **Ajustes** | [`SettingsTab.js`](file:///c:/Users/kleis/Repo/bot-tv/src/bot_tv/web/static/components/settings/SettingsTab.js) | - **Modelo IA**: Selector de modelo Gemini en caliente y ajuste numérico del límite de turnos de contexto (0 = ilimitado).<br>- **Chat**: Control deslizante de tamaño de fuente (12px a 22px) con previsualización en vivo persistido en `localStorage` e interruptor para ocultar bots.<br>- **Zona de Peligro**: Botón para apagar de forma ordenada todo el sistema (bot, servidor web y base de datos) con modal de confirmación. |
 
 ### 2.3 Controles Globales, Modales y Drawers
 
@@ -104,12 +104,7 @@ Todos los endpoints responden con formato estándar JSON: `{ "ok": true, "data":
 - `GET /api/users/{username}/detail`: Ficha completa del usuario con roles, apodo, estado de baneo en Twitch y fechas de seguimiento.
 - `GET /api/users/{username}/messages`: Historial paginado de mensajes de chat emitidos por el usuario con filtros de texto y fechas.
 
-### 3.6 Hardware y Utilidades Host (`audio.py`)
-- `GET /api/audio_keepalive`: Estado del servicio anti-suspensión de auriculares en el PC anfitrión (estado de ejecución, volumen y frecuencia).
-- `POST /api/audio_keepalive`: Activa, desactiva o ajusta los parámetros del generador de tono senoidal persistente.
-- `POST /api/audio_keepalive/test`: Emite un tono sonoro audible de prueba en los altavoces del PC anfitrión mediante un hilo desacoplado.
-
-### 3.7 Sistema y Clips (`system.py`)
+### 3.6 Sistema y Clips (`system.py`)
 - `POST /api/create_clip`: Genera un clip instantáneo del directo en emisión a través de la API Helix de Twitch.
 - `POST /api/exit`: Solicita el apagado ordenado de toda la aplicación.
 
@@ -247,5 +242,4 @@ La consola REPL interactiva (`AdminConsole`) incorpora autocompletado contextual
 - [`extra/check_scopes.py`](file:///c:/Users/kleis/Repo/bot-tv/extra/check_scopes.py): Herramienta de diagnóstico que descifra los tokens de la base de datos y valida su vigencia y scopes contra la API de Twitch.
 - [`extra/check_twitch_id.py`](file:///c:/Users/kleis/Repo/bot-tv/extra/check_twitch_id.py): Consulta un ID numérico de usuario en la API Helix y muestra sus datos públicos.
 - [`extra/get_twitch_ids.py`](file:///c:/Users/kleis/Repo/bot-tv/extra/get_twitch_ids.py): Asistente para resolver nombres de usuario a IDs de Twitch requeridos para el archivo `.env`.
-- [`extra/keepalive_audio.py`](file:///c:/Users/kleis/Repo/bot-tv/extra/keepalive_audio.py): Servicio autónomo de Windows que genera un tono senoidal inaudible en bucle a 60 Hz al 3% de volumen para evitar que altavoces o auriculares Bluetooth entren en reposo, consumiendo 0% de CPU.
 - [`extra/run_migrations.py`](file:///c:/Users/kleis/Repo/bot-tv/extra/run_migrations.py): Comprueba la conectividad con PostgreSQL y lista las tablas del esquema público.

@@ -73,8 +73,7 @@ def main() -> None:
                         subs=subs,
                         event_bus=event_bus,
                     ) as bot:
-                        for pair in tokens:
-                            await bot.add_token(*pair)
+                        await bot.load_initial_tokens(tokens)
 
                         console = AdminConsole(bot)
                         console_task = asyncio.create_task(console.run())

@@ -9,6 +9,7 @@ from typing import IO, cast
 
 from prompt_toolkit.patch_stdout import StdoutProxy
 from rich.console import Console
+from rich.markup import escape
 
 # Instancia global de Rich Console para todo el proyecto, enlazada a prompt_toolkit
 try:
@@ -109,12 +110,14 @@ def format_colored_name(
     el nickname va en color brillante y el display_name en color oscuro.
     Si no: muestra "display_name" en color brillante.
     """
+    safe_display = escape(display_name)
     color_ansi = f"[rgb({r},{g},{b})]"
     if nickname:
+        safe_nick = escape(nickname)
         dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
         dark_ansi = f"[rgb({dark_r},{dark_g},{dark_b})]"
-        return f"{color_ansi}{nickname}{dark_ansi} {{{display_name}}}{RESET}"
-    return f"{color_ansi}{display_name}{RESET}"
+        return f"{color_ansi}{safe_nick}{dark_ansi} {{{safe_display}}}{RESET}"
+    return f"{color_ansi}{safe_display}{RESET}"
 
 
 def format_timestamp() -> str:

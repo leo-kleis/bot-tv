@@ -78,7 +78,7 @@
   overflow-x: hidden;
   overflow-anchor: none;
   padding: 12px 0;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   font-size: var(--font-size);
 }
 
@@ -131,7 +131,7 @@
 .user-avatar--sm {
   width: 18px;
   height: 18px;
-  font-size: 0.55rem;
+  font-size: var(--font-xs);
   flex-shrink: 0;
 }
 
@@ -216,7 +216,7 @@
   left: 20px;
   width: 36px;
   text-align: right;
-  font-size: 0.68em;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   opacity: 0;
@@ -296,6 +296,8 @@
     opacity 0.2s;
   cursor: default;
   user-select: none;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 28px;
 }
 .irc-user:hover {
   background: var(--surface2);
@@ -344,7 +346,7 @@
 }
 
 .irc-badge {
-  font-size: 0.62rem;
+  font-size: var(--font-xs);
   font-weight: 800;
   text-transform: uppercase;
   padding: 1px 4px;
@@ -734,7 +736,7 @@
   .chat-panel-header {
     height: 32px;
     padding: 6px 16px;
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
   .chat-feed {
     padding: 6px 0;
@@ -747,7 +749,7 @@
   .user-avatar--md {
     width: 26px;
     height: 26px;
-    font-size: 0.7rem;
+    font-size: var(--font-xs);
     flex-shrink: 0;
   }
   .chat-select-field {
@@ -763,13 +765,13 @@
   .chat-time-hover {
     left: 16px;
     width: 28px;
-    font-size: 0.6em;
+    font-size: var(--font-xs);
   }
   .chat-msg-body {
     font-size: inherit;
   }
   .chat-msg-header .chat-time {
-    font-size: 0.65em;
+    font-size: var(--font-xs);
   }
   .chat-msg.is-system {
     padding: 4px 16px 4px 13px;
@@ -845,7 +847,7 @@
 
 .irc-disconnect-alert .alert-desc {
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--font-xs);
   line-height: 1.3;
 }
 

@@ -343,6 +343,8 @@
   padding: 5px 14px;
   transition: background 0.1s;
   min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 38px;
 }
 
 .history-msg:hover {
@@ -438,7 +440,7 @@
 
   .history-header-username,
   .history-msg-count {
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
 
   .history-search {
@@ -467,7 +469,7 @@
   }
 
   .history-msg-time {
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
 
   .history-msg-text {

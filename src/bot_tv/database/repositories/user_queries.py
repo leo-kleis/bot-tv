@@ -5,7 +5,12 @@ from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
-from bot_tv.database.repositories.base import BaseRepository
+from bot_tv.database.repositories.base import (
+    BaseRepository,
+    escape_like,
+    to_iso_str,
+    to_utc_datetime,
+)
 
 if TYPE_CHECKING:
     from bot_tv.database.user_cache import UserMemoryCache
@@ -33,7 +38,7 @@ class UserQueriesMixin(BaseRepository):
             row["user_id"]: {
                 "display_name": row["display_name"],
                 "nickname": row["nickname"],
-                "followed_at": row["followed_at"],
+                "followed_at": to_iso_str(row["followed_at"]),
             }
             for row in rows
         }
@@ -58,6 +63,9 @@ class UserQueriesMixin(BaseRepository):
         cache: UserMemoryCache | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Devuelve usuarios registrados filtrados y el total coincidente."""
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+
         if cache is not None and has_chat_history is None:
             users, total = cache.list_users_with_filters(
                 channel_id=channel_id,
@@ -83,8 +91,6 @@ class UserQueriesMixin(BaseRepository):
                     u["message_count"] = counts.get(u.get("user_id", ""), 0)
             return users, total
 
-        limit = max(1, limit)
-        offset = max(0, offset)
         where_clauses: list[str] = []
         params: list[Any] = [channel_id]
 
@@ -128,30 +134,34 @@ class UserQueriesMixin(BaseRepository):
                 )
 
         if username_search:
-            like_pattern = f"%{username_search}%"
+            like_pattern = f"%{escape_like(username_search)}%"
             p = _p()
             where_clauses.append(
-                f"(u.username ILIKE {p}"
-                f" OR u.display_name ILIKE {p}"
-                f" OR u.nickname ILIKE {p})"
+                f"(u.username ILIKE {p} ESCAPE '\\'"
+                f" OR u.display_name ILIKE {p} ESCAPE '\\'"
+                f" OR u.nickname ILIKE {p} ESCAPE '\\')"
             )
             params.append(like_pattern)
 
-        if followed_after:
+        dt_followed_after = to_utc_datetime(followed_after)
+        if dt_followed_after is not None:
             where_clauses.append(f"cu.followed_at >= {_p()}")
-            params.append(followed_after)
+            params.append(dt_followed_after)
 
-        if followed_before:
+        dt_followed_before = to_utc_datetime(followed_before)
+        if dt_followed_before is not None:
             where_clauses.append(f"cu.followed_at <= {_p()}")
-            params.append(followed_before)
+            params.append(dt_followed_before)
 
-        if unfollowed_after:
+        dt_unfollowed_after = to_utc_datetime(unfollowed_after)
+        if dt_unfollowed_after is not None:
             where_clauses.append(f"cu.unfollowed_at >= {_p()}")
-            params.append(unfollowed_after)
+            params.append(dt_unfollowed_after)
 
-        if unfollowed_before:
+        dt_unfollowed_before = to_utc_datetime(unfollowed_before)
+        if dt_unfollowed_before is not None:
             where_clauses.append(f"cu.unfollowed_at <= {_p()}")
-            params.append(unfollowed_before)
+            params.append(dt_unfollowed_before)
 
         if is_follower and is_follower in ("follower", "not_follower", "unfollower"):
             if broadcaster_id:
@@ -207,22 +217,18 @@ class UserQueriesMixin(BaseRepository):
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
-        """
+        """  # noqa: S608
         data_query = f"""
             SELECT u.user_id, u.username, u.display_name, u.nickname, u.is_bot,
                    COALESCE(cu.is_moderator, FALSE) as is_moderator,
                    COALESCE(cu.is_vip, FALSE) as is_vip,
                    COALESCE(cu.is_subscriber, FALSE) as is_subscriber,
-                   cu.sub_tier, cu.followed_at, cu.unfollowed_at,
-                   (
-                       SELECT COUNT(*) FROM chat_history ch
-                       WHERE ch.channel_id = $1 AND ch.user_id = u.user_id
-                   ) AS message_count
+                   cu.sub_tier, cu.followed_at, cu.unfollowed_at
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             {where_sql}
             {order_by_sql} LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
-        """
+        """  # noqa: S608
 
         async with self._db.acquire() as conn:
             count_row = await conn.fetchrow(count_query, *params)
@@ -232,13 +238,26 @@ class UserQueriesMixin(BaseRepository):
                 data_query, *params, limit, offset
             )
 
-        return [dict(row) for row in rows], total_count
+        users_page: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            item["followed_at"] = to_iso_str(item.get("followed_at"))
+            item["unfollowed_at"] = to_iso_str(item.get("unfollowed_at"))
+            users_page.append(item)
+
+        if users_page:
+            user_ids = [u["user_id"] for u in users_page if u.get("user_id")]
+            counts = await self._fetch_message_counts_batch(channel_id, user_ids)
+            for u in users_page:
+                u["message_count"] = counts.get(u.get("user_id", ""), 0)
+
+        return users_page, total_count
 
     async def search_users(
         self, q: str, limit: int = 10, channel_id: str | None = None
     ) -> list[dict[str, Any]]:
         """Busca usuarios en la DB local para autocompletar."""
-        like_pattern = f"%{q}%"
+        like_pattern = f"%{escape_like(q)}%"
         if channel_id:
             query = """
                 SELECT u.user_id, u.username, u.display_name,
@@ -252,9 +271,9 @@ class UserQueriesMixin(BaseRepository):
                 FROM users u
                 LEFT JOIN channel_users cu
                        ON u.user_id = cu.user_id AND cu.channel_id = $3
-                WHERE u.username ILIKE $1
-                   OR u.display_name ILIKE $1
-                   OR u.nickname ILIKE $1
+                WHERE u.username ILIKE $1 ESCAPE '\\'
+                   OR u.display_name ILIKE $1 ESCAPE '\\'
+                   OR u.nickname ILIKE $1 ESCAPE '\\'
                 GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
                          cu.is_moderator, cu.is_vip, cu.is_subscriber
                 ORDER BY u.display_name
@@ -276,9 +295,9 @@ class UserQueriesMixin(BaseRepository):
                         AS is_follower
                 FROM users u
                 LEFT JOIN channel_users cu ON u.user_id = cu.user_id
-                WHERE u.username ILIKE $1
-                   OR u.display_name ILIKE $1
-                   OR u.nickname ILIKE $1
+                WHERE u.username ILIKE $1 ESCAPE '\\'
+                   OR u.display_name ILIKE $1 ESCAPE '\\'
+                   OR u.nickname ILIKE $1 ESCAPE '\\'
                 GROUP BY u.user_id, cu.user_id, cu.unfollowed_at,
                          cu.is_moderator, cu.is_vip, cu.is_subscriber
                 ORDER BY u.display_name

@@ -49,7 +49,10 @@ export function AgentTab({ conversations = [], dispatch }) {
 
     // Recargar RPM después de la consulta
     apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data?.length) setRpmInfo(d.data[0]);
+      if (d.ok && d.data) {
+        const statuses = Array.isArray(d.data) ? d.data : d.data?.statuses;
+        if (statuses?.length) setRpmInfo(statuses[0]);
+      }
     });
 
     if (!data.ok) {
@@ -96,7 +99,7 @@ export function AgentTab({ conversations = [], dispatch }) {
               `
             : conversations.map(
                 c => html`
-                  <div class="convo-pair" key=${c.id}>
+                  <div class="convo-pair" key=${c.timestamp}>
                     <div class="convo-q">${c.question}</div>
                     ${
                       c.response == null

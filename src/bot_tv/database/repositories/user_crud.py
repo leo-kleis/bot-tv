@@ -69,7 +69,7 @@ class UserCrudMixin(BaseRepository):
                 return cached_id
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
-                "SELECT user_id FROM users WHERE username ILIKE $1",
+                "SELECT user_id FROM users WHERE LOWER(username) = LOWER($1)",
                 username,
             )
         return row["user_id"] if row else None

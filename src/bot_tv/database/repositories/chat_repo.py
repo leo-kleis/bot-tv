@@ -1,18 +1,27 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import logging
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
 
-from bot_tv.database.repositories.base import BaseRepository
+from bot_tv.database.repositories.base import (
+    BaseRepository,
+    escape_like,
+    to_iso_str,
+    to_utc_datetime,
+)
 
 LOGGER = logging.getLogger(__name__)
 
 BATCH_FLUSH_INTERVAL = 2.0
 MAX_BATCH_SIZE = 20
+MAX_QUEUE_SIZE = 2000
 
 
 class ChatRepository(BaseRepository):
@@ -20,7 +29,9 @@ class ChatRepository(BaseRepository):
 
     def __init__(self, db: asyncpg.Pool) -> None:
         super().__init__(db)
-        self._msg_queue: list[tuple[str, str, str, str, str, str | None]] = []
+        self._msg_queue: deque[tuple[str, str, str, str, datetime, str | None]] = deque(
+            maxlen=MAX_QUEUE_SIZE
+        )
         self._batch_task: asyncio.Task[None] | None = None
         self._flush_lock = asyncio.Lock()
 
@@ -46,7 +57,7 @@ class ChatRepository(BaseRepository):
         """Encola un mensaje para su guardado en lote en chat_history."""
         if not msg_id:
             msg_id = str(uuid.uuid4())
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(UTC)
         self._msg_queue.append((msg_id, channel_id, user_id, message, now, stream_id))
         self.start_batch_worker()
 
@@ -60,7 +71,7 @@ class ChatRepository(BaseRepository):
             if not self._msg_queue:
                 return
 
-            to_insert = self._msg_queue.copy()
+            to_insert = list(self._msg_queue)
             self._msg_queue.clear()
 
             try:
@@ -79,10 +90,18 @@ class ChatRepository(BaseRepository):
                     len(to_insert),
                 )
 
+            except (
+                asyncpg.IntegrityConstraintViolationError,
+                asyncpg.DataError,
+            ) as e:
+                LOGGER.error(
+                    "Lote descartado en chat_history por error de datos/integridad: %s",
+                    e,
+                )
             except Exception as e:
                 LOGGER.exception("Error al hacer batch insert en chat_history: %s", e)
 
-                # Re-encolar si falla la transacción
+                # Re-encolar si falla la transacción por error transitorio
                 self._msg_queue.extend(to_insert)
 
     async def close(self) -> None:
@@ -94,9 +113,14 @@ class ChatRepository(BaseRepository):
         await self.flush()
 
     async def get_message_count_in_range(
-        self, channel_id: str, start_time: str, end_time: str
+        self,
+        channel_id: str,
+        start_time: datetime | str,
+        end_time: datetime | str,
     ) -> int:
         """Devuelve el total de mensajes en un canal para un rango de tiempo dado."""
+        dt_start = to_utc_datetime(start_time)
+        dt_end = to_utc_datetime(end_time)
         query = """
             SELECT COUNT(*) as msg_count
             FROM chat_history
@@ -104,7 +128,7 @@ class ChatRepository(BaseRepository):
         """
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
-                query, channel_id, start_time, end_time
+                query, channel_id, dt_start, dt_end
             )
         return row["msg_count"] if row else 0
 
@@ -147,8 +171,8 @@ class ChatRepository(BaseRepository):
         username: str | None = None,
         role: str | None = None,
         search_term: str | None = None,
-        since: str | None = None,
-        until: str | None = None,
+        since: datetime | str | None = None,
+        until: datetime | str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -159,21 +183,23 @@ class ChatRepository(BaseRepository):
         def _p() -> str:
             return f"${len(params) + 1}"
 
-        if since:
+        dt_since = to_utc_datetime(since)
+        if dt_since is not None:
             where_clauses.append(f"c.timestamp >= {_p()}")
-            params.append(since)
+            params.append(dt_since)
 
-        if until:
+        dt_until = to_utc_datetime(until)
+        if dt_until is not None:
             where_clauses.append(f"c.timestamp <= {_p()}")
-            params.append(until)
+            params.append(dt_until)
 
         if username:
-            where_clauses.append(f"u.username ILIKE {_p()}")
+            where_clauses.append(f"LOWER(u.username) = LOWER({_p()})")
             params.append(username)
 
         if search_term:
-            where_clauses.append(f"c.message ILIKE {_p()}")
-            params.append(f"%{search_term}%")
+            where_clauses.append(f"c.message ILIKE {_p()} ESCAPE '\\'")
+            params.append(f"%{escape_like(search_term)}%")
 
         if role:
             role_clean = role.lower()
@@ -200,14 +226,19 @@ class ChatRepository(BaseRepository):
                    ON c.user_id = cu.user_id AND c.channel_id = cu.channel_id
             WHERE {" AND ".join(where_clauses)}
             ORDER BY c.timestamp DESC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
-        """
+        """  # noqa: S608
 
         params.append(limit)
         params.append(offset)
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, *params)
-        return [dict(row) for row in rows]
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            item["timestamp"] = to_iso_str(item.get("timestamp"))
+            results.append(item)
+        return results
 
     async def get_user_message_count(self, channel_id: str, user_id: str) -> int:
         """Devuelve el total de mensajes de un usuario en un canal."""

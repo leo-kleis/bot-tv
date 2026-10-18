@@ -3,22 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
-from starlette.responses import FileResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
+from starlette.types import Scope
 from starlette.websockets import WebSocket
 
-from bot_tv.utils.audio_keepalive import AUDIO_KEEP_ALIVE
 from bot_tv.web.api import (
     endpoint_analytics_chat_activity,
     endpoint_analytics_followers_growth,
@@ -30,7 +33,6 @@ from bot_tv.web.api import (
     endpoint_clear_agent_chat,
     endpoint_create_clip,
     endpoint_exit,
-    endpoint_get_audio_keepalive,
     endpoint_get_avatar,
     endpoint_get_chat_accounts,
     endpoint_get_ffz_emotes,
@@ -45,14 +47,12 @@ from bot_tv.web.api import (
     endpoint_search_categories,
     endpoint_search_users,
     endpoint_send_chat_message,
-    endpoint_set_audio_keepalive,
     endpoint_set_context_limit,
     endpoint_set_nickname,
     endpoint_switch_model,
     endpoint_sync_followers,
     endpoint_sync_user_roles,
     endpoint_talk,
-    endpoint_test_audio_keepalive,
     endpoint_update_stream_info,
     endpoint_update_user_roles,
     endpoint_user_messages,
@@ -69,13 +69,54 @@ LOGGER = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / "static"
 
 WEB_PORT = 8080
+MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
+ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
+CROSS_ORIGIN_BLOCKED_MSG = "Solicitud cross-origin bloqueada."
+
+
+def _apply_security_headers(response: Response) -> None:
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Valida Same-Origin en peticiones mutadoras y añade cabeceras de seguridad."""
+
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        if request.method in MUTATING_METHODS:
+            sec_fetch_site = request.headers.get("sec-fetch-site", "").lower()
+            if sec_fetch_site and sec_fetch_site not in ALLOWED_FETCH_SITES:
+                blocked_resp = JSONResponse(
+                    {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
+                    status_code=403,
+                )
+                _apply_security_headers(blocked_resp)
+                return blocked_resp
+
+            origin = request.headers.get("origin")
+            if origin:
+                origin_host = urlparse(origin).netloc
+                host = request.headers.get("host", "")
+                if origin_host != host:
+                    blocked_resp = JSONResponse(
+                        {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
+                        status_code=403,
+                    )
+                    _apply_security_headers(blocked_resp)
+                    return blocked_resp
+
+        response = await call_next(request)
+        _apply_security_headers(response)
+        return response
 
 
 class NoCacheStaticFiles(StaticFiles):
     """Evita el almacenamiento en caché del navegador para archivos estáticos."""
 
-    async def get_response(self, path: str, scope: any) -> Response:  # type: ignore[override]
-
+    async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
@@ -142,13 +183,6 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/moderation/purge", endpoint_moderation_purge, methods=["POST"]),
         Route("/api/categories/search", endpoint_search_categories, methods=["GET"]),
         Route("/api/stream/update_info", endpoint_update_stream_info, methods=["POST"]),
-        Route("/api/audio_keepalive", endpoint_get_audio_keepalive, methods=["GET"]),
-        Route("/api/audio_keepalive", endpoint_set_audio_keepalive, methods=["POST"]),
-        Route(
-            "/api/audio_keepalive/test",
-            endpoint_test_audio_keepalive,
-            methods=["POST"],
-        ),
         # Analytics REST API
         Route("/api/analytics/overview", endpoint_analytics_overview, methods=["GET"]),
         Route(
@@ -188,24 +222,28 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     @asynccontextmanager
     async def lifespan(app_instance: Starlette) -> AsyncGenerator[None]:
         task = asyncio.create_task(_watch_static_files(ws_manager))
-        if AUDIO_KEEP_ALIVE.config.enabled:
-            AUDIO_KEEP_ALIVE.start()
         try:
             yield
         finally:
-            AUDIO_KEEP_ALIVE.stop()
             task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            await ws_manager.close_all()
 
     app = Starlette(
         routes=routes,
         lifespan=lifespan,
-        middleware=[Middleware(GZipMiddleware, minimum_size=500, compresslevel=5)],
+        middleware=[
+            Middleware(SecurityHeadersMiddleware),
+            Middleware(GZipMiddleware, minimum_size=500, compresslevel=5),
+        ],
     )
 
     # Inyectar dependencias via app.state
     app.state.bot = bot
     app.state.agent = agent
     app.state.event_bus = event_bus
+    app.state.ws_manager = ws_manager
 
     LOGGER.info("Servidor web disponible en http://0.0.0.0:%d", WEB_PORT)
     return app
