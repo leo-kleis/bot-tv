@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from bot_tv.database.repositories.base import to_iso_str
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -49,8 +51,8 @@ class UserMemoryCache:
             self._channel_roles[(cid, uid)] = {
                 "channel_id": cid,
                 "user_id": uid,
-                "followed_at": record.get("followed_at"),
-                "unfollowed_at": record.get("unfollowed_at"),
+                "followed_at": to_iso_str(record.get("followed_at")),
+                "unfollowed_at": to_iso_str(record.get("unfollowed_at")),
                 "is_moderator": bool(record.get("is_moderator", False)),
                 "is_vip": bool(record.get("is_vip", False)),
                 "is_subscriber": bool(record.get("is_subscriber", False)),

@@ -1,89 +1,9 @@
 import { html, useState, useEffect, useRef, useCallback } from 'preact-setup';
 import { apiGet } from '/static/components/api.js';
+import { getFocusableElements, trapFocus, setupInertIsolation } from '/static/lib/a11y.js';
 
 const BATCH_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 500;
-
-const FOCUSABLE_SELECTOR =
-  'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-function getFocusableElements(container) {
-  if (!container) return [];
-  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
-  const visible = elements.filter(
-    el => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
-  );
-  return visible.length > 0 ? visible : elements;
-}
-
-function trapFocus(container, e) {
-  if (e.key !== 'Tab') return;
-
-  const focusables = getFocusableElements(container);
-  if (focusables.length === 0) {
-    e.preventDefault();
-    return;
-  }
-
-  const first = focusables[0];
-  const last = focusables[focusables.length - 1];
-
-  if (e.shiftKey) {
-    if (document.activeElement === first || !container.contains(document.activeElement)) {
-      e.preventDefault();
-      last.focus();
-    }
-  } else {
-    if (document.activeElement === last || !container.contains(document.activeElement)) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-}
-
-function setupInertIsolation(drawerElement) {
-  if (!drawerElement) return () => {};
-
-  const inertedElements = [];
-  const appRoot = document.getElementById('app-root');
-
-  if (appRoot && !appRoot.contains(drawerElement)) {
-    if (!appRoot.hasAttribute('inert')) {
-      appRoot.setAttribute('inert', '');
-      inertedElements.push(appRoot);
-    }
-  } else {
-    let current = drawerElement;
-    while (current && current !== document.body && current !== document.documentElement) {
-      const parent = current.parentElement;
-      if (parent) {
-        for (const child of parent.children) {
-          const isBackdrop = child.classList && child.classList.contains('history-backdrop');
-          if (
-            child !== current &&
-            !child.contains(drawerElement) &&
-            !isBackdrop &&
-            child.id !== 'stream-category-portal'
-          ) {
-            if (!child.hasAttribute('inert')) {
-              child.setAttribute('inert', '');
-              inertedElements.push(child);
-            }
-          }
-        }
-      }
-      current = parent;
-    }
-  }
-
-  return () => {
-    for (const el of inertedElements) {
-      if (el && typeof el.removeAttribute === 'function') {
-        el.removeAttribute('inert');
-      }
-    }
-  };
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -335,14 +255,16 @@ export function UserHistoryDrawer({ user, onClose }) {
             }
             ${
               user.is_moderator
-                ? html`<span class="irc-badge badge-moderator" style="font-size:9px;padding:1px 5px"
+                ? html`<span
+                    class="irc-badge badge-moderator"
+                    style="font-size:11px;padding:1px 5px"
                     >Mod</span
                   >`
                 : null
             }
             ${
               user.is_vip
-                ? html`<span class="irc-badge badge-vip" style="font-size:9px;padding:1px 5px"
+                ? html`<span class="irc-badge badge-vip" style="font-size:11px;padding:1px 5px"
                     >VIP</span
                   >`
                 : null
@@ -351,7 +273,7 @@ export function UserHistoryDrawer({ user, onClose }) {
               user.is_subscriber
                 ? html`<span
                     class="irc-badge badge-subscriber"
-                    style="font-size:9px;padding:1px 5px"
+                    style="font-size:11px;padding:1px 5px"
                     >Sub</span
                   >`
                 : null
@@ -359,7 +281,7 @@ export function UserHistoryDrawer({ user, onClose }) {
             ${
               !loading
                 ? html`<span class="history-msg-count">
-                    <i class="fa-solid fa-message" style="font-size:9px;margin-right:3px;"></i>
+                    <i class="fa-solid fa-message" style="font-size:11px;margin-right:3px;"></i>
                     ${formatCount(total)} mensajes
                   </span>`
                 : null

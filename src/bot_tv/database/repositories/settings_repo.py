@@ -32,6 +32,7 @@ class SettingsRepository(BaseRepository):
         self, model: str, timestamp: float, type_str: str
     ) -> None:
         """Registra un consumo de API o un bloqueo por rate limit."""
+        cutoff = time.time() - 86400
         async with self._db.acquire() as conn:
             await conn.execute(
                 "INSERT INTO api_consumption_log (model, timestamp, type) "
@@ -39,6 +40,10 @@ class SettingsRepository(BaseRepository):
                 model,
                 timestamp,
                 type_str,
+            )
+            await conn.execute(
+                "DELETE FROM api_consumption_log WHERE timestamp <= $1",
+                cutoff,
             )
 
     async def get_api_consumption_history(self) -> list[tuple[str, float, str]]:
@@ -49,5 +54,9 @@ class SettingsRepository(BaseRepository):
             "WHERE timestamp > $1 ORDER BY timestamp ASC"
         )
         async with self._db.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM api_consumption_log WHERE timestamp <= $1",
+                cutoff,
+            )
             rows: list[asyncpg.Record] = await conn.fetch(query, cutoff)
         return [(row["model"], row["timestamp"], row["type"]) for row in rows]

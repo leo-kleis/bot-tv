@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
-from bot_tv.database.repositories.base import BaseRepository
+from bot_tv.database.repositories.base import BaseRepository, to_iso_str
 
 if TYPE_CHECKING:
     from bot_tv.database.user_cache import UserMemoryCache
@@ -25,7 +25,8 @@ class UserRolesMixin(BaseRepository):
             )
             roles_rows = await conn.fetch(
                 "SELECT channel_id, user_id, followed_at, unfollowed_at, "
-                "is_moderator, is_vip, is_subscriber, sub_tier FROM channel_users"
+                "is_moderator, is_vip, is_subscriber, sub_tier, gifter_id "
+                "FROM channel_users"
             )
         cache.preload([dict(r) for r in users_rows], [dict(r) for r in roles_rows])
 
@@ -37,17 +38,15 @@ class UserRolesMixin(BaseRepository):
             cached_roles = cache.get_user_roles(user_id, channel_id)
             if cached_roles is not None:
                 return cached_roles
+        query = (
+            "SELECT u.user_id, cu.is_moderator, cu.is_vip, "
+            "cu.is_subscriber, cu.sub_tier "
+            "FROM users u "
+            "LEFT JOIN channel_users cu "
+            "ON u.user_id = cu.user_id AND cu.channel_id = $2 "
+            "WHERE u.user_id = $1"
+        )
         async with self._db.acquire() as conn:
-            exists = await conn.fetchval(
-                "SELECT 1 FROM users WHERE user_id = $1", user_id
-            )
-            if not exists:
-                return None
-
-            query = (
-                "SELECT is_moderator, is_vip, is_subscriber, sub_tier "
-                "FROM channel_users WHERE user_id = $1 AND channel_id = $2"
-            )
             row: asyncpg.Record | None = await conn.fetchrow(
                 query,
                 user_id,
@@ -55,12 +54,7 @@ class UserRolesMixin(BaseRepository):
             )
 
         if not row:
-            return {
-                "is_moderator": False,
-                "is_vip": False,
-                "is_subscriber": False,
-                "sub_tier": None,
-            }
+            return None
         return {
             "is_moderator": bool(row["is_moderator"]),
             "is_vip": bool(row["is_vip"]),
@@ -80,7 +74,7 @@ class UserRolesMixin(BaseRepository):
                    cu.followed_at, cu.unfollowed_at
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
-            WHERE u.username ILIKE $2
+            WHERE LOWER(u.username) = LOWER($2)
         """
         async with self._db.acquire() as conn:
             row: asyncpg.Record | None = await conn.fetchrow(
@@ -88,7 +82,10 @@ class UserRolesMixin(BaseRepository):
             )
         if not row:
             return None
-        return dict(row)
+        result = dict(row)
+        result["followed_at"] = to_iso_str(result.get("followed_at"))
+        result["unfollowed_at"] = to_iso_str(result.get("unfollowed_at"))
+        return result
 
     async def update_user_roles(
         self,
@@ -167,18 +164,6 @@ class UserRolesMixin(BaseRepository):
         if not bot_changed and not roles_changed:
             return False
 
-        if cache is not None:
-            cache.set_user_bot(user_id, is_bot)
-            cache.update_roles(
-                channel_id,
-                user_id,
-                is_moderator,
-                is_vip,
-                is_subscriber if is_subscriber is not None else (current_sub or False),
-                sub_tier if is_subscriber is not None else current_sub_tier,
-                gifter_id if is_subscriber is not None else current_gifter_id,
-            )
-
         LOGGER.info(
             "DB UPDATE roles para user_id %s (mod=%s, vip=%s, sub=%s)",
             user_id,
@@ -186,7 +171,7 @@ class UserRolesMixin(BaseRepository):
             is_vip,
             is_subscriber,
         )
-        async with self._db.acquire() as conn:
+        async with self._db.acquire() as conn, conn.transaction():
             # 1. Actualizar is_bot global en users solo si ha cambiado
             if bot_changed:
                 await conn.execute(
@@ -230,4 +215,17 @@ class UserRolesMixin(BaseRepository):
                                       is_vip       = EXCLUDED.is_vip
                     """
                     await conn.execute(query, channel_id, user_id, is_moderator, is_vip)
+
+        if cache is not None:
+            cache.set_user_bot(user_id, is_bot)
+            cache.update_roles(
+                channel_id,
+                user_id,
+                is_moderator,
+                is_vip,
+                is_subscriber if is_subscriber is not None else (current_sub or False),
+                sub_tier if is_subscriber is not None else current_sub_tier,
+                gifter_id if is_subscriber is not None else current_gifter_id,
+            )
+
         return True

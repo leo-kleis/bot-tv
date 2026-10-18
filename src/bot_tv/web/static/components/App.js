@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from 'preact-setup';
+import { html, useState, useEffect, useMemo } from 'preact-setup';
 import { StreamWidget } from '/static/components/StreamWidget.js';
 import { StreamTab } from '/static/components/stream/StreamTab.js';
 import { ChatTab } from '/static/components/chat/ChatTab.js';
@@ -180,9 +180,13 @@ export function App({ state, dispatch }) {
     window.history.pushState({ tab: active || 'chat' }, '');
   }
 
-  const filteredIrcCount = [...state.ircUsers.values()].filter(
-    u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
-  ).length;
+  const filteredIrcCount = useMemo(
+    () =>
+      [...state.ircUsers.values()].filter(
+        u => u.role !== 'Broadcaster' && !u.is_bot && u.role !== 'Bot' && u.present !== false
+      ).length,
+    [state.ircUsers]
+  );
 
   const availableTabs = TABS.filter(t => {
     if (t.id === 'stream' && isSmallScreen) return false;

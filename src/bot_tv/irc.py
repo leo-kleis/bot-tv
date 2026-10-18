@@ -1,19 +1,34 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import twitchio
 
 from bot_tv.events import TwitchIRCStatusEvent, UserJoinEvent, UserPartEvent
 from bot_tv.utils.colors import get_chatter_rgb
 
+if TYPE_CHECKING:
+    import asyncpg
+
+    from bot_tv.bot import Bot
+
 LOGGER = logging.getLogger(__name__)
+
+_MAX_PARTED_USERS = 500
 
 
 class TwitchIRCClient:
     def __init__(
-        self, bot, database, bot_username: str, token: str, canales: list[str]
+        self,
+        bot: Bot,
+        database: asyncpg.Pool,
+        bot_username: str,
+        token: str,
+        canales: list[str],
     ) -> None:
         self.bot = bot
         self.database = database
@@ -28,6 +43,7 @@ class TwitchIRCClient:
         self.connected_event = asyncio.Event()
         self.connected_users: dict[str, UserJoinEvent] = {}
         self.parted_users: dict[str, UserPartEvent] = {}
+        self._resolving_users: set[str] = set()
         self._tasks: set[asyncio.Task[None]] = set()
         self._running = True
         self.is_connected = False
@@ -43,6 +59,7 @@ class TwitchIRCClient:
 
         while self._running:
             self.connected_users.clear()
+            self.parted_users.clear()
             self.is_connected = False
             self.connected_event.clear()
             await self._emit_status(connected=False)
@@ -97,7 +114,8 @@ class TwitchIRCClient:
 
     def _send(self, message: str) -> None:
         if self.writer:
-            self.writer.write(f"{message}\r\n".encode())
+            clean = message.replace("\r", "").replace("\n", "")
+            self.writer.write(f"{clean}\r\n".encode())
 
     async def _listen(self) -> None:
         if not self.reader:
@@ -146,7 +164,7 @@ class TwitchIRCClient:
         if uid_str == bid_str:
             return "Broadcaster"
 
-        if uid_str == str(self.bot.bot_id):
+        if uid_str == self.bot.bot_id:
             return "Bot"
 
         if self.bot.user_cache.is_user_bot(uid_str):
@@ -170,11 +188,11 @@ class TwitchIRCClient:
         try:
             twitch_user = await self.bot.fetch_user(login=usuario)
             if twitch_user:
-                uid = str(twitch_user.id)
+                uid = twitch_user.id
                 display_name = twitch_user.display_name
                 await self.bot.user_repo.upsert_user(
                     uid,
-                    twitch_user.name,
+                    twitch_user.name or usuario,
                     display_name,
                     cache=cache,
                 )
@@ -182,6 +200,8 @@ class TwitchIRCClient:
             LOGGER.debug(
                 "No se pudo resolver usuario nuevo %s en background: %s", usuario, e
             )
+        finally:
+            self._resolving_users.discard(usuario)
 
     async def _handle_event(self, usuario: str, action: str) -> None:
         if usuario == self.bot_username:
@@ -194,9 +214,9 @@ class TwitchIRCClient:
         display_name = (user_data.get("display_name") if user_data else None) or usuario
         nickname = user_data.get("nickname") if user_data else None
         r, g, b = get_chatter_rgb(None, usuario)
-        role = self._get_user_role_cached(user_id, self.bot.owner_id)
+        role = self._get_user_role_cached(user_id, self.bot.owner_id or "")
 
-        is_bot = (user_id == str(self.bot.bot_id)) or (
+        is_bot = (user_id == self.bot.bot_id) or (
             cache.is_user_bot(user_id) if user_id else False
         )
         is_mod = False
@@ -211,8 +231,9 @@ class TwitchIRCClient:
                 is_vip = bool(roles.get("is_vip", False))
                 is_sub = bool(roles.get("is_subscriber", False))
                 sub_tier = roles.get("sub_tier")
-        elif action == "JOIN":
-            # Si el usuario no estaba en caché, resolverlo en segundo plano
+        elif action == "JOIN" and usuario not in self._resolving_users:
+            # Si el usuario no estaba en caché, resolverlo en segundo plano sin duplicar
+            self._resolving_users.add(usuario)
             task = asyncio.create_task(self._resolve_and_cache_new_user(usuario))
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
@@ -221,7 +242,7 @@ class TwitchIRCClient:
 
         if action == "JOIN":
             join_event = UserJoinEvent(
-                timestamp=datetime.now().isoformat(),
+                timestamp=datetime.now().astimezone().isoformat(),
                 user_id=user_id,
                 username=usuario,
                 display_name=display_name,
@@ -243,7 +264,7 @@ class TwitchIRCClient:
             await self.bot.event_bus.emit(join_event)
         else:
             part_event = UserPartEvent(
-                timestamp=datetime.now().isoformat(),
+                timestamp=datetime.now().astimezone().isoformat(),
                 user_id=user_id,
                 username=usuario,
                 display_name=display_name,
@@ -256,5 +277,8 @@ class TwitchIRCClient:
                 self.connected_users.pop(user_id, None)
             self.connected_users.pop(usuario, None)
             self.parted_users[user_key] = part_event
+            if len(self.parted_users) > _MAX_PARTED_USERS:
+                oldest_key = next(iter(self.parted_users))
+                self.parted_users.pop(oldest_key, None)
 
             await self.bot.event_bus.emit(part_event)

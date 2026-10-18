@@ -183,6 +183,33 @@ class TokenRepository(BaseRepository):
                 )
         return results
 
+    async def get_accounts_summary(self) -> list[dict[str, str]]:
+        """Obtiene el resumen de cuentas registradas sin desencriptar tokens."""
+        rows: list[asyncpg.Record] = []
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    rows = await conn.fetch("SELECT user_id, username FROM tokens")
+                break
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida en resumen de cuentas (%s). Reintentando...",
+                        e,
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
+
+        return [
+            {"user_id": str(row["user_id"]), "username": str(row["username"])}
+            for row in rows
+        ]
+
 
 class TokenPersistMixin:
     """Mixin que persiste tokens encriptados en la base de datos al añadirlos.
@@ -192,6 +219,12 @@ class TokenPersistMixin:
     """
 
     token_repo: TokenRepository
+
+    async def load_initial_tokens(self, tokens: list[tuple[str, str]]) -> None:
+        """Carga tokens iniciales en memoria sin reescribirlos en la base de datos."""
+        for token, refresh in tokens:
+            # pyrefly: ignore [missing-attribute]
+            await super().add_token(token, refresh)
 
     async def add_token(
         self, token: str, refresh: str

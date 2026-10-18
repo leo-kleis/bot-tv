@@ -1,5 +1,7 @@
 import logging
 
+from rich.markup import escape
+
 from bot_tv.utils.colors import CONSOLE, RESET, TIMESTAMP_COLOR
 
 # Colores para los niveles usando marcado Rich
@@ -40,7 +42,7 @@ class RichColorFormatter(logging.Formatter):
         name_color = MODULE_COLORS.get(record.name, NAME_COLOR)
         name = f"{name_color}{record.name}{RESET}"
         timestamp = self.formatTime(record, "%d/%m/%y %H:%M:%S")
-        message = record.getMessage()
+        message = escape(record.getMessage())
 
         return f"{TIMESTAMP_COLOR}[{timestamp}]{RESET} {level} {name}: {message}"
 

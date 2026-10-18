@@ -16,6 +16,7 @@ model User {
   chat_history      ChatHistory[]
   channel_users     ChannelUser[]
 
+  @@index([username], map: "idx_users_username")
   @@map("users")
 }
 
@@ -24,12 +25,13 @@ model ChatHistory {
   channel_id String   @map("channel_id")
   user_id    String   @map("user_id")
   message    String   @map("message")
-  timestamp  String   @map("timestamp")
+  timestamp  DateTime @default(now()) @db.Timestamptz @map("timestamp")
   stream_id  String?  @map("stream_id")
 
   user User @relation(fields: [user_id], references: [user_id])
 
   @@index([channel_id, user_id], map: "idx_chat_history_channel_user")
+  @@index([channel_id, timestamp(sort: Desc)], map: "idx_chat_history_channel_ts")
   @@index([stream_id, timestamp], map: "idx_chat_history_stream_ts")
   @@map("chat_history")
 }
@@ -83,10 +85,10 @@ model StreamEvent {
 
 
 model ChannelUser {
-  channel_id    String  @map("channel_id")
-  user_id       String  @map("user_id")
-  followed_at   String? @map("followed_at")
-  unfollowed_at String? @map("unfollowed_at")
+  channel_id    String    @map("channel_id")
+  user_id       String    @map("user_id")
+  followed_at   DateTime? @db.Timestamptz @map("followed_at")
+  unfollowed_at DateTime? @db.Timestamptz @map("unfollowed_at")
 
   // Roles específicos del canal
   is_moderator  Boolean @default(false) @map("is_moderator")
@@ -98,6 +100,8 @@ model ChannelUser {
   user User @relation(fields: [user_id], references: [user_id])
 
   @@id([channel_id, user_id])
+  @@index([channel_id, followed_at(sort: Desc)], map: "idx_channel_users_followed")
+  @@index([channel_id, unfollowed_at(sort: Desc)], map: "idx_channel_users_unfollowed")
   @@map("channel_users")
 }
 
@@ -114,6 +118,7 @@ model ApiConsumptionLog {
   timestamp Float  @map("timestamp")
   type      String @map("type")
 
+  @@index([timestamp], map: "idx_api_consumption_ts")
   @@map("api_consumption_log")
 }
 

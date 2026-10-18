@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -17,6 +16,7 @@ from bot_tv.events import (
     StreamUpdateEvent,
     ViewerUpdateEvent,
 )
+from bot_tv.utils.formatting import parse_twitch_duration
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -24,24 +24,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 VIEWER_POLL_INTERVAL = 60
-
-_DURATION_REGEX = re.compile(
-    r"(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+)s)?"
-)
-
-
-def parse_twitch_duration(duration_str: str) -> timedelta:
-    """Parsea una cadena de duración de Twitch (ej. '3h8m33s', '45m') a timedelta."""
-    if not duration_str:
-        return timedelta()
-    match = _DURATION_REGEX.fullmatch(duration_str)
-    if not match:
-        return timedelta()
-    parts = match.groupdict()
-    hours = int(parts["hours"]) if parts.get("hours") else 0
-    minutes = int(parts["minutes"]) if parts.get("minutes") else 0
-    seconds = int(parts["seconds"]) if parts.get("seconds") else 0
-    return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
 class StreamComponent(commands.Component):
@@ -105,10 +87,10 @@ class StreamComponent(commands.Component):
                                 if started_at.tzinfo is None:
                                     started_at = started_at.replace(tzinfo=UTC)
 
-                                duration = parse_twitch_duration(
+                                duration_secs = parse_twitch_duration(
                                     vod.get("duration", "")
                                 )
-                                ended_at = started_at + duration
+                                ended_at = started_at + timedelta(seconds=duration_secs)
                                 await self.bot.analytics_repo.close_session(
                                     orphan_stream_id, ended_at, "orphan_recovery_vod"
                                 )
@@ -137,18 +119,25 @@ class StreamComponent(commands.Component):
         channels = await self.bot.get_channels()
         self._channel_ids = [channel["user_id"] for channel in channels]
         self._channel_map = {}
+
+        missing_ids: list[int | str] = []
         for c in channels:
             cid = c["user_id"]
             name = c["username"]
-            with contextlib.suppress(Exception):
-                cached = self.bot.user_cache.get_user(cid)
-                if cached and cached.get("display_name"):
-                    name = cached["display_name"]
-                else:
-                    users = await self.bot.fetch_users(ids=[int(cid)])
-                    if users and users[0].display_name:
-                        name = users[0].display_name
+            cached = self.bot.user_cache.get_user(cid)
+            if cached and cached.get("display_name"):
+                name = cached["display_name"]
+            else:
+                with contextlib.suppress(ValueError):
+                    missing_ids.append(int(cid))
             self._channel_map[cid] = name
+
+        if missing_ids:
+            with contextlib.suppress(Exception):
+                users = await self.bot.fetch_users(ids=missing_ids)
+                for u in users:
+                    if u.id and u.display_name:
+                        self._channel_map[u.id] = u.display_name
 
         if not self._channel_ids:
             LOGGER.warning("StreamComponent: no hay canales para monitorear.")

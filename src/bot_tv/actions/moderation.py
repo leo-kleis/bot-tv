@@ -93,7 +93,7 @@ async def action_ban_user(
             ok=False,
             action="ban",
             target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}): {e}",
+            error=f"Error de Twitch (HTTP {e.status}).",
         )
     except Exception as e:
         LOGGER.exception("Error inesperado al banear a '%s': %s", target_username, e)
@@ -101,7 +101,7 @@ async def action_ban_user(
             ok=False,
             action="ban",
             target_username=target_username,
-            error=f"Error inesperado: {e}",
+            error="Error inesperado al ejecutar la acción de moderación.",
         )
 
 
@@ -137,7 +137,7 @@ async def action_unban_user(bot: Bot, target_username: str) -> ModerationActionR
             ok=False,
             action="unban",
             target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}): {e}",
+            error=f"Error de Twitch (HTTP {e.status}).",
         )
     except Exception as e:
         LOGGER.exception("Error inesperado al desbanear a '%s': %s", target_username, e)
@@ -145,7 +145,7 @@ async def action_unban_user(bot: Bot, target_username: str) -> ModerationActionR
             ok=False,
             action="unban",
             target_username=target_username,
-            error=f"Error inesperado: {e}",
+            error="Error inesperado al ejecutar la acción de moderación.",
         )
 
 
@@ -243,7 +243,7 @@ async def action_delete_messages(
             ok=False,
             action="delete_message",
             target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}): {e}",
+            error=f"Error de Twitch (HTTP {e.status}).",
         )
     except Exception as e:
         LOGGER.exception("Error inesperado al borrar mensajes: %s", e)
@@ -251,7 +251,7 @@ async def action_delete_messages(
             ok=False,
             action="delete_message",
             target_username=target_username,
-            error=f"Error inesperado: {e}",
+            error="Error inesperado al ejecutar la acción de moderación.",
         )
 
 
@@ -295,7 +295,7 @@ async def action_purge_user(bot: Bot, target_username: str) -> ModerationActionR
             ok=False,
             action="purge",
             target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}): {e}",
+            error=f"Error de Twitch (HTTP {e.status}).",
         )
     except Exception as e:
         LOGGER.exception("Error inesperado al purgar a '%s': %s", target_username, e)
@@ -303,5 +303,5 @@ async def action_purge_user(bot: Bot, target_username: str) -> ModerationActionR
             ok=False,
             action="purge",
             target_username=target_username,
-            error=f"Error inesperado: {e}",
+            error="Error inesperado al ejecutar la acción de moderación.",
         )

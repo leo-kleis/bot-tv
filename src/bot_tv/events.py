@@ -11,7 +11,7 @@ from datetime import datetime
 
 
 def _now() -> str:
-    return datetime.now().isoformat()
+    return datetime.now().astimezone().isoformat()
 
 
 # ── Chat ────────────────────────────────────────────────────────────────────

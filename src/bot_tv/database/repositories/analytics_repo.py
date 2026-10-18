@@ -204,10 +204,10 @@ class AnalyticsRepository(BaseRepository):
             UPDATE stream_sessions s
             SET 
                 ended_at = COALESCE(
-                    snap.max_ts::timestamptz,
-                    evt.max_ts::timestamptz,
-                    chat.max_ts::timestamptz,
-                    s.started_at::timestamptz
+                    snap.max_ts,
+                    evt.max_ts,
+                    chat.max_ts,
+                    s.started_at
                 ),
                 close_reason = 'orphan_recovery_fast',
                 is_live = FALSE
@@ -282,7 +282,7 @@ class AnalyticsRepository(BaseRepository):
                     SELECT 
                         date_bin(
                             MAKE_INTERVAL(mins => $3),
-                            c.timestamp::timestamptz,
+                            c.timestamp,
                             sm.started_at
                         ) AS bucket_start,
                         COUNT(*) AS message_count,
@@ -332,14 +332,14 @@ class AnalyticsRepository(BaseRepository):
                     SELECT 
                         date_bin(
                             MAKE_INTERVAL(mins => $2),
-                            c.timestamp::timestamptz,
+                            c.timestamp,
                             '2000-01-01 00:00:00+00'::timestamptz
                         ) AS bucket_start,
                         COUNT(*) AS message_count,
                         COUNT(DISTINCT c.user_id) AS unique_chatters
                     FROM chat_history c
                     WHERE c.channel_id = $1
-                      AND c.timestamp::timestamptz >= (NOW() - INTERVAL '24 hours')
+                      AND c.timestamp >= (NOW() - INTERVAL '24 hours')
                     GROUP BY bucket_start
                 )
                 SELECT 
@@ -382,7 +382,7 @@ class AnalyticsRepository(BaseRepository):
                 WHERE channel_id = $1
                   AND (
                       $2::timestamptz IS NULL 
-                      OR timestamp::timestamptz >= $2::timestamptz
+                      OR timestamp >= $2::timestamptz
                   )
                 GROUP BY user_id
                 ORDER BY msg_count DESC
@@ -424,12 +424,10 @@ class AnalyticsRepository(BaseRepository):
         if dt_since is not None and dt_since.tzinfo is None:
             dt_since = dt_since.replace(tzinfo=UTC)
 
-        query = f"""
+        query = """
             WITH events AS (
                 SELECT 
-                    date_trunc(
-                        '{safe_period}', followed_at::timestamptz
-                    ) AS period_start,
+                    date_trunc($3::text, followed_at) AS period_start,
                     1 AS gained,
                     0 AS lost
                 FROM channel_users
@@ -437,15 +435,13 @@ class AnalyticsRepository(BaseRepository):
                   AND followed_at IS NOT NULL
                   AND (
                       $2::timestamptz IS NULL 
-                      OR followed_at::timestamptz >= $2::timestamptz
+                      OR followed_at >= $2::timestamptz
                   )
                 
                 UNION ALL
                 
                 SELECT 
-                    date_trunc(
-                        '{safe_period}', unfollowed_at::timestamptz
-                    ) AS period_start,
+                    date_trunc($3::text, unfollowed_at) AS period_start,
                     0 AS gained,
                     1 AS lost
                 FROM channel_users
@@ -453,7 +449,7 @@ class AnalyticsRepository(BaseRepository):
                   AND unfollowed_at IS NOT NULL
                   AND (
                       $2::timestamptz IS NULL 
-                      OR unfollowed_at::timestamptz >= $2::timestamptz
+                      OR unfollowed_at >= $2::timestamptz
                   )
             )
             SELECT 
@@ -469,11 +465,16 @@ class AnalyticsRepository(BaseRepository):
             ORDER BY period_start ASC;
         """
         async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, dt_since)
+            rows: list[asyncpg.Record] = await conn.fetch(
+                query, channel_id, dt_since, safe_period
+            )
         return [dict(row) for row in rows]
 
-    async def get_viewer_timeline(self, stream_id: str) -> list[dict[str, Any]]:
+    async def get_viewer_timeline(
+        self, stream_id: str, limit: int = 5000
+    ) -> list[dict[str, Any]]:
         """Retorna las muestras de espectadores con el minuto de transmisión."""
+        safe_limit = max(1, min(limit, 10000))
         query = """
             SELECT 
                 v.id,
@@ -487,11 +488,64 @@ class AnalyticsRepository(BaseRepository):
             FROM viewer_snapshots v
             JOIN stream_sessions s ON v.stream_id = s.stream_id
             WHERE v.stream_id = $1
-            ORDER BY v.recorded_at ASC;
+            ORDER BY v.recorded_at ASC
+            LIMIT $2;
         """
         async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id)
+            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id, safe_limit)
         return [dict(row) for row in rows]
+
+    async def get_stream_session_by_id(
+        self, stream_id: str, channel_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """Obtiene una sesión de transmisión individual por su stream_id."""
+        query = """
+            SELECT 
+                stream_id,
+                channel_id,
+                title,
+                category_name,
+                is_live,
+                started_at,
+                ended_at,
+                last_seen_at,
+                peak_viewers,
+                close_reason
+            FROM stream_sessions
+            WHERE stream_id = $1
+              AND ($2::text IS NULL OR channel_id = $2);
+        """
+        row: asyncpg.Record | None = None
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    row = await conn.fetchrow(query, stream_id, channel_id)
+                break
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida en stream session (%s). Reintentando...",
+                        e,
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
+        return dict(row) if row else None
+
+    async def get_stream_message_count(self, stream_id: str) -> int:
+        """Devuelve el conteo total de mensajes registrados en un stream."""
+        query = """
+            SELECT COUNT(*)::int AS total
+            FROM chat_history
+            WHERE stream_id = $1;
+        """
+        async with self._db.acquire() as conn:
+            row: asyncpg.Record | None = await conn.fetchrow(query, stream_id)
+        return int(row["total"]) if row else 0
 
     async def get_stream_sessions(
         self, channel_id: str | None = None, limit: int = 10
@@ -569,8 +623,11 @@ class AnalyticsRepository(BaseRepository):
             rows: list[asyncpg.Record] = await conn.fetch(query, stream_id)
         return [dict(row) for row in rows]
 
-    async def get_stream_event_timeline(self, stream_id: str) -> list[dict[str, Any]]:
+    async def get_stream_event_timeline(
+        self, stream_id: str, limit: int = 5000
+    ) -> list[dict[str, Any]]:
         """Devuelve eventos con minuto relativo y carga JSON deserializada."""
+        safe_limit = max(1, min(limit, 10000))
         query = """
             SELECT 
                 e.id,
@@ -585,10 +642,11 @@ class AnalyticsRepository(BaseRepository):
             FROM stream_events e
             JOIN stream_sessions s ON e.stream_id = s.stream_id
             WHERE e.stream_id = $1
-            ORDER BY e.timestamp ASC;
+            ORDER BY e.timestamp ASC
+            LIMIT $2;
         """
         async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id)
+            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id, safe_limit)
 
         results: list[dict[str, Any]] = []
         for row in rows:

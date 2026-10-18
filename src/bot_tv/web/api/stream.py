@@ -33,16 +33,24 @@ async def endpoint_update_stream_info(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
 
-    title = body.get("title")
-    category_id = body.get("category_id")
+    raw_title = body.get("title")
+    raw_category_id = body.get("category_id")
+
+    title = raw_title.strip() if isinstance(raw_title, str) else None
+    category_id = (
+        str(raw_category_id).strip()
+        if isinstance(raw_category_id, (str, int))
+        and not isinstance(raw_category_id, bool)
+        else None
+    )
 
     if title is None and category_id is None:
         return _err("Debe enviar al menos 'title' o 'category_id'.")
 
     result = await action_update_channel_info(
         bot,
-        title=str(title) if title is not None else None,
-        category_id=str(category_id) if category_id is not None else None,
+        title=title,
+        category_id=category_id,
     )
 
     if not result.get("ok"):

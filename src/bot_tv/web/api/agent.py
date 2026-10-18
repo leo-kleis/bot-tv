@@ -17,7 +17,7 @@ from bot_tv.actions.agent import (
     action_talk,
 )
 from bot_tv.events import AgentResponseEvent
-from bot_tv.web.api.helpers import _err, _ok, _parse_body
+from bot_tv.web.api.helpers import _err, _get_str, _ok, _parse_body
 
 if TYPE_CHECKING:
     from bot_tv.agent import TalkAgent
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 async def endpoint_switch_model(request: Request) -> Response:
     agent: TalkAgent = request.app.state.agent
     body = await _parse_body(request)
-    model = body.get("model", "").strip()
+    model = _get_str(body, "model")
     if not model:
         return _err("Campo 'model' requerido.")
 
@@ -41,7 +41,7 @@ async def endpoint_talk(request: Request) -> Response:
     event_bus = bot.event_bus
 
     body = await _parse_body(request)
-    message = body.get("message", "").strip()
+    message = _get_str(body, "message")
     if not message:
         return _err("Campo 'message' requerido.")
 

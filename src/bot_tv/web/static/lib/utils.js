@@ -1,6 +1,12 @@
+const RGB_CACHE = new Map();
+
 // Convierte color_rgb [r,g,b] a un color suave y altamente legible para tema oscuro (Dark Mode)
 export function toRgb(rgb) {
   if (!rgb || rgb.length < 3) return 'var(--accent-text)';
+
+  const cacheKey = `${rgb[0]},${rgb[1]},${rgb[2]}`;
+  const cached = RGB_CACHE.get(cacheKey);
+  if (cached !== undefined) return cached;
 
   let [r, g, b] = rgb;
   r /= 255;
@@ -53,7 +59,9 @@ export function toRgb(rgb) {
   const gOut = Math.round(hue2rgb(p, q, h) * 255);
   const bOut = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
 
-  return `rgb(${rOut}, ${gOut}, ${bOut})`;
+  const result = `rgb(${rOut}, ${gOut}, ${bOut})`;
+  RGB_CACHE.set(cacheKey, result);
+  return result;
 }
 
 // Formatea HH:MM desde ISO timestamp
@@ -61,6 +69,20 @@ export function fmtTime(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  } catch {
+    return '';
+  }
+}
+
+// Valida que una URL utilice protocolo http: o https:
+export function sanitizeHttpUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.href;
+    }
+    return '';
   } catch {
     return '';
   }

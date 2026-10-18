@@ -108,7 +108,7 @@
 }
 
 .conn-popover-title {
-  font-size: 10px;
+  font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;

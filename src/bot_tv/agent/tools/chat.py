@@ -49,7 +49,7 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            limit = max(1, limit)
+            limit = max(1, min(limit, 100))
             since_param = since.replace(" ", "T") if since else None
             if hours_ago is not None:
                 since_param = (
@@ -103,16 +103,17 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
             else:
                 header = "Mensajes de chat encontrados:"
 
-            lines = [header]
+            msg_lines = []
             for r in reversed(rows):
                 name = r["display_name"] or r["username"]
                 if r["nickname"]:
                     name = f"{name} ({r['nickname']})"
-                lines.append(
+                msg_lines.append(
                     f"- [{format_date(r['timestamp'])}] {name}: {r['message']}"
                 )
 
-            return "\n".join(lines)
+            body = "\n".join(msg_lines)
+            return f"{header}\n<untrusted_chat_data>\n{body}\n</untrusted_chat_data>"
         except Exception as e:
             LOGGER.error("Error al obtener mensajes del chat: %s", e)
             return f"Error al consultar base de datos: {e}"

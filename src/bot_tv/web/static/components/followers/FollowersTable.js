@@ -119,7 +119,7 @@ export function FollowersTable({
                                       <span style="color:var(--text-muted);font-size:11px;">
                                         <i
                                           class="fa-solid fa-message"
-                                          style="font-size:9px;margin-right:3px;"
+                                          style="font-size:11px;margin-right:3px;"
                                         ></i>
                                         ${u.message_count.toLocaleString('es-ES')}
                                       </span>
@@ -199,7 +199,7 @@ export function FollowersTable({
                         </td>
 
                         <!-- Acciones unificadas -->
-                        <td data-label="Acción">
+                        <td data-label="Acciones">
                           <div class="user-table-actions">
                             <button
                               class="btn btn-secondary btn-sm"

@@ -107,6 +107,8 @@ class AdminConsole:
         respuesta = re.sub(r"\*|_", "", respuesta)
         respuesta = re.sub(r"`", "", respuesta)
 
+        from rich.markup import escape
+
         from bot_tv.utils.colors import format_timestamp
 
-        print(f"\n{format_timestamp()} {respuesta}\n")
+        print(f"\n{format_timestamp()} {escape(respuesta)}\n")

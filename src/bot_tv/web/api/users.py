@@ -15,12 +15,14 @@ from bot_tv.actions.users import (
     action_sync_user_roles,
     action_update_user_roles,
 )
-from bot_tv.web.api.helpers import _err, _ok, _parse_body
+from bot_tv.web.api.helpers import _err, _get_str, _ok, _parse_body
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
 LOGGER = logging.getLogger(__name__)
+
+MAX_USERS_PAGE_LIMIT = 200
 
 
 async def endpoint_sync_followers(request: Request) -> Response:
@@ -35,11 +37,12 @@ async def endpoint_sync_followers(request: Request) -> Response:
 async def endpoint_set_nickname(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
+    username = _get_str(body, "username")
     if not username:
         return _err("Campo 'username' requerido.")
 
-    nickname = body.get("nickname") or None  # string vacío → None (eliminar apodo)
+    # string vacío → None (eliminar apodo)
+    nickname = _get_str(body, "nickname") or None
 
     result = await action_set_nickname(bot, username, nickname)
     if isinstance(result, str):
@@ -51,7 +54,7 @@ async def endpoint_set_nickname(request: Request) -> Response:
 async def endpoint_update_user_roles(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
+    username = _get_str(body, "username")
     if not username:
         return _err("Campo 'username' requerido.")
 
@@ -60,7 +63,7 @@ async def endpoint_update_user_roles(request: Request) -> Response:
     is_vip = bool(body.get("is_vip", False))
 
     channels = await bot.get_channels()
-    channel_id = body.get("channel_id") or (
+    channel_id = _get_str(body, "channel_id") or (
         channels[0]["user_id"] if channels else None
     )
 
@@ -89,12 +92,12 @@ async def endpoint_update_user_roles(request: Request) -> Response:
 async def endpoint_sync_user_roles(request: Request) -> Response:
     bot: Bot = request.app.state.bot
     body = await _parse_body(request)
-    username = body.get("username", "").strip()
+    username = _get_str(body, "username")
     if not username:
         return _err("Campo 'username' requerido.")
 
     channels = await bot.get_channels()
-    channel_id = body.get("channel_id") or (
+    channel_id = _get_str(body, "channel_id") or (
         channels[0]["user_id"] if channels else None
     )
 
@@ -194,12 +197,14 @@ async def endpoint_list_users(request: Request) -> Response:
         limit = int(limit_param)
     except ValueError:
         limit = 50
+    limit = max(1, min(limit, MAX_USERS_PAGE_LIMIT))
 
     page_param = request.query_params.get("page", "1")
     try:
         page = int(page_param)
     except ValueError:
         page = 1
+    page = max(1, page)
 
     offset = (page - 1) * limit
 
@@ -256,7 +261,7 @@ async def endpoint_list_users(request: Request) -> Response:
         )
     except Exception as e:
         LOGGER.exception("Error inesperado al listar usuarios: %s", e)
-        return _err(f"Error al listar usuarios: {e}")
+        return _err("Error interno del servidor al listar usuarios.", status=500)
 
 
 async def endpoint_get_avatar(request: Request) -> Response:
@@ -267,7 +272,7 @@ async def endpoint_get_avatar(request: Request) -> Response:
 
     bot: Bot = request.app.state.bot
     url = await bot.user_repo.get_profile_image_url(user_id)
-    if not url:
+    if not url or not url.startswith(("https://", "http://")):
         return _err("Avatar no encontrado", 404)
 
     return RedirectResponse(url=url, status_code=302)
@@ -377,4 +382,4 @@ async def endpoint_user_messages(request: Request) -> Response:
         )
     except Exception as e:
         LOGGER.exception("Error al obtener mensajes del usuario %s: %s", username, e)
-        return _err(f"Error al obtener mensajes: {e}")
+        return _err("Error interno del servidor al obtener mensajes.", status=500)

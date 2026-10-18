@@ -52,6 +52,16 @@ export function FollowersTab({ followers }) {
     sortOrder,
   });
 
+  const fetchControllerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (fetchControllerRef.current) {
+        fetchControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   // Debounce del buscador de nombre (1s)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -121,6 +131,12 @@ export function FollowersTab({ followers }) {
   }, [isFollower]);
 
   async function fetchUsers() {
+    if (fetchControllerRef.current) {
+      fetchControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    fetchControllerRef.current = controller;
+
     setLoadingUsers(true);
     const params = new window.URLSearchParams();
     if (nameSearch.trim()) params.append('name', nameSearch.trim());
@@ -136,7 +152,11 @@ export function FollowersTab({ followers }) {
     params.append('limit', limit.toString());
     params.append('page', page.toString());
 
-    const res = await apiGet(`/api/users?${params.toString()}`);
+    const res = await apiGet(`/api/users?${params.toString()}`, { signal: controller.signal });
+    if (controller.signal.aborted || res?.aborted) {
+      return;
+    }
+
     setLoadingUsers(false);
     if (res && res.ok && res.data) {
       setUsers(res.data.users || []);

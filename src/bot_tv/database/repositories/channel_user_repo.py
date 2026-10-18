@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import asyncpg
 
-from bot_tv.database.repositories.base import BaseRepository
+from bot_tv.database.repositories.base import (
+    BaseRepository,
+    escape_like,
+    to_iso_str,
+    to_utc_datetime,
+)
 
 if TYPE_CHECKING:
     from bot_tv.database.user_cache import UserMemoryCache
@@ -36,13 +43,13 @@ class ChannelUserRepository(BaseRepository):
         self,
         channel_id: str,
         user_id: str,
-        followed_at: str | None,
+        followed_at: datetime | str | None,
         *,
         cache: UserMemoryCache | None = None,
     ) -> None:
         """Actualiza el estado de follow individual de un usuario en DB y caché."""
-        if cache is not None:
-            cache.set_user_follow_status(channel_id, user_id, followed_at)
+        dt_followed = to_utc_datetime(followed_at)
+        iso_followed = to_iso_str(followed_at)
 
         query = """
             INSERT INTO channel_users (
@@ -54,7 +61,10 @@ class ChannelUserRepository(BaseRepository):
                 unfollowed_at = NULL
         """
         async with self._db.acquire() as conn:
-            await conn.execute(query, channel_id, user_id, followed_at)
+            await conn.execute(query, channel_id, user_id, dt_followed)
+
+        if cache is not None:
+            cache.set_user_follow_status(channel_id, user_id, iso_followed)
 
     async def sync_followers(
         self,
@@ -71,9 +81,8 @@ class ChannelUserRepository(BaseRepository):
         if not new_followers and not unfollowed_ids:
             return
 
-        now_iso = datetime.now(UTC).isoformat()
-        if cache is not None:
-            cache.sync_followers(channel_id, new_followers, unfollowed_ids, now_iso)
+        now_dt = datetime.now(UTC)
+        now_iso = now_dt.isoformat()
 
         LOGGER.info(
             "DB BATCH UPDATE seguidores canal %s: %d nuevos, %d unfollows",
@@ -82,13 +91,13 @@ class ChannelUserRepository(BaseRepository):
             len(unfollowed_ids or []),
         )
 
-        async with self._db.acquire() as conn:
+        async with self._db.acquire() as conn, conn.transaction():
             # Batch: marcar unfollows
             if unfollowed_ids:
                 await conn.executemany(
                     "UPDATE channel_users SET unfollowed_at = $1 "
                     "WHERE channel_id = $2 AND user_id = $3",
-                    [(now_iso, channel_id, uid) for uid in unfollowed_ids],
+                    [(now_dt, channel_id, uid) for uid in unfollowed_ids],
                 )
 
             # Batch: upsert users + channel_users solo para los nuevos
@@ -113,8 +122,14 @@ class ChannelUserRepository(BaseRepository):
                         followed_at   = EXCLUDED.followed_at,
                         unfollowed_at = NULL
                     """,
-                    [(channel_id, uid, fat) for uid, _, fat in new_followers],
+                    [
+                        (channel_id, uid, to_utc_datetime(fat))
+                        for uid, _, fat in new_followers
+                    ],
                 )
+
+        if cache is not None:
+            cache.sync_followers(channel_id, new_followers, unfollowed_ids, now_iso)
 
     async def get_follower_stats(self, channel_id: str) -> dict[str, int] | None:
         """Devuelve las estadísticas de seguidores (excluyendo bots)."""
@@ -146,17 +161,17 @@ class ChannelUserRepository(BaseRepository):
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Busca seguidores en base a un término de búsqueda (coincidencia en users)."""
-        limit = max(1, limit)
-        like_pattern = f"%{search_term}%"
+        limit = max(1, min(limit, 100))
+        like_pattern = f"%{escape_like(search_term)}%"
         query = """
             SELECT u.username, u.display_name, u.nickname,
                    cu.followed_at, cu.unfollowed_at
             FROM channel_users cu
             JOIN users u ON cu.user_id = u.user_id
             WHERE cu.channel_id = $1 AND u.is_bot = FALSE AND (
-                u.username ILIKE $2 OR
-                u.display_name ILIKE $2 OR
-                u.nickname ILIKE $2
+                u.username ILIKE $2 ESCAPE '\\' OR
+                u.display_name ILIKE $2 ESCAPE '\\' OR
+                u.nickname ILIKE $2 ESCAPE '\\'
             )
         """
         if active_only:
@@ -167,14 +182,21 @@ class ChannelUserRepository(BaseRepository):
             rows: list[asyncpg.Record] = await conn.fetch(
                 query, channel_id, like_pattern, limit
             )
-        return [dict(row) for row in rows]
+        return [
+            {
+                **dict(row),
+                "followed_at": to_iso_str(row["followed_at"]),
+                "unfollowed_at": to_iso_str(row["unfollowed_at"]),
+            }
+            for row in rows
+        ]
 
     async def get_recent_followers(
         self, channel_id: str, limit: int = 5, active_only: bool = True
     ) -> list[dict[str, Any]]:
         """Obtiene los seguidores más recientes (activos por defecto)."""
 
-        limit = max(1, limit)
+        limit = max(1, min(limit, 100))
         query = """
             SELECT u.username, u.display_name, u.nickname,
                    cu.followed_at, cu.unfollowed_at
@@ -188,13 +210,20 @@ class ChannelUserRepository(BaseRepository):
 
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
-        return [dict(row) for row in rows]
+        return [
+            {
+                **dict(row),
+                "followed_at": to_iso_str(row["followed_at"]),
+                "unfollowed_at": to_iso_str(row["unfollowed_at"]),
+            }
+            for row in rows
+        ]
 
     async def get_recent_unfollowers(
         self, channel_id: str, limit: int = 5
     ) -> list[dict[str, Any]]:
         """Obtiene la lista de los usuarios que han dejado de seguir el canal."""
-        limit = max(1, limit)
+        limit = max(1, min(limit, 100))
         query = """
             SELECT u.username, u.display_name, u.nickname,
                    cu.followed_at, cu.unfollowed_at
@@ -205,7 +234,14 @@ class ChannelUserRepository(BaseRepository):
         """
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
-        return [dict(row) for row in rows]
+        return [
+            {
+                **dict(row),
+                "followed_at": to_iso_str(row["followed_at"]),
+                "unfollowed_at": to_iso_str(row["unfollowed_at"]),
+            }
+            for row in rows
+        ]
 
     async def upsert_channel_user_roles(
         self,

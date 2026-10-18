@@ -25,7 +25,7 @@ async def create_pg_pool(*, direct: bool = True) -> asyncpg.Pool:
         url,
         min_size=2,
         max_size=10,
-        statement_cache_size=0,
+        statement_cache_size=100 if direct else 0,
         command_timeout=30,
         max_inactive_connection_lifetime=300.0,
     )
