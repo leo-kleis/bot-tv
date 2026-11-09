@@ -3,6 +3,16 @@ import { html, render, useReducer } from 'preact-setup';
 import { App } from '/static/components/App.js';
 import { useWebSocket } from '/static/hooks/useWebSocket.js';
 
+try {
+  const savedFontSize = localStorage.getItem('font-size') || '14.5px';
+  const num = Number.parseFloat(savedFontSize);
+  if (!Number.isNaN(num) && num >= 12 && num <= 22) {
+    document.documentElement.style.setProperty('--font-size', `${num}px`);
+  }
+} catch {
+  // Ignorar errores de acceso a localStorage
+}
+
 // ── Constantes ───────────────────────────────────────────────────────────────
 const MAX_CHAT = 300;
 const MAX_PARTED_USERS = 200;
