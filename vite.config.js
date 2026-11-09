@@ -1,4 +1,4 @@
-import { copyFileSync, cpSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
@@ -6,17 +6,25 @@ import { defineConfig } from 'vite';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const staticDir = path.resolve(__dirname, 'src/bot_tv/web/static');
 const distDir = path.resolve(__dirname, 'src/bot_tv/web/dist');
+const VERSION_PLACEHOLDER = '__APP_VERSION__';
+
+const { version: appVersion } = JSON.parse(
+  readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')
+);
 
 function copyPwaStaticAssets() {
   return {
     name: 'copy-pwa-static-assets',
     closeBundle() {
       mkdirSync(distDir, { recursive: true });
-      for (const file of ['manifest.json', 'sw.js']) {
-        const src = path.join(staticDir, file);
-        if (existsSync(src)) {
-          copyFileSync(src, path.join(distDir, file));
-        }
+      const manifestSrc = path.join(staticDir, 'manifest.json');
+      if (existsSync(manifestSrc)) {
+        copyFileSync(manifestSrc, path.join(distDir, 'manifest.json'));
+      }
+      const swSrc = path.join(staticDir, 'sw.js');
+      if (existsSync(swSrc)) {
+        const swContent = readFileSync(swSrc, 'utf8').replaceAll(VERSION_PLACEHOLDER, appVersion);
+        writeFileSync(path.join(distDir, 'sw.js'), swContent);
       }
       const iconsSrc = path.join(staticDir, 'icons');
       if (existsSync(iconsSrc)) {

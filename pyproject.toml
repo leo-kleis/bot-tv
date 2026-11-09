@@ -85,4 +85,5 @@ dev = [
     "ruff==0.15.17",
     "pyrefly",
     "watchfiles==1.2.0",
+    "pillow==13.0.0",
 ]

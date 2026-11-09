@@ -114,16 +114,15 @@ class UserMemoryCache:
         if not user_id:
             return "Visita"
 
-        uid_str = str(user_id)
         bid_str = str(broadcaster_id)
 
-        if uid_str == bid_str:
+        if user_id == bid_str:
             return "Broadcaster"
 
-        if (bot_id and uid_str == str(bot_id)) or self.is_user_bot(uid_str):
+        if (bot_id and user_id == bot_id) or self.is_user_bot(user_id):
             return "Bot"
 
-        roles = self.get_user_roles(uid_str, bid_str)
+        roles = self.get_user_roles(user_id, bid_str)
         if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
             fat = roles.get("followed_at")
             if isinstance(fat, str):

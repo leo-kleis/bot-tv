@@ -8,7 +8,7 @@ import hmac
 import logging
 import shutil
 import subprocess
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -88,6 +88,7 @@ MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 CROSS_ORIGIN_BLOCKED_MSG = "Solicitud cross-origin bloqueada."
 AUTH_COOKIE_NAME = "bot_tv_token"
+REVALIDATE_HEADERS = {"Cache-Control": "no-cache"}
 
 CSP_HEADER = (
     "default-src 'self'; "
@@ -273,8 +274,14 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     ws_manager.register()
     web_root = _ensure_frontend_dist()
 
-    async def homepage(request: Request) -> Response:
-        return FileResponse(web_root / "index.html")
+    # no-cache fuerza revalidar: evita un index.html viejo que apunte a bundles borrados
+    def revalidated_file(filename: str) -> Callable[[Request], Response]:
+        def handler(request: Request) -> Response:
+            return FileResponse(web_root / filename, headers=REVALIDATE_HEADERS)
+
+        return handler
+
+    homepage = revalidated_file("index.html")
 
     async def healthcheck(request: Request) -> Response:
         return JSONResponse(
@@ -294,8 +301,8 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     routes = [
         Route("/", homepage),
         Route("/api/health", healthcheck, methods=["GET"]),
-        Route("/sw.js", lambda r: FileResponse(web_root / "sw.js")),
-        Route("/manifest.json", lambda r: FileResponse(web_root / "manifest.json")),
+        Route("/sw.js", revalidated_file("sw.js")),
+        Route("/manifest.json", revalidated_file("manifest.json")),
         Route(
             "/favicon.ico",
             lambda r: FileResponse(web_root / "icons" / "icon-192.png"),
