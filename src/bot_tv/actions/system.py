@@ -19,9 +19,8 @@ async def action_exit(bot: Bot) -> None:
 
 
 async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
-    """Dispara la creación de un clip vía el ClipComponent y espera el resultado."""
+    """Dispara la creación de un clip vía el ClipComponent y retorna el resultado."""
     from bot_tv.components.clip_component import ClipComponent
-    from bot_tv.events import ClipCreatedEvent as _ClipEvent
 
     # pyrefly: ignore [missing-attribute]
     component = bot._components.get("ClipComponent")
@@ -29,24 +28,15 @@ async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
         LOGGER.error("ClipComponent no encontrado.")
         return "Componente ClipComponent no disponible."
 
-    loop = asyncio.get_running_loop()
-    future: asyncio.Future[_ClipEvent | str] = loop.create_future()
-
-    async def on_clip(event: _ClipEvent) -> None:
-        if not future.done():
-            future.set_result(event)
-
-    bot.event_bus.subscribe(_ClipEvent, on_clip)
-
     try:
-        await component.hacer_clip(raise_on_error=True)
-        result = await asyncio.wait_for(future, timeout=15)
+        event = await asyncio.wait_for(
+            component.hacer_clip(raise_on_error=True), timeout=15
+        )
+        if event is None:
+            return "Error al crear el clip: no se obtuvo respuesta de Twitch."
+        return event
     except TimeoutError:
-        result = "Timeout: el clip tardó demasiado."
+        return "Timeout: el clip tardó demasiado."
     except Exception as e:
         msg = str(e) or "Fallo al crear el clip en Twitch"
-        result = f"Error al crear el clip: {msg}"
-    finally:
-        bot.event_bus.unsubscribe(_ClipEvent, on_clip)
-
-    return result
+        return f"Error al crear el clip: {msg}"

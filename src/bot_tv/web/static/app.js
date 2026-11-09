@@ -1,3 +1,4 @@
+import './css/main.css';
 import { html, render, useReducer } from 'preact-setup';
 import { App } from '/static/components/App.js';
 import { useWebSocket } from '/static/hooks/useWebSocket.js';
@@ -6,6 +7,8 @@ import { useWebSocket } from '/static/hooks/useWebSocket.js';
 const MAX_CHAT = 300;
 const MAX_PARTED_USERS = 200;
 const MAX_AGENT_CONVERSATIONS = 100;
+const MAX_FOLLOWER_LABELS = 500;
+const MAX_TOASTS = 20;
 
 let nextMsgUid = 1;
 
@@ -242,8 +245,10 @@ function reducer(state, action) {
         l => !existingLostIds.has(extractId(l))
       );
 
-      const allNewLabels = [...(prev.allNewLabels || []), ...freshNew];
-      const allLostLabels = [...(prev.allLostLabels || []), ...freshLost];
+      const allNewLabels = [...(prev.allNewLabels || []), ...freshNew].slice(-MAX_FOLLOWER_LABELS);
+      const allLostLabels = [...(prev.allLostLabels || []), ...freshLost].slice(
+        -MAX_FOLLOWER_LABELS
+      );
 
       const followerToasts = [];
       const getCleanName = label => label.replace(/^\[\d+\]\s*/, '').split(' (')[0] || label;
@@ -314,7 +319,10 @@ function reducer(state, action) {
 
       return {
         ...state,
-        toasts: followerToasts.length > 0 ? [...state.toasts, ...followerToasts] : state.toasts,
+        toasts:
+          followerToasts.length > 0
+            ? [...state.toasts, ...followerToasts].slice(-MAX_TOASTS)
+            : state.toasts,
         followers: {
           ...prev,
           lastSync: syncData,
@@ -609,7 +617,7 @@ function reducer(state, action) {
 
       return {
         ...state,
-        toasts: [...state.toasts, followToast],
+        toasts: [...state.toasts, followToast].slice(-MAX_TOASTS),
         ircUsers,
         chatMessages: msgs.length > MAX_CHAT ? msgs.slice(-MAX_CHAT) : msgs,
       };
@@ -651,7 +659,7 @@ function reducer(state, action) {
       return state;
 
     case 'ADD_TOAST':
-      return { ...state, toasts: [...state.toasts, action.toast] };
+      return { ...state, toasts: [...state.toasts, action.toast].slice(-MAX_TOASTS) };
 
     case 'REMOVE_TOAST':
       return { ...state, toasts: state.toasts.filter(t => t.id !== action.id) };

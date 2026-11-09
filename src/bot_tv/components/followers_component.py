@@ -163,6 +163,8 @@ class FollowersComponent(commands.Component):
 
         Solo recolecta datos, NO toca la base de datos.
         """
+        import time
+
         user = await self.bot.fetch_user(id=int(channel_id))
         if not user:
             LOGGER.warning("No se encontró el usuario con ID %s", channel_id)
@@ -173,6 +175,7 @@ class FollowersComponent(commands.Component):
 
         follower_tuples: list[tuple[str, str, str | None]] = []
         count = 0
+        last_emit_ts = 0.0
         async for follower_event in channel_followers.followers:
             count += 1
             fid = follower_event.user.id
@@ -184,13 +187,21 @@ class FollowersComponent(commands.Component):
             )
             follower_tuples.append((fid, fname, followed_at))
 
-            # Emitir progreso en tiempo real (sin tocar DB)
-            await self.bot.event_bus.emit(
-                FollowerProgressEvent(
-                    timestamp=datetime.now().isoformat(),
-                    count=count,
-                    total=total,
+            # Emitir progreso con throttling (cada 50 registros, 250ms o al final)
+            now_mono = time.monotonic()
+            if (
+                count == 1
+                or count == total
+                or count % 50 == 0
+                or (now_mono - last_emit_ts) >= 0.25
+            ):
+                last_emit_ts = now_mono
+                await self.bot.event_bus.emit(
+                    FollowerProgressEvent(
+                        timestamp=datetime.now().isoformat(),
+                        count=count,
+                        total=total,
+                    )
                 )
-            )
 
         return follower_tuples

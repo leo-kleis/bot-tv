@@ -1,10 +1,11 @@
 import { html, useEffect, useRef, useMemo } from 'preact-setup';
-import { Chart } from '/static/vendor/chart.js-auto.esm.js';
+import { Chart } from 'chart.js';
 import { getChartTheme, getBaseChartOptions } from './chartTheme.js';
 
 export function TopChattersChart({ data = [], period = '24h' }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const dataRef = useRef([]);
 
   const normalizedData = useMemo(() => {
     const rawList = Array.isArray(data)
@@ -26,22 +27,39 @@ export function TopChattersChart({ data = [], period = '24h' }) {
       .sort((a, b) => b.count - a.count);
   }, [data]);
 
+  dataRef.current = normalizedData;
+
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
+    if (!canvas || normalizedData.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+      return;
     }
-
-    if (normalizedData.length === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    const theme = getChartTheme();
 
     const labels = normalizedData.map(d => d.username);
     const counts = normalizedData.map(d => d.count);
+
+    if (chartRef.current) {
+      chartRef.current.data.labels = labels;
+      chartRef.current.data.datasets[0].data = counts;
+      chartRef.current.update('none');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const theme = getChartTheme();
 
     const options = getBaseChartOptions({
       indexAxis: 'y',
@@ -51,7 +69,7 @@ export function TopChattersChart({ data = [], period = '24h' }) {
             title: function (tooltipItems) {
               if (!tooltipItems.length) return '';
               const index = tooltipItems[0].dataIndex;
-              const item = normalizedData[index];
+              const item = dataRef.current[index];
               return item ? `Usuario: @${item.username}` : '';
             },
             label: function (context) {
@@ -128,13 +146,6 @@ export function TopChattersChart({ data = [], period = '24h' }) {
       },
       options,
     });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
   }, [normalizedData]);
 
   const periodLabelMap = {

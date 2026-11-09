@@ -2,7 +2,6 @@ import { html, useState, useEffect, useMemo } from 'preact-setup';
 import { StreamWidget } from '/static/components/StreamWidget.js';
 import { StreamTab } from '/static/components/stream/StreamTab.js';
 import { ChatTab } from '/static/components/chat/ChatTab.js';
-import { AnalyticsTab } from '/static/components/analytics/AnalyticsTab.js';
 import { FollowersTab } from '/static/components/followers/FollowersTab.js';
 import { AgentTab } from '/static/components/agent/AgentTab.js';
 import { SettingsTab } from '/static/components/settings/SettingsTab.js';
@@ -21,20 +20,42 @@ const TABS = [
 
 export function App({ state, dispatch }) {
   const [active, setActive] = useState('chat');
+  const [AnalyticsComp, setAnalyticsComp] = useState(null);
   const [showIrcMobile, setShowIrcMobile] = useState(false);
   const [editStreamModalOpen, setEditStreamModalOpen] = useState(false);
   const [confirmExitOpen, setConfirmExitOpen] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 600px)').matches;
+    return window.matchMedia('(max-width: 600px) and (min-height: 481px), (max-height: 480px)')
+      .matches;
   });
 
   useEffect(() => {
+    if (active === 'analytics' && !AnalyticsComp) {
+      import('/static/components/analytics/AnalyticsTab.js').then(mod => {
+        setAnalyticsComp(() => mod.AnalyticsTab);
+      });
+    }
+  }, [active, AnalyticsComp]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 600px)');
-    const handler = e => setIsSmallScreen(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const mqSmall = window.matchMedia(
+      '(max-width: 600px) and (min-height: 481px), (max-height: 480px)'
+    );
+    const mqDesktop = window.matchMedia('(min-width: 1025px) and (min-height: 481px)');
+    const handleSmall = e => setIsSmallScreen(e.matches);
+    const handleDesktop = e => {
+      if (e.matches) {
+        setShowIrcMobile(false);
+      }
+    };
+    mqSmall.addEventListener('change', handleSmall);
+    mqDesktop.addEventListener('change', handleDesktop);
+    return () => {
+      mqSmall.removeEventListener('change', handleSmall);
+      mqDesktop.removeEventListener('change', handleDesktop);
+    };
   }, []);
 
   useEffect(() => {
@@ -271,7 +292,7 @@ export function App({ state, dispatch }) {
           `
         }
         ${active === 'stream' && html` <${StreamTab} channel=${state.stream.broadcasterName} /> `}
-        ${active === 'analytics' && html`<${AnalyticsTab} />`}
+        ${active === 'analytics' && (AnalyticsComp ? html`<${AnalyticsComp} />` : null)}
         ${active === 'users' && html`<${FollowersTab} followers=${state.followers} />`}
         ${
           active === 'agent' &&

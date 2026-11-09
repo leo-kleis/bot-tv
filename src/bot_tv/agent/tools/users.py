@@ -26,7 +26,9 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            row = await bot.user_repo.get_user_detail_by_name(username, channel_id)
+            row = await bot.user_repo.get_user_detail_by_name(
+                username, channel_id, cache=bot.user_cache
+            )
 
             if not row:
                 return (

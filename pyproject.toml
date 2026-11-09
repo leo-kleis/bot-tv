@@ -1,7 +1,7 @@
 [project]
 name = "bot-tv"
-version = "0.14.0"
-description = "Bot de Twitch"
+version = "1.0.0b1"
+description = "Dashboard Web y Bot de Twitch con Agente IA"
 license = { file = "LICENSE" }
 authors = [{ name = "leo-kleis" }]
 requires-python = ">=3.14,<4.0"
@@ -9,11 +9,8 @@ dependencies = [
     "twitchio[starlette]==3.3.2",
     "asyncpg==0.31.0",
     "python-dotenv==1.2.2",
-    "requests==2.34.2",
-    "keyboard==0.13.5",
-    "prompt-toolkit==3.0.52",
+    "httpx==0.28.1",
     "google-antigravity==0.1.7",
-
     "rich==15.0.0",
     "starlette==1.3.1",
     "uvicorn==0.49.0",
@@ -32,7 +29,7 @@ packages = ["src/bot_tv"]
 
 [project.scripts]
 bot-tv = "bot_tv.main:main"
-bot-web = "bot_tv.web_main:main"
+bot-web = "bot_tv.main:main"
 bot-setup = "bot_tv.setup:setup"
 
 # ── Ruff ────────────────────────────────────────────────────────────
@@ -87,7 +84,5 @@ project-includes = ["src/**/*.py"]
 dev = [
     "ruff==0.15.17",
     "pyrefly",
-    "types-keyboard==0.13.2.20260508",
-    "types-requests==2.33.0.20260518",
     "watchfiles==1.2.0",
 ]

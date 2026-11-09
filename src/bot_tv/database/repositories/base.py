@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from typing import TypeVar
 
 import asyncpg
 
+LOGGER = logging.getLogger(__name__)
+
 _LIKE_SPECIAL_RE = re.compile(r"([%_\\])")
+T = TypeVar("T")
 
 
 def escape_like(term: str) -> str:
@@ -42,3 +49,29 @@ class BaseRepository:
 
     def __init__(self, db: asyncpg.Pool) -> None:
         self._db = db
+
+    async def _with_retry(
+        self,
+        op_fn: Callable[[asyncpg.Connection], Awaitable[T]],
+        context_label: str = "operación DB",
+    ) -> T:
+        """Ejecuta una operación DB con reintento ante desconexión transitoria."""
+        for attempt in range(2):
+            try:
+                async with self._db.acquire() as conn:
+                    return await op_fn(conn)
+            except (
+                asyncpg.ConnectionDoesNotExistError,
+                asyncpg.InterfaceError,
+                OSError,
+            ) as e:
+                if attempt == 0:
+                    LOGGER.warning(
+                        "Conexión perdida en %s (%s). Reintentando...",
+                        context_label,
+                        e,
+                    )
+                    await asyncio.sleep(0.15)
+                    continue
+                raise
+        raise RuntimeError(f"Fallo inesperado en _with_retry ({context_label})")

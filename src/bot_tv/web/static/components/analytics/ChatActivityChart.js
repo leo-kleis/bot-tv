@@ -1,10 +1,11 @@
 import { html, useEffect, useRef, useMemo } from 'preact-setup';
-import { Chart } from '/static/vendor/chart.js-auto.esm.js';
+import { Chart } from 'chart.js';
 import { getChartTheme, getBaseChartOptions } from './chartTheme.js';
 
 export function ChatActivityChart({ data = [], interval = 5 }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const dataRef = useRef([]);
 
   const normalizedData = useMemo(() => {
     const rawList = Array.isArray(data)
@@ -23,22 +24,42 @@ export function ChatActivityChart({ data = [], interval = 5 }) {
     });
   }, [data]);
 
+  dataRef.current = normalizedData;
+
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
+    if (!canvas || normalizedData.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+      return;
     }
-
-    if (normalizedData.length === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    const theme = getChartTheme();
 
     const labels = normalizedData.map(d => d.label);
     const counts = normalizedData.map(d => d.count);
+
+    if (chartRef.current) {
+      chartRef.current.data.labels = labels;
+      chartRef.current.data.datasets[0].data = counts;
+      if (chartRef.current.options?.scales?.x?.title) {
+        chartRef.current.options.scales.x.title.text = `Intervalo agrupado (${interval} min)`;
+      }
+      chartRef.current.update('none');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const theme = getChartTheme();
 
     const options = getBaseChartOptions({
       plugins: {
@@ -47,7 +68,7 @@ export function ChatActivityChart({ data = [], interval = 5 }) {
             title: function (tooltipItems) {
               if (!tooltipItems.length) return '';
               const index = tooltipItems[0].dataIndex;
-              const item = normalizedData[index];
+              const item = dataRef.current[index];
               return item ? `Hora: ${item.label}` : '';
             },
             label: function (context) {
@@ -102,13 +123,6 @@ export function ChatActivityChart({ data = [], interval = 5 }) {
       },
       options,
     });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
   }, [normalizedData, interval]);
 
   return html`

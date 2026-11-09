@@ -29,7 +29,7 @@
 .conn-indicator-dot::before {
   content: '';
   position: absolute;
-  inset: -6px;
+  inset: -9px;
   border-radius: 50%;
 }
 

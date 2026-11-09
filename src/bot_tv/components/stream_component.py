@@ -182,7 +182,7 @@ class StreamComponent(commands.Component):
             else datetime.now(UTC)
         )
 
-        with contextlib.suppress(Exception):
+        try:
             await self.bot.analytics_repo.create_or_get_session(
                 channel_id=channel_id,
                 stream_id=payload.id,
@@ -190,6 +190,8 @@ class StreamComponent(commands.Component):
                 title=titulo,
                 category_name=categoria,
             )
+        except Exception as e:
+            LOGGER.warning("Error al registrar inicio de sesión de stream: %s", e)
 
         if hasattr(payload, "started_at") and payload.started_at:
             if hasattr(payload.started_at, "isoformat"):
@@ -219,12 +221,14 @@ class StreamComponent(commands.Component):
 
         target_stream_id = self.bot.current_stream_id or getattr(payload, "id", None)
         if target_stream_id:
-            with contextlib.suppress(Exception):
+            try:
                 await self.bot.analytics_repo.close_session(
                     target_stream_id,
                     datetime.now(UTC),
                     "eventsub_offline",
                 )
+            except Exception as e:
+                LOGGER.warning("Error al cerrar sesión de stream offline: %s", e)
         self.bot.current_stream_id = None
 
         nombre = (
@@ -301,7 +305,7 @@ class StreamComponent(commands.Component):
                         categoria = stream.game_name or ""
                         started_at = stream.started_at
 
-                        with contextlib.suppress(Exception):
+                        try:
                             await self.bot.analytics_repo.create_or_get_session(
                                 channel_id=channel_id,
                                 stream_id=stream.id,
@@ -314,6 +318,10 @@ class StreamComponent(commands.Component):
                             )
                             await self.bot.analytics_repo.update_session_viewers(
                                 stream.id, viewer_count
+                            )
+                        except Exception as e:
+                            LOGGER.warning(
+                                "Error al guardar estado inicial de analíticas: %s", e
                             )
 
                         started_at_str = (
@@ -414,13 +422,18 @@ class StreamComponent(commands.Component):
                                 categoria = stream_obj.game_name or ""
                                 started_at = stream_obj.started_at
 
-                                with contextlib.suppress(Exception):
+                                try:
                                     await self.bot.analytics_repo.create_or_get_session(
                                         channel_id=channel_id,
                                         stream_id=stream_obj.id,
                                         started_at=started_at,
                                         title=titulo,
                                         category_name=categoria,
+                                    )
+                                except Exception as e:
+                                    LOGGER.warning(
+                                        "Error al recuperar sesión en poll: %s",
+                                        e,
                                     )
 
                                 started_at_str = (
@@ -460,12 +473,16 @@ class StreamComponent(commands.Component):
                                 )
 
                             # En cada tick con stream online:
-                            with contextlib.suppress(Exception):
+                            try:
                                 await self.bot.analytics_repo.save_viewer_snapshot(
                                     channel_id, stream_obj.id, viewer_count
                                 )
                                 await self.bot.analytics_repo.update_session_viewers(
                                     stream_obj.id, viewer_count
+                                )
+                            except Exception as e:
+                                LOGGER.warning(
+                                    "Error al guardar snapshot de viewers: %s", e
                                 )
                         else:
                             # Anti-flapping: umbral de 2 ciclos consecutivos (120s)
@@ -480,11 +497,16 @@ class StreamComponent(commands.Component):
 
                                     target_stream_id = self.bot.current_stream_id
                                     if target_stream_id:
-                                        with contextlib.suppress(Exception):
+                                        try:
                                             await self.bot.analytics_repo.close_session(
                                                 target_stream_id,
                                                 datetime.now(UTC),
                                                 "poll_offline_timeout",
+                                            )
+                                        except Exception as e:
+                                            LOGGER.warning(
+                                                "Error cerrando sesión timeout: %s",
+                                                e,
                                             )
                                         self.bot.current_stream_id = None
 

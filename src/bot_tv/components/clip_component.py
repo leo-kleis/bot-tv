@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-import keyboard
 import twitchio
 from twitchio.ext import commands
 
@@ -19,37 +17,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ClipComponent(commands.Component):
-    """Componente que escucha la tecla F6 y crea un clip como broadcaster."""
+    """Componente encargado de crear clips del stream como broadcaster."""
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
-        self._loop = asyncio.get_running_loop()
         self._clip_en_progreso = False
 
-        # Registrar el F6
-        self._register_hotkey()
-
-    def _register_hotkey(self) -> None:
-        """Registra el hotkey global."""
-        try:
-            keyboard.add_hotkey("F6", self._on_f6_pressed)
-            LOGGER.info(
-                "Atajo de teclado %sF6 registrado%s para crear clips.", VERDE, RESET
-            )
-        except Exception as e:
-            LOGGER.error("No se pudo registrar F6: %s", e)
-
-    def _on_f6_pressed(self) -> None:
-        """Llamado de forma síncrona por 'keyboard' al presionar F6."""
+    async def hacer_clip(self, raise_on_error: bool = False) -> ClipCreatedEvent | None:
+        """Llama a la API de Twitch para crear un clip y emite ClipCreatedEvent."""
         if self._clip_en_progreso:
-            return  # Evitar múltiples presiones accidentales
+            msg = "Ya hay un clip creándose en este momento."
+            LOGGER.warning("%s%s%s", AMARILLO, msg, RESET)
+            if raise_on_error:
+                raise RuntimeError(msg)
+            return None
 
         self._clip_en_progreso = True
-        # Delegar al loop asíncrono sin bloquear el hilo de keyboard
-        asyncio.run_coroutine_threadsafe(self.hacer_clip(), self._loop)
-
-    async def hacer_clip(self, raise_on_error: bool = False) -> None:
-        """Llama a la API de Twitch para crear un clip y lo envía al chat."""
         try:
             LOGGER.info("%sCreando clip...%s", AMARILLO, RESET)
 
@@ -68,7 +51,7 @@ class ClipComponent(commands.Component):
                 )
                 if raise_on_error:
                     raise ValueError("El canal no está en vivo.")
-                return
+                return None
 
             # 1. Buscar a nuestro propio broadcaster (dueño del canal a clipear)
             channels = await self.bot.get_channels()
@@ -83,7 +66,7 @@ class ClipComponent(commands.Component):
                     raise ValueError(
                         "No se encontró la cuenta del canal para hacer el clip."
                     )
-                return
+                return None
 
             broadcaster_id = channels[0]["user_id"]
             broadcaster_name = channels[0]["username"]
@@ -104,7 +87,7 @@ class ClipComponent(commands.Component):
                 LOGGER.error("%sTwitch no devolvió ningún clip válido.%s", ROJO, RESET)
                 if raise_on_error:
                     raise ValueError("Twitch no devolvió ningún clip válido.")
-                return
+                return None
 
             # 4. Extraemos la URL (por defecto, Twitch y TwitchIO devuelven edit_url)
             edit_url = getattr(clip, "edit_url", None)
@@ -118,13 +101,13 @@ class ClipComponent(commands.Component):
 
             LOGGER.info("%s¡Clip creado con éxito!%s URL: %s", VERDE, RESET, url_final)
 
-            await self.bot.event_bus.emit(
-                ClipCreatedEvent(
-                    timestamp=datetime.now().isoformat(),
-                    url=url_final,
-                    broadcaster_name=broadcaster_name,
-                )
+            event = ClipCreatedEvent(
+                timestamp=datetime.now().isoformat(),
+                url=url_final,
+                broadcaster_name=broadcaster_name,
             )
+            await self.bot.event_bus.emit(event)
+            return event
 
         except twitchio.HTTPException as e:
             LOGGER.error(
@@ -134,9 +117,11 @@ class ClipComponent(commands.Component):
                 LOGGER.error("Error de la API (%s)", e.status)
             if raise_on_error:
                 raise
+            return None
         except Exception as e:
             LOGGER.exception("Error inesperado al crear el clip: %s", e)
             if raise_on_error:
                 raise
+            return None
         finally:
             self._clip_en_progreso = False

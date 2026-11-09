@@ -6,7 +6,7 @@ Uso:
 Requiere:
     - DATABASE_URL y DIRECT_URL configurados en .env
     - db/app.db y db/tokens.db existentes con datos
-    - asyncpg y aiosqlite instalados
+    - asyncpg instalado
 """
 
 from __future__ import annotations
@@ -14,12 +14,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import sqlite3
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import asyncpg
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from bot_tv.database.utils import to_utc_datetime  # noqa: E402
 
 from bot_tv.database.connection import create_pg_pool  # noqa: E402
 from bot_tv.utils.env import DIRECT_URL  # noqa: E402
@@ -48,9 +52,9 @@ async def migrate_users(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
             """
             INSERT INTO users (
                 user_id, username, display_name, nickname,
-                is_bot, is_moderator, is_vip, is_subscriber, profile_image_url
+                is_bot, profile_image_url
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (user_id) DO NOTHING
             """,
             row["user_id"],
@@ -58,9 +62,6 @@ async def migrate_users(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
             row["display_name"],
             row["nickname"],
             bool(row["is_bot"]),
-            bool(row["is_moderator"]),
-            bool(row["is_vip"]),
-            bool(row["is_subscriber"]),
             row["profile_image_url"],
         )
         count += 1
@@ -70,16 +71,24 @@ async def migrate_users(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
 async def migrate_chat_history(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
     count = 0
     for row in rows:
+        row_keys = row.keys()
+        msg_id = (
+            uuid.UUID(str(row["id"]))
+            if "id" in row_keys and len(str(row["id"])) == 36
+            else uuid.uuid4()
+        )
+        ts = to_utc_datetime(row["timestamp"]) or datetime.now(UTC)
         await pg.execute(
             """
-            INSERT INTO chat_history (channel_id, user_id, message, timestamp)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT DO NOTHING
+            INSERT INTO chat_history (id, channel_id, user_id, message, timestamp)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (id) DO NOTHING
             """,
+            msg_id,
             row["channel_id"],
             row["user_id"],
             row["message"],
-            row["timestamp"],
+            ts,
         )
         count += 1
     return count
@@ -88,16 +97,18 @@ async def migrate_chat_history(pg: asyncpg.Connection, rows: list[sqlite3.Row]) 
 async def migrate_followers(pg: asyncpg.Connection, rows: list[sqlite3.Row]) -> int:
     count = 0
     for row in rows:
+        followed_at = to_utc_datetime(row["followed_at"])
+        unfollowed_at = to_utc_datetime(row["unfollowed_at"])
         await pg.execute(
             """
-            INSERT INTO followers (channel_id, user_id, followed_at, unfollowed_at)
+            INSERT INTO channel_users (channel_id, user_id, followed_at, unfollowed_at)
             VALUES ($1, $2, $3, $4)
             ON CONFLICT (channel_id, user_id) DO NOTHING
             """,
             row["channel_id"],
             row["user_id"],
-            row["followed_at"],
-            row["unfollowed_at"],
+            followed_at,
+            unfollowed_at,
         )
         count += 1
     return count
@@ -199,7 +210,7 @@ async def main() -> None:
             LOGGER.info("chat_history migrados: %d", n_chat)
 
             n_followers = await migrate_followers(conn, followers)
-            LOGGER.info("followers migrados: %d", n_followers)
+            LOGGER.info("channel_users migrados: %d", n_followers)
 
             n_settings = await migrate_app_settings(conn, settings)
             LOGGER.info("app_settings migrados: %d", n_settings)

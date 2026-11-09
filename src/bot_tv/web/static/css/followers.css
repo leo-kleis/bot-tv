@@ -282,6 +282,12 @@
   color: var(--accent-text, #fff);
 }
 
+.users-table th.sortable:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+  color: var(--accent-text, #fff);
+}
+
 .users-table th.sortable i {
   margin-left: 6px;
   font-size: 11px;

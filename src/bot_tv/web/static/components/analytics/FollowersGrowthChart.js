@@ -1,5 +1,5 @@
 import { html, useEffect, useRef, useMemo } from 'preact-setup';
-import { Chart } from '/static/vendor/chart.js-auto.esm.js';
+import { Chart } from 'chart.js';
 import { getChartTheme, createAreaGradient, getBaseChartOptions } from './chartTheme.js';
 
 function formatDisplayDate(dateStr) {
@@ -17,6 +17,7 @@ function formatDisplayDate(dateStr) {
 export function FollowersGrowthChart({ data = [], period = 'day' }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const dataRef = useRef([]);
 
   const normalizedData = useMemo(() => {
     const rawList = Array.isArray(data)
@@ -44,16 +45,36 @@ export function FollowersGrowthChart({ data = [], period = 'day' }) {
     });
   }, [data]);
 
+  dataRef.current = normalizedData;
+
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
+    if (!canvas || normalizedData.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+      return;
     }
 
-    if (normalizedData.length === 0) return;
+    const labels = normalizedData.map(d => d.label);
+    const values = normalizedData.map(d => d.net);
+
+    if (chartRef.current) {
+      chartRef.current.data.labels = labels;
+      chartRef.current.data.datasets[0].data = values;
+      chartRef.current.update('none');
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     const theme = getChartTheme();
@@ -65,9 +86,6 @@ export function FollowersGrowthChart({ data = [], period = 'day' }) {
       240
     );
 
-    const labels = normalizedData.map(d => d.label);
-    const values = normalizedData.map(d => d.net);
-
     const options = getBaseChartOptions({
       plugins: {
         tooltip: {
@@ -75,11 +93,11 @@ export function FollowersGrowthChart({ data = [], period = 'day' }) {
             title: function (tooltipItems) {
               if (!tooltipItems.length) return '';
               const index = tooltipItems[0].dataIndex;
-              const item = normalizedData[index];
+              const item = dataRef.current[index];
               return item ? `Fecha: ${item.rawDate || item.label}` : '';
             },
             label: function (context) {
-              const item = normalizedData[context.dataIndex];
+              const item = dataRef.current[context.dataIndex];
               const netVal = context.parsed.y;
               const sign = netVal > 0 ? '+' : '';
               let txt = ` Balance neto: ${sign}${netVal} seguidores`;
@@ -141,13 +159,6 @@ export function FollowersGrowthChart({ data = [], period = 'day' }) {
       },
       options,
     });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
   }, [normalizedData]);
 
   return html`

@@ -151,36 +151,60 @@ class TwitchIRCClient:
             elif " PART #" in line:
                 await self._handle_event(usuario, "PART")
 
-    def _get_user_role_cached(
-        self, user_id: str | None, broadcaster_id: str | int
-    ) -> str:
-        """Determina el rol del usuario instantáneamente desde UserMemoryCache."""
-        if not user_id:
-            return "Visita"
+    async def sync_user_state(
+        self,
+        user_id: str,
+        username: str,
+        *,
+        nickname: str | None = None,
+        update_nickname: bool = False,
+        role: str | None = None,
+        update_role: bool = False,
+        is_bot: bool | None = None,
+        is_moderator: bool | None = None,
+        is_vip: bool | None = None,
+        is_subscriber: bool | None = None,
+        sub_tier: str | None = None,
+        update_sub_tier: bool = False,
+    ) -> None:
+        """Actualiza en memoria y emite UserJoinEvent de un usuario en IRC."""
+        from dataclasses import replace as dataclass_replace
 
-        uid_str = user_id
-        bid_str = str(broadcaster_id)
+        key = (
+            user_id
+            if user_id in self.connected_users
+            else (
+                username.lower() if username.lower() in self.connected_users else None
+            )
+        )
+        if not key:
+            u_lower = username.lower()
+            for k, v in self.connected_users.items():
+                if (user_id and v.user_id == user_id) or v.username.lower() == u_lower:
+                    key = k
+                    break
 
-        if uid_str == bid_str:
-            return "Broadcaster"
-
-        if uid_str == self.bot.bot_id:
-            return "Bot"
-
-        if self.bot.user_cache.is_user_bot(uid_str):
-            return "Bot"
-
-        roles = self.bot.user_cache.get_user_roles(uid_str, bid_str)
-        if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
-            fat = roles.get("followed_at")
-            try:
-                clean = fat.replace("Z", "+00:00")
-                dt = datetime.fromisoformat(clean).astimezone()
-                return dt.strftime("%d/%m/%y")
-            except Exception:
-                return "Visita"
-
-        return "Visita"
+        if key:
+            u = self.connected_users[key]
+            updated_u = dataclass_replace(
+                u,
+                nickname=nickname if update_nickname else u.nickname,
+                role=role if (update_role and role is not None) else u.role,
+                is_bot=is_bot if is_bot is not None else u.is_bot,
+                is_moderator=(
+                    is_moderator if is_moderator is not None else u.is_moderator
+                ),
+                is_vip=is_vip if is_vip is not None else u.is_vip,
+                is_subscriber=(
+                    is_subscriber if is_subscriber is not None else u.is_subscriber
+                ),
+                sub_tier=sub_tier if update_sub_tier else u.sub_tier,
+            )
+            target_key = user_id or key
+            if target_key != key:
+                self.connected_users.pop(key, None)
+            self.connected_users[target_key] = updated_u
+            await self.bot.event_bus.emit(updated_u)
 
     async def _resolve_and_cache_new_user(self, usuario: str) -> None:
         """Resuelve en background datos para usuarios no presentes en caché."""
@@ -214,7 +238,7 @@ class TwitchIRCClient:
         display_name = (user_data.get("display_name") if user_data else None) or usuario
         nickname = user_data.get("nickname") if user_data else None
         r, g, b = get_chatter_rgb(None, usuario)
-        role = self._get_user_role_cached(user_id, self.bot.owner_id or "")
+        role = cache.get_display_role(user_id, self.bot.owner_id or "", self.bot.bot_id)
 
         is_bot = (user_id == self.bot.bot_id) or (
             cache.is_user_bot(user_id) if user_id else False

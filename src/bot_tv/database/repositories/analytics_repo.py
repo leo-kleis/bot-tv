@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -9,7 +8,7 @@ from typing import Any
 
 import asyncpg
 
-from bot_tv.database.repositories.base import BaseRepository
+from bot_tv.database.repositories.base import BaseRepository, to_utc_datetime
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,12 +25,7 @@ class AnalyticsRepository(BaseRepository):
         category_name: str | None = None,
     ) -> dict[str, Any]:
         """Crea o actualiza una sesión de transmisión activa en stream_sessions."""
-        if isinstance(started_at, str):
-            dt_started = datetime.fromisoformat(started_at)
-        else:
-            dt_started = started_at
-        if dt_started.tzinfo is None:
-            dt_started = dt_started.replace(tzinfo=UTC)
+        dt_started = to_utc_datetime(started_at) or datetime.now(UTC)
 
         query = """
             INSERT INTO stream_sessions (
@@ -89,14 +83,7 @@ class AnalyticsRepository(BaseRepository):
         reason: str | None = None,
     ) -> bool:
         """Cierra una sesión marcando ended_at, close_reason e is_live=FALSE."""
-        if ended_at is None:
-            dt_ended = datetime.now(UTC)
-        elif isinstance(ended_at, str):
-            dt_ended = datetime.fromisoformat(ended_at)
-        else:
-            dt_ended = ended_at
-        if dt_ended.tzinfo is None:
-            dt_ended = dt_ended.replace(tzinfo=UTC)
+        dt_ended = to_utc_datetime(ended_at) or datetime.now(UTC)
 
         query = """
             UPDATE stream_sessions
@@ -118,14 +105,7 @@ class AnalyticsRepository(BaseRepository):
         recorded_at: datetime | str | None = None,
     ) -> int | None:
         """Inserta una muestra de espectadores en viewer_snapshots."""
-        if recorded_at is None:
-            dt_recorded = datetime.now(UTC)
-        elif isinstance(recorded_at, str):
-            dt_recorded = datetime.fromisoformat(recorded_at)
-        else:
-            dt_recorded = recorded_at
-        if dt_recorded.tzinfo is None:
-            dt_recorded = dt_recorded.replace(tzinfo=UTC)
+        dt_recorded = to_utc_datetime(recorded_at) or datetime.now(UTC)
 
         query = """
             INSERT INTO viewer_snapshots (
@@ -149,15 +129,7 @@ class AnalyticsRepository(BaseRepository):
         timestamp: datetime | str | None = None,
     ) -> int | None:
         """Inserta un evento de Twitch con carga JSONB en stream_events."""
-        if timestamp is None:
-            dt_timestamp = datetime.now(UTC)
-        elif isinstance(timestamp, str):
-            dt_timestamp = datetime.fromisoformat(timestamp)
-        else:
-            dt_timestamp = timestamp
-        if dt_timestamp.tzinfo is None:
-            dt_timestamp = dt_timestamp.replace(tzinfo=UTC)
-
+        dt_timestamp = to_utc_datetime(timestamp) or datetime.now(UTC)
         raw_json = json.dumps(event_data)
 
         query = """
@@ -364,14 +336,7 @@ class AnalyticsRepository(BaseRepository):
         limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Devuelve los usuarios con más mensajes agrupados por CTE optimizado."""
-        if since is None:
-            dt_since = None
-        elif isinstance(since, str):
-            dt_since = datetime.fromisoformat(since)
-        else:
-            dt_since = since
-        if dt_since is not None and dt_since.tzinfo is None:
-            dt_since = dt_since.replace(tzinfo=UTC)
+        dt_since = to_utc_datetime(since)
 
         query = """
             WITH top_senders AS (
@@ -414,15 +379,7 @@ class AnalyticsRepository(BaseRepository):
         """Calcula altas, bajas, balance neto y acumulado de seguidores."""
         valid_periods = {"day", "week", "month"}
         safe_period = period if period in valid_periods else "day"
-
-        if since is None:
-            dt_since = None
-        elif isinstance(since, str):
-            dt_since = datetime.fromisoformat(since)
-        else:
-            dt_since = since
-        if dt_since is not None and dt_since.tzinfo is None:
-            dt_since = dt_since.replace(tzinfo=UTC)
+        dt_since = to_utc_datetime(since)
 
         query = """
             WITH events AS (
@@ -515,25 +472,10 @@ class AnalyticsRepository(BaseRepository):
             WHERE stream_id = $1
               AND ($2::text IS NULL OR channel_id = $2);
         """
-        row: asyncpg.Record | None = None
-        for attempt in range(2):
-            try:
-                async with self._db.acquire() as conn:
-                    row = await conn.fetchrow(query, stream_id, channel_id)
-                break
-            except (
-                asyncpg.ConnectionDoesNotExistError,
-                asyncpg.InterfaceError,
-                OSError,
-            ) as e:
-                if attempt == 0:
-                    LOGGER.warning(
-                        "Conexión perdida en stream session (%s). Reintentando...",
-                        e,
-                    )
-                    await asyncio.sleep(0.15)
-                    continue
-                raise
+        row: asyncpg.Record | None = await self._with_retry(
+            lambda conn: conn.fetchrow(query, stream_id, channel_id),
+            "stream session",
+        )
         return dict(row) if row else None
 
     async def get_stream_message_count(self, stream_id: str) -> int:
@@ -568,25 +510,10 @@ class AnalyticsRepository(BaseRepository):
             ORDER BY started_at DESC
             LIMIT $2;
         """
-        rows: list[asyncpg.Record] = []
-        for attempt in range(2):
-            try:
-                async with self._db.acquire() as conn:
-                    rows = await conn.fetch(query, channel_id, limit)
-                break
-            except (
-                asyncpg.ConnectionDoesNotExistError,
-                asyncpg.InterfaceError,
-                OSError,
-            ) as e:
-                if attempt == 0:
-                    LOGGER.warning(
-                        "Conexión perdida en stream sessions (%s). Reintentando...",
-                        e,
-                    )
-                    await asyncio.sleep(0.15)
-                    continue
-                raise
+        rows: list[asyncpg.Record] = await self._with_retry(
+            lambda conn: conn.fetch(query, channel_id, limit),
+            "stream sessions",
+        )
         return [dict(row) for row in rows]
 
     async def get_stream_event_summary(self, stream_id: str) -> list[dict[str, Any]]:

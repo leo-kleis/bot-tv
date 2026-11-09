@@ -55,6 +55,7 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.irc: TwitchIRCClient | None = None
 
         self.current_stream_id: str | None = None
+        self._channels_cache: list[dict[str, str]] | None = None
 
         # Instanciar repositorios y caché de memoria
         self.user_cache = UserMemoryCache()
@@ -103,12 +104,15 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def get_channels(self) -> list[dict[str, str]]:
         """Retorna la lista de canales configurados (excluyendo al bot)."""
+        if self._channels_cache is not None:
+            return self._channels_cache
         accounts = await self.token_repo.get_accounts_summary()
-        return [
+        self._channels_cache = [
             {"user_id": row["user_id"], "username": row["username"]}
             for row in accounts
             if row["user_id"] != self.bot_id
         ]
+        return self._channels_cache
 
     async def event_websocket_welcome(self, payload: Any) -> None:
         """Se ejecuta cuando el websocket de EventSub se conecta con éxito."""
@@ -118,14 +122,18 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         """Se ejecuta cuando el bot se conecta correctamente."""
         await self.user_repo.preload_cache(self.user_cache)
         accounts = await self.token_repo.get_accounts_summary()
+        self._channels_cache = [
+            {"user_id": row["user_id"], "username": row["username"]}
+            for row in accounts
+            if row["user_id"] != self.bot_id
+        ]
 
         bot_name = self.bot_id
-        canales: list[str] = []
+        canales: list[str] = [c["username"] for c in self._channels_cache]
         for row in accounts:
             if row["user_id"] == self.bot_id:
                 bot_name = row["username"]
-            else:
-                canales.append(row["username"])
+                break
 
         LOGGER.info("Bot conectado como: %s (ID: %s)", bot_name, self.bot_id)
         if canales:
@@ -158,12 +166,14 @@ class Bot(TokenPersistMixin, commands.AutoBot):
     async def close(self, **options: Any) -> None:
         """Cancela tareas pendientes antes de cerrar el bot."""
         if self.current_stream_id is not None:
-            with contextlib.suppress(Exception):
+            try:
                 await self.analytics_repo.close_session(
                     self.current_stream_id,
                     datetime.now(UTC),
                     "graceful_shutdown",
                 )
+            except Exception as e:
+                LOGGER.warning("Error al cerrar sesión en shutdown: %s", e)
         await self.chat_repo.close()
         if self._irc_task and not self._irc_task.done():
             if self.irc:

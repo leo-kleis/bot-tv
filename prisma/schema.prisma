@@ -80,6 +80,7 @@ model StreamEvent {
 
   @@index([stream_id, timestamp(sort: Desc)], map: "idx_stream_events_stream_ts")
   @@index([stream_id, event_type], map: "idx_stream_events_stream_type")
+  @@index([event_data], map: "idx_stream_events_event_data_gin", type: Gin)
   @@map("stream_events")
 }
 
@@ -102,6 +103,7 @@ model ChannelUser {
   @@id([channel_id, user_id])
   @@index([channel_id, followed_at(sort: Desc)], map: "idx_channel_users_followed")
   @@index([channel_id, unfollowed_at(sort: Desc)], map: "idx_channel_users_unfollowed")
+  @@index([gifter_id], map: "idx_channel_users_gifter_id")
   @@map("channel_users")
 }
 

@@ -1,23 +1,13 @@
-"""Constantes ANSI y utilidades de color/formateo para la terminal.
+"""Constantes Rich y utilidades de color para logs y usuarios de Twitch.
 
-Módulo centralizado para evitar la duplicación de códigos ANSI
-y funciones de color a lo largo del proyecto.
+Módulo centralizado para el formateo de logs en consola y cálculo determinista
+de colores RGB de chatters de Twitch.
 """
 
-from datetime import datetime
-from typing import IO, cast
-
-from prompt_toolkit.patch_stdout import StdoutProxy
 from rich.console import Console
-from rich.markup import escape
 
-# Instancia global de Rich Console para todo el proyecto, enlazada a prompt_toolkit
-try:
-    CONSOLE = Console(
-        file=cast(IO[str], StdoutProxy(raw=True)), color_system="truecolor"
-    )
-except Exception:
-    CONSOLE = Console(color_system="truecolor")
+# Instancia global de Rich Console para logs del backend
+CONSOLE = Console(color_system="truecolor")
 
 # ── Marcado Rich para Colores ──────────────────────────────────────────
 RESET = "[/]"
@@ -31,9 +21,9 @@ AMARILLO = "[yellow]"
 CYAN = "[cyan]"
 
 # Colores personalizados (RGB)
-TIMESTAMP_COLOR = "[#5E4FF7]"
 MORADO = "[#A970FF]"
 NARANJA = "[#FFA31A]"
+TIMESTAMP_COLOR = "[#888888]"
 
 # ── Colores por defecto de Twitch ───────────────────────────────────
 # Twitch asigna estos colores a los usuarios que no tienen uno propio.
@@ -95,32 +85,3 @@ def get_chatter_rgb(hex_color: str | None, username: str) -> tuple[int, int, int
     # Determinista: sumar el valor de cada carácter y sacar módulo
     indice = sum(ord(c) for c in username) % len(TWITCH_DEFAULT_COLORS)
     return TWITCH_DEFAULT_COLORS[indice]
-
-
-def format_colored_name(
-    display_name: str,
-    nickname: str | None,
-    r: int,
-    g: int,
-    b: int,
-) -> str:
-    """Formatea un nombre de usuario con marcado Rich.
-
-    Si tiene nickname: muestra "Nickname {display_name}" donde
-    el nickname va en color brillante y el display_name en color oscuro.
-    Si no: muestra "display_name" en color brillante.
-    """
-    safe_display = escape(display_name)
-    color_ansi = f"[rgb({r},{g},{b})]"
-    if nickname:
-        safe_nick = escape(nickname)
-        dark_r, dark_g, dark_b = int(r * 0.5), int(g * 0.5), int(b * 0.5)
-        dark_ansi = f"[rgb({dark_r},{dark_g},{dark_b})]"
-        return f"{color_ansi}{safe_nick}{dark_ansi} {{{safe_display}}}{RESET}"
-    return f"{color_ansi}{safe_display}{RESET}"
-
-
-def format_timestamp() -> str:
-    """Devuelve un timestamp formateado con color: [HH:MM:SS]."""
-    hora = datetime.now().strftime("%H:%M:%S")
-    return f"{TIMESTAMP_COLOR}[{hora}]{RESET}"

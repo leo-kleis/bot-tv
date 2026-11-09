@@ -254,9 +254,16 @@ class UserQueriesMixin(BaseRepository):
         return users_page, total_count
 
     async def search_users(
-        self, q: str, limit: int = 10, channel_id: str | None = None
+        self,
+        q: str,
+        limit: int = 10,
+        channel_id: str | None = None,
+        cache: UserMemoryCache | None = None,
     ) -> list[dict[str, Any]]:
-        """Busca usuarios en la DB local para autocompletar."""
+        """Busca usuarios en la caché en memoria o en la DB local para autocompletar."""
+        if cache is not None and cache._users:
+            return cache.search_users(q, limit=limit, channel_id=channel_id)
+
         like_pattern = f"%{escape_like(q)}%"
         if channel_id:
             query = """

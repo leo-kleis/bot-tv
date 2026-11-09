@@ -1,57 +1,20 @@
-# Comandos
+# Comandos (`v1.0.0-beta.1` — 100% Web App & PWA)
 
-## Proyecto (Ejecución)
+## Proyecto (Ejecución y Entornos `development` vs `production`)
 
-- Inicia el bot (modo terminal con consola interactiva):
+- Inicia el bot y el Dashboard Web en **modo Desarrollo Local (`APP_ENV=development` por defecto)** (habilita certificados `certs/*.pem` para LAN/PWA, *live-reload* de archivos estáticos, hasta 20 conexiones WS y sin auto-apagado por inactividad):
   ```bash
   uv run bot-tv
-  ```
-- Inicia el bot y el dashboard web (servidor Uvicorn + TwitchIO):
-  ```bash
+  # o su alias equivalente:
   uv run bot-web
   ```
-- Ejecuta el asistente de configuración inicial de tokens OAuth y suscripciones:
+- Inicia el bot y el Dashboard Web en **modo Producción (`APP_ENV=production`)** (pensado para Nube / Tailscale: caché de activos estáticos, cabeceras HSTS, máximo 3 clientes WS simultáneos y auto-apagado bajo demanda tras 300s sin usuarios conectados):
+  ```bash
+  APP_ENV=production uv run bot-tv
+  ```
+- Ejecuta el asistente interactivo de configuración inicial de tokens OAuth (Device Code Flow) y los persiste cifrados en PostgreSQL (Prisma Console):
   ```bash
   uv run bot-setup
-  ```
-
-## Consola Interactiva (durante la ejecución de `bot-tv`)
-
-- Sincroniza seguidores de todos los canales:
-  ```bash
-  sync_followers
-  ```
-- Marca o desmarca un usuario como bot:
-  ```bash
-  is_bot <usuario>
-  ```
-- Asigna o elimina un apodo (sin apodo lo elimina):
-  ```bash
-  apodo <usuario> [apodo]
-  ```
-- Pregunta o interactúa directamente con el asistente IA (Gemini):
-  ```bash
-  talk <mensaje>
-  ```
-- Muestra el estado del rate limiter (RPM/RPD del modelo actual o de todos):
-  ```bash
-  rpm [all]
-  ```
-- Muestra o cambia el modelo de IA activo en tiempo de ejecución:
-  ```bash
-  model [nombre]
-  ```
-- Lista todos los modelos disponibles en AI Studio y sus límites:
-  ```bash
-  models
-  ```
-- Muestra la lista de comandos disponibles:
-  ```bash
-  help
-  ```
-- Apaga el bot de forma limpia:
-  ```bash
-  exit
   ```
 
 ## Mise
@@ -63,7 +26,7 @@ mise exec -- uv sync
 mise exec -- uv run <comando>
 ```
 
-## Uv (Gestor de dependencias)
+## Uv (Gestor de dependencias Python)
 
 - Instala y sincroniza dependencias del proyecto:
   ```bash
@@ -86,7 +49,7 @@ mise exec -- uv run <comando>
   uv run <comando>
   ```
 
-## Ruff (Linter & Formatter)
+## Ruff (Linter & Formatter Python)
 
 - Analiza problemas de linting en el proyecto:
   ```bash
@@ -109,7 +72,7 @@ mise exec -- uv run <comando>
   uv run ruff format --check
   ```
 
-## Pyrefly (Type Checker)
+## Pyrefly (Type Checker Python)
 
 - Revisa tipos en modo estándar (falla ante errores de tipo):
   ```bash
@@ -120,7 +83,7 @@ mise exec -- uv run <comando>
   uv run pyrefly check --min-severity warn
   ```
 
-## Prettier (Formatter)
+## Prettier (Formatter Frontend)
 
 - Formatea archivos de frontend (`.js`, `.html`, `.css`):
   ```bash
@@ -135,35 +98,13 @@ mise exec -- uv run <comando>
   pnpm exec prettier --write <ruta>
   ```
 
-## Oxlint (Linter rápido)
+## Oxlint & ESLint (Linters Frontend)
 
-- Analiza problemas en una ruta específica:
-  ```bash
-  pnpm exec oxlint <ruta>
-  ```
-- Corrige problemas automáticamente en una ruta específica:
-  ```bash
-  pnpm exec oxlint --fix <ruta>
-  ```
-
-## Eslint (Linter detallado)
-
-- Analiza problemas en una ruta específica:
-  ```bash
-  pnpm exec eslint <ruta>
-  ```
-- Corrige problemas automáticamente en una ruta específica:
-  ```bash
-  pnpm exec eslint --fix <ruta>
-  ```
-
-## Scripts de Frontend (Linter, Formatter & Typecheck)
-
-- Ejecuta oxlint y eslint en el directorio static:
+- Ejecuta `oxlint` y `eslint` en el directorio `static`:
   ```bash
   pnpm run lint
   ```
-- Ejecuta oxlint y eslint con corrección automática en el directorio static:
+- Ejecuta `oxlint` y `eslint` con corrección automática:
   ```bash
   pnpm run lint:fix
   ```
@@ -172,13 +113,32 @@ mise exec -- uv run <comando>
   pnpm run typecheck
   ```
 
-## Prisma (Gestión de Base de Datos)
+## Vite (Bundler & Servidor de Desarrollo Frontend)
 
-- Crea y aplica una nueva migración en PostgreSQL basándose en los cambios de schema.prisma:
+- Compila y empaqueta el frontend (`Preact` + `CSS` + `Chart.js`) hacia `src/bot_tv/web/dist/` (con *code splitting* y carga diferida de analíticas):
+  ```bash
+  pnpm run build
+  ```
+- Inicia el servidor de desarrollo de Vite con HMR y proxy hacia `127.0.0.1:8080`:
+  ```bash
+  pnpm run dev
+  ```
+- Previsualiza localmente el bundle de producción compilado:
+  ```bash
+  pnpm run preview
+  ```
+
+## Prisma (Gestión de Base de Datos en Prisma Console / PostgreSQL)
+
+- Crea y aplica una nueva migración en desarrollo basándose en los cambios de `schema.prisma`:
   ```bash
   pnpm run prisma:migrate -- --name <nombre>
   ```
-- Sincroniza directamente el esquema schema.prisma con la base de datos sin crear historial de migraciones:
+- Aplica las migraciones pendientes ya existentes en `prisma/migrations/` (sin prompts interactivos, ideal tras actualizar el repo o en producción):
+  ```bash
+  pnpm run prisma:deploy
+  ```
+- Sincroniza directamente el esquema `schema.prisma` con la base de datos sin crear historial de migraciones:
   ```bash
   pnpm run prisma:push
   ```

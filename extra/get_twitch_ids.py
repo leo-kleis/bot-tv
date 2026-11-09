@@ -1,7 +1,7 @@
 import os
 import sys
 
-import requests
+import httpx
 from dotenv import load_dotenv
 
 TOKEN_URL = "https://id.twitch.tv/oauth2/token"
@@ -15,7 +15,7 @@ def get_app_access_token(client_id: str, client_secret: str) -> str:
         "grant_type": "client_credentials",
     }
 
-    resp = requests.post(TOKEN_URL, data=data)
+    resp = httpx.post(TOKEN_URL, data=data, timeout=10.0)
     if resp.status_code != 200:
         print("Error al obtener el app access token:")
         print(resp.status_code, resp.text)
@@ -32,7 +32,7 @@ def get_user_id(access_token: str, client_id: str, username: str) -> str:
         "Authorization": f"Bearer {access_token}",
     }
 
-    resp = requests.get(USERS_URL, params=params, headers=headers)
+    resp = httpx.get(USERS_URL, params=params, headers=headers, timeout=10.0)
     if resp.status_code != 200:
         print(f"Error al obtener datos de usuario para {username}:")
         print(resp.status_code, resp.text)

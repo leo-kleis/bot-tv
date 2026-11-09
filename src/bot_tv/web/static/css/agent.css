@@ -82,7 +82,7 @@
 }
 
 .convo-meta {
-  font-size: 0.75em;
+  font-size: max(11px, 0.75em);
   color: var(--text-muted);
   padding: 0 6px;
   margin-top: -2px;

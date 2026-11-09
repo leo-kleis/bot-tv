@@ -1,4 +1,4 @@
-import { html, useEffect, useRef, useState, useMemo } from 'preact-setup';
+import { html, useEffect, useRef, useState, useMemo, useCallback } from 'preact-setup';
 import { getEventDetails } from '../event-config.js';
 import { toRgb, fmtTime } from 'lib/utils';
 import { apiGet, apiPost } from '../api.js';
@@ -9,6 +9,7 @@ import { ContextMenu } from '../ContextMenu.js';
 import { ConfirmModal } from '../ConfirmModal.js';
 import { UserProfileDrawer } from '../user/UserProfileDrawer.js';
 import { fetchEmotes, parseEmotes } from '/static/lib/emotes.js';
+import { getFocusableElements, trapFocus, setupInertIsolation } from '/static/lib/a11y.js';
 
 function roleDisplay(role) {
   if (!role || role === 'Visita') return 'Visita';
@@ -37,8 +38,16 @@ function ChatMessageGroup({ msg, emotesMap, onUserClick, onMsgContext }) {
         <div class="chat-msg-header">
           <span
             class="chat-author"
+            role="button"
+            tabIndex=${0}
             style="color:${color}; cursor:pointer;"
             onClick=${e => onUserClick(e, msg)}
+            onKeyDown=${e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onUserClick(e, msg);
+              }
+            }}
           >
             ${
               msg.nickname
@@ -118,7 +127,15 @@ function IrcUser({ user, onUserClick }) {
   return html`
     <div
       class="irc-user ${isParted ? 'is-parted' : ''}"
+      role="button"
+      tabindex=${0}
       onClick=${e => onUserClick(e, user)}
+      onKeyDown=${e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onUserClick(e, user);
+        }
+      }}
       style="cursor:pointer;"
     >
       <${UserAvatar} userId=${user.user_id} displayName=${nameStr} color=${color} size="md" />
@@ -242,6 +259,8 @@ export function ChatTab({
   streamOnline = false,
 }) {
   const feedRef = useRef(null);
+  const ircPanelRef = useRef(null);
+  const ircTriggerRef = useRef(null);
   const autoScrollRef = useRef(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -269,17 +288,44 @@ export function ChatTab({
     return () => window.removeEventListener('storage-settings-changed', handleStorageUpdate);
   }, []);
 
-  // Cerrar panel IRC móvil al presionar Escape
+  // Aislamiento inert, foco y cierre con Escape en el panel IRC móvil/tablet
   useEffect(() => {
     if (!showIrcMobile) return;
+
+    ircTriggerRef.current = document.activeElement;
+    const restoreInert = setupInertIsolation(ircPanelRef.current);
+
+    const focusTimer = requestAnimationFrame(() => {
+      if (ircPanelRef.current) {
+        const first = getFocusableElements(ircPanelRef.current)[0];
+        if (first) {
+          first.focus();
+        } else {
+          ircPanelRef.current.focus();
+        }
+      }
+    });
+
     function handleKeyDown(e) {
       if (e.key === 'Escape') {
         e.preventDefault();
         onToggleIrc(false);
+        return;
+      }
+      if (e.key === 'Tab') {
+        trapFocus(ircPanelRef.current, e);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      cancelAnimationFrame(focusTimer);
+      window.removeEventListener('keydown', handleKeyDown);
+      restoreInert();
+      const prevEl = ircTriggerRef.current;
+      if (prevEl && typeof prevEl.focus === 'function' && document.body.contains(prevEl)) {
+        prevEl.focus();
+      }
+    };
   }, [showIrcMobile, onToggleIrc]);
 
   const displayMessages = useMemo(() => {
@@ -288,7 +334,7 @@ export function ChatTab({
   }, [chatMessages, hideBots]);
 
   // Handler para crear Clip
-  async function handleCreateClip() {
+  const handleCreateClip = useCallback(async () => {
     if (clipping || !streamOnline) return;
     setClipping(true);
     try {
@@ -305,14 +351,26 @@ export function ChatTab({
       }
     } catch {}
     setClipping(false);
-  }
+  }, [clipping, streamOnline, dispatch]);
+
+  // Atajo F6 para crear clip cuando el stream está en vivo
+  useEffect(() => {
+    function handleClipShortcut(e) {
+      if (e.key === 'F6' && streamOnline && !clipping) {
+        e.preventDefault();
+        handleCreateClip();
+      }
+    }
+    window.addEventListener('keydown', handleClipShortcut);
+    return () => window.removeEventListener('keydown', handleClipShortcut);
+  }, [streamOnline, clipping, handleCreateClip]);
 
   // Handler para limpiar chat público (/clear)
   async function handleExecuteClearChat() {
     setClearingChat(true);
     setConfirmClearOpen(false);
     try {
-      const res = await apiPost('/api/moderation/delete_message', {});
+      const res = await apiPost('/api/moderation/delete_message', { clear_all: true });
       if (res.ok && dispatch) {
         dispatch({
           type: 'ADD_TOAST',
@@ -577,20 +635,39 @@ export function ChatTab({
       <!-- Panel IRC Usuarios (derecha) -->
       <aside
         class="irc-panel"
+        ref=${ircPanelRef}
+        tabIndex=${showIrcMobile ? -1 : undefined}
         role=${showIrcMobile ? 'dialog' : undefined}
         aria-modal=${showIrcMobile ? 'true' : undefined}
-        aria-label=${showIrcMobile ? 'Usuarios en el chat' : undefined}
+        aria-labelledby=${showIrcMobile ? 'irc-panel-title' : undefined}
       >
         <div class="irc-panel-header">
-          <span>En canal</span>
-          ${
-            !ircConnected &&
-            html`
-              <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-              </span>
-            `
-          }
+          <span id="irc-panel-title">En canal</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${
+              !ircConnected &&
+              html`
+                <span class="irc-status-warning" title="IRC Desconectado (Reintentando...)">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                </span>
+              `
+            }
+            ${
+              showIrcMobile
+                ? html`
+                    <button
+                      type="button"
+                      class="history-header-close"
+                      style="width:24px;height:24px;font-size:12px;"
+                      aria-label="Cerrar panel de usuarios"
+                      onClick=${() => onToggleIrc(false)}
+                    >
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  `
+                : null
+            }
+          </div>
         </div>
 
         <div class="irc-feed" id="irc-feed">

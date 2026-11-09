@@ -13,6 +13,7 @@ from bot_tv.agent.models import AVAILABLE_MODELS, DEFAULT_MODEL
 from bot_tv.agent.prompts import SYSTEM_INSTRUCTIONS
 from bot_tv.agent.rate_limiter import RateLimiter, RateLimitStatus
 from bot_tv.agent.tools import build_agent_tools
+from bot_tv.agent.tools._helpers import sanitize_untrusted_text
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -166,6 +167,36 @@ class TalkAgent:
         """Retorna el estado de rate limit de todos los modelos."""
         return self.rate_limiter.get_all_status()
 
+    async def _execute_chat_turn(
+        self,
+        model_name: str,
+        dynamic_instructions: str,
+        message: str,
+        is_fallback: bool,
+    ) -> str:
+        """Ejecuta una consulta al modelo, registra consumo y actualiza historial."""
+        config = LocalAgentConfig(
+            system_instructions=dynamic_instructions,
+            tools=self.tools,
+            model=model_name,
+        )
+        async with Agent(config) as agent:
+            response = await agent.chat(message)
+
+            self.rate_limiter.record_request(model_name)
+            await self.bot.settings_repo.log_api_consumption(
+                model_name, time.time(), "request"
+            )
+
+            clean_text = await response.text()
+            self._history.append({"question": message, "response": clean_text})
+            self._history = self._history[-_MAX_HISTORY_TURNS:]
+
+            if is_fallback:
+                fallback_display = AVAILABLE_MODELS[model_name].display_name
+                return f"[Fallback: {fallback_display}] {clean_text}"
+            return clean_text
+
     async def chat(self, message: str) -> str:
         """Envía un mensaje al agente resolviendo rate limits e historial."""
         async with self._chat_lock:
@@ -206,8 +237,10 @@ class TalkAgent:
                 )
                 turns = []
                 for turn in history_to_use:
-                    turns.append(f"Usuario: {turn['question']}")
-                    turns.append(f"Agente: {turn['response']}")
+                    safe_q = sanitize_untrusted_text(turn["question"])
+                    safe_r = sanitize_untrusted_text(turn["response"])
+                    turns.append(f"Usuario: {safe_q}")
+                    turns.append(f"Agente: {safe_r}")
                 history_text = (
                     "\n\nHISTORIAL DE CONVERSACIÓN RECIENTE CON EL USUARIO "
                     "(solo como referencia de contexto previo):\n"
@@ -225,32 +258,10 @@ class TalkAgent:
                 f"{history_text}"
             )
 
-            config = LocalAgentConfig(
-                system_instructions=dynamic_instructions,
-                tools=self.tools,
-                model=model_to_use,
-            )
-
             try:
-                async with Agent(config) as agent:
-                    response = await agent.chat(message)
-
-                    # Registrar consumo localmente y en base de datos
-                    self.rate_limiter.record_request(model_to_use)
-                    await self.bot.settings_repo.log_api_consumption(
-                        model_to_use, time.time(), "request"
-                    )
-
-                    clean_text = await response.text()
-                    text = clean_text
-                    if fallback_used:
-                        fallback_display = AVAILABLE_MODELS[model_to_use].display_name
-                        text = f"[Fallback: {fallback_display}] {clean_text}"
-
-                    # Guardar turno en el historial conversacional y limitar a 50
-                    self._history.append({"question": message, "response": clean_text})
-                    self._history = self._history[-_MAX_HISTORY_TURNS:]
-                    return text
+                return await self._execute_chat_turn(
+                    model_to_use, dynamic_instructions, message, fallback_used
+                )
 
             except Exception as e:
                 is_limit, retry_after = is_rate_limit_error(e)
@@ -277,25 +288,13 @@ class TalkAgent:
                                 "Reintentando consulta con modelo de respaldo: %s",
                                 fallback,
                             )
-                            fb_config = LocalAgentConfig(
-                                system_instructions=dynamic_instructions,
-                                tools=self.tools,
-                                model=fallback,
-                            )
                             try:
-                                async with Agent(fb_config) as fb_agent:
-                                    fb_resp = await fb_agent.chat(message)
-                                    self.rate_limiter.record_request(fallback)
-                                    await self.bot.settings_repo.log_api_consumption(
-                                        fallback, time.time(), "request"
-                                    )
-                                    clean_text = await fb_resp.text()
-                                    self._history.append(
-                                        {"question": message, "response": clean_text}
-                                    )
-                                    self._history = self._history[-_MAX_HISTORY_TURNS:]
-                                    fb_disp = AVAILABLE_MODELS[fallback].display_name
-                                    return f"[Fallback: {fb_disp}] {clean_text}"
+                                return await self._execute_chat_turn(
+                                    fallback,
+                                    dynamic_instructions,
+                                    message,
+                                    is_fallback=True,
+                                )
                             except Exception as fb_err:
                                 LOGGER.error(
                                     "Error también en modelo de respaldo %s: %s",

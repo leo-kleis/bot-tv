@@ -1,7 +1,7 @@
 import asyncio
 import sys
 
-import aiohttp
+import httpx
 
 sys.path.insert(0, "src")
 
@@ -14,11 +14,9 @@ async def check_token(token: str) -> dict:
     url = "https://id.twitch.tv/oauth2/validate"
     headers = {"Authorization": f"OAuth {token}"}
 
-    async with (
-        aiohttp.ClientSession() as session,
-        session.get(url, headers=headers) as response,
-    ):
-        return await response.json()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url, headers=headers)
+        return response.json()
 
 
 async def main():

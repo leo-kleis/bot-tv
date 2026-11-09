@@ -30,58 +30,12 @@
       } catch (_) {}
     </script>
 
-    <!-- Import Map -->
-    <script type="importmap">
-      {
-        "imports": {
-          "preact": "/static/vendor/preact.module.js",
-          "preact/hooks": "/static/vendor/preact-hooks.module.js",
-          "htm": "/static/vendor/htm.module.js",
-          "preact-setup": "/static/lib/preact-setup.js",
-          "lib/utils": "/static/lib/utils.js",
-          "lib/a11y": "/static/lib/a11y.js",
-          "chart.js": "/static/vendor/chart.js-auto.esm.js"
-        }
-      }
-    </script>
-
-    <!-- Preload de módulos críticos -->
-    <link rel="modulepreload" href="/static/vendor/preact.module.js" />
-    <link rel="modulepreload" href="/static/vendor/preact-hooks.module.js" />
-    <link rel="modulepreload" href="/static/vendor/htm.module.js" />
-    <link rel="modulepreload" href="/static/lib/preact-setup.js" />
-    <link rel="modulepreload" href="/static/lib/utils.js" />
-    <link rel="modulepreload" href="/static/app.js" />
-    <link rel="modulepreload" href="/static/components/App.js" />
-    <link rel="modulepreload" href="/static/hooks/useWebSocket.js" />
-    <link rel="modulepreload" href="/static/components/stream/StreamTab.js" />
-    <link rel="modulepreload" href="/static/components/analytics/AnalyticsTab.js" />
-
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="/static/css/variables.css" />
-    <link rel="stylesheet" href="/static/css/layout.css" />
-    <link rel="stylesheet" href="/static/css/buttons.css" />
-    <link rel="stylesheet" href="/static/css/header.css" />
-    <link rel="stylesheet" href="/static/css/connection-indicator.css" />
-    <link rel="stylesheet" href="/static/css/tabs.css" />
-    <link rel="stylesheet" href="/static/css/chat.css" />
-    <link rel="stylesheet" href="/static/css/followers.css" />
-    <link rel="stylesheet" href="/static/css/history.css" />
-    <link rel="stylesheet" href="/static/css/agent.css" />
-    <link rel="stylesheet" href="/static/css/actions.css" />
-    <link rel="stylesheet" href="/static/css/forms.css" />
-    <link rel="stylesheet" href="/static/css/settings.css" />
-    <link rel="stylesheet" href="/static/css/toasts.css" />
-    <link rel="stylesheet" href="/static/css/modals.css" />
-    <link rel="stylesheet" href="/static/css/tooltip.css" />
-    <link rel="stylesheet" href="/static/css/responsive.css" />
-    <link rel="stylesheet" href="/static/css/stream.css" />
-    <link rel="stylesheet" href="/static/css/analytics.css" />
     <script src="https://player.twitch.tv/js/embed/v1.js" defer></script>
   </head>
   <body>
@@ -115,6 +69,6 @@
         ></div>
       </div>
     </div>
-    <script type="module" src="/static/app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

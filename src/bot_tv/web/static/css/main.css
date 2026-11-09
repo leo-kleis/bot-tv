@@ -1,0 +1,20 @@
+/* main.css — Punto de entrada unificado de estilos para Vite */
+@import './variables.css';
+@import './layout.css';
+@import './buttons.css';
+@import './header.css';
+@import './connection-indicator.css';
+@import './tabs.css';
+@import './chat.css';
+@import './followers.css';
+@import './history.css';
+@import './agent.css';
+@import './actions.css';
+@import './forms.css';
+@import './settings.css';
+@import './toasts.css';
+@import './modals.css';
+@import './tooltip.css';
+@import './responsive.css';
+@import './stream.css';
+@import './analytics.css';

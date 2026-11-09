@@ -61,6 +61,12 @@ async def endpoint_moderation_delete_message(request: Request) -> Response:
     body = await _parse_body(request)
     username = _get_str(body, "username")
     message_id = _get_str(body, "message_id") or None
+    clear_all = bool(body.get("clear_all", False))
+
+    if message_id is None and not clear_all:
+        return _err(
+            "Campo 'message_id' requerido (o 'clear_all': true para limpiar el chat)."
+        )
 
     res = await action_delete_messages(bot, username, message_id=message_id)
     if not res.ok:

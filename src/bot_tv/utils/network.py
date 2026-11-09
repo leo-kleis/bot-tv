@@ -9,28 +9,23 @@ async def check_twitch_connection(retries: int = 3, timeout: float = 5.0) -> boo
     """Verifica si la API de Twitch (id.twitch.tv) es accesible."""
     import asyncio
 
-    import aiohttp
+    import httpx
 
-    for attempt in range(1, retries + 1):
-        try:
-            # Usar HEAD para evitar descargar el cuerpo de la respuesta
-            async with (
-                aiohttp.ClientSession() as session,
-                session.head(
-                    "https://id.twitch.tv/oauth2/validate",
-                    timeout=aiohttp.ClientTimeout(total=timeout),
-                ),
-            ):
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for attempt in range(1, retries + 1):
+            try:
+                # Usar HEAD para evitar descargar el cuerpo de la respuesta
+                await client.head("https://id.twitch.tv/oauth2/validate")
                 return True
-        except (TimeoutError, aiohttp.ClientError) as e:
-            LOGGER.warning(
-                "Intento %d/%d de conexión con Twitch falló: %s",
-                attempt,
-                retries,
-                e,
-            )
-            if attempt < retries:
-                await asyncio.sleep(1.0)
+            except (TimeoutError, httpx.HTTPError) as e:
+                LOGGER.warning(
+                    "Intento %d/%d de conexión con Twitch falló: %s",
+                    attempt,
+                    retries,
+                    e,
+                )
+                if attempt < retries:
+                    await asyncio.sleep(1.0)
 
     LOGGER.error("No se pudo conectar con Twitch tras %d intentos.", retries)
     return False

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import logging
+import shutil
+import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,6 +25,17 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 from starlette.websockets import WebSocket
 
+from bot_tv.utils.env import (
+    APP_ENV,
+    CORS_ORIGINS,
+    IDLE_SHUTDOWN_SECONDS,
+    IS_DEV,
+    IS_PRODUCTION,
+    MAX_WS_CLIENTS,
+    WEB_ACCESS_TOKEN,
+    WEB_HOST,
+    WEB_PORT,
+)
 from bot_tv.web.api import (
     endpoint_analytics_chat_activity,
     endpoint_analytics_followers_growth,
@@ -67,25 +81,101 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
+DIST_DIR = Path(__file__).parent / "dist"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-WEB_PORT = 8080
 MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 CROSS_ORIGIN_BLOCKED_MSG = "Solicitud cross-origin bloqueada."
+AUTH_COOKIE_NAME = "bot_tv_token"
+
+CSP_HEADER = (
+    "default-src 'self'; "
+    "script-src 'self' https://embed.twitch.tv https://player.twitch.tv; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "img-src 'self' data: https:; "
+    "connect-src 'self' ws: wss: https:; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "frame-src 'self' https://player.twitch.tv https://embed.twitch.tv; "
+    "frame-ancestors 'self';"
+)
 
 
 def _apply_security_headers(response: Response) -> None:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = CSP_HEADER
+    if IS_PRODUCTION:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+
+
+def is_authorized_request(
+    headers: dict[str, str] | object,
+    cookies: dict[str, str],
+    query_token: str = "",
+) -> bool:
+    """Verifica el token de acceso si WEB_ACCESS_TOKEN está configurado."""
+    if not WEB_ACCESS_TOKEN:
+        return True
+
+    expected = WEB_ACCESS_TOKEN.strip()
+    if not expected:
+        return True
+
+    # 1. Cookie de sesión
+    cookie_val = cookies.get(AUTH_COOKIE_NAME, "")
+    if cookie_val and hmac.compare_digest(cookie_val, expected):
+        return True
+
+    # 2. Query param (?token=...)
+    if query_token and hmac.compare_digest(query_token, expected):
+        return True
+
+    # 3. Cabeceras Authorization / X-Access-Token
+    get_header = getattr(headers, "get", None)
+    if callable(get_header):
+        auth_header = str(get_header("authorization", "") or "")
+        if auth_header.lower().startswith("bearer "):
+            bearer_val = auth_header[7:].strip()
+            if hmac.compare_digest(bearer_val, expected):
+                return True
+        x_token = str(get_header("x-access-token", "") or "").strip()
+        if x_token and hmac.compare_digest(x_token, expected):
+            return True
+
+    return False
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Valida Same-Origin en peticiones mutadoras y añade cabeceras de seguridad."""
+    """Valida Same-Origin en mutaciones, acceso opcional por token y cabeceras."""
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        path = request.url.path
+
+        # Verificar WEB_ACCESS_TOKEN si está configurado (excepto /api/health)
+        if WEB_ACCESS_TOKEN and path != "/api/health":
+            query_token = request.query_params.get("token", "").strip()
+            if not is_authorized_request(
+                request.headers, request.cookies, query_token=query_token
+            ):
+                unauth_resp = JSONResponse(
+                    {
+                        "ok": False,
+                        "error": (
+                            "No autorizado. Añade ?token=TU_WEB_ACCESS_TOKEN "
+                            "al abrir el dashboard."
+                        ),
+                    },
+                    status_code=401,
+                )
+                _apply_security_headers(unauth_resp)
+                return unauth_resp
+
         if request.method in MUTATING_METHODS:
             sec_fetch_site = request.headers.get("sec-fetch-site", "").lower()
             if sec_fetch_site and sec_fetch_site not in ALLOWED_FETCH_SITES:
@@ -97,10 +187,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 return blocked_resp
 
             origin = request.headers.get("origin")
-            if origin:
+            if origin and origin not in CORS_ORIGINS:
                 origin_host = urlparse(origin).netloc
-                host = request.headers.get("host", "")
-                if origin_host != host:
+                host = request.headers.get("x-forwarded-host") or request.headers.get(
+                    "host", ""
+                )
+                if origin_host and host and origin_host != host:
                     blocked_resp = JSONResponse(
                         {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
                         status_code=403,
@@ -110,17 +202,67 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         response = await call_next(request)
         _apply_security_headers(response)
+
+        # Persistir cookie HttpOnly si el usuario ingresó con ?token=...
+        if WEB_ACCESS_TOKEN:
+            query_token = request.query_params.get("token", "").strip()
+            if query_token and hmac.compare_digest(
+                query_token, WEB_ACCESS_TOKEN.strip()
+            ):
+                response.set_cookie(
+                    key=AUTH_COOKIE_NAME,
+                    value=WEB_ACCESS_TOKEN.strip(),
+                    httponly=True,
+                    secure=IS_PRODUCTION,
+                    samesite="lax",
+                    max_age=60 * 60 * 24 * 30,
+                )
+
         return response
 
 
-class NoCacheStaticFiles(StaticFiles):
-    """Evita el almacenamiento en caché del navegador para archivos estáticos."""
+def _ensure_frontend_dist() -> Path:
+    """Garantiza que exista el bundle compilado por Vite en DIST_DIR."""
+    if (DIST_DIR / "index.html").exists():
+        return DIST_DIR
+
+    pnpm_bin = shutil.which("pnpm")
+    if pnpm_bin and (PROJECT_ROOT / "vite.config.js").exists():
+        LOGGER.info("Compilando bundle frontend con Vite...")
+        try:
+            subprocess.run(  # noqa: S603
+                [pnpm_bin, "run", "build"],
+                cwd=str(PROJECT_ROOT),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            if (DIST_DIR / "index.html").exists():
+                return DIST_DIR
+        except Exception:
+            LOGGER.exception("Fallo al compilar frontend con Vite; usando STATIC_DIR")
+
+    return STATIC_DIR
+
+
+class SmartCacheStaticFiles(StaticFiles):
+    """Aplica caché inmutable a bundles con hash de Vite y control por entorno."""
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+        norm_path = path.replace("\\", "/").lstrip("/")
+        if norm_path.startswith("assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif norm_path.startswith("icons/"):
+            response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+        elif IS_PRODUCTION:
+            response.headers["Cache-Control"] = (
+                "public, max-age=3600, stale-while-revalidate=86400"
+            )
+        else:
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
 
 
@@ -128,20 +270,34 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     """Crea y configura la aplicación Starlette con todos los endpoints."""
     ws_manager = WebSocketManager(event_bus, bot)
     ws_manager.register()
+    web_root = _ensure_frontend_dist()
 
     async def homepage(request: Request) -> Response:
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(web_root / "index.html")
+
+    async def healthcheck(request: Request) -> Response:
+        return JSONResponse(
+            {
+                "ok": True,
+                "status": "healthy",
+                "env": APP_ENV,
+                "ws_clients": len(ws_manager._connections),
+                "max_ws_clients": MAX_WS_CLIENTS,
+                "idle_shutdown_seconds": IDLE_SHUTDOWN_SECONDS,
+            }
+        )
 
     async def websocket_endpoint(ws: WebSocket) -> None:
         await ws_manager.handle(ws)
 
     routes = [
         Route("/", homepage),
-        Route("/sw.js", lambda r: FileResponse(STATIC_DIR / "sw.js")),
-        Route("/manifest.json", lambda r: FileResponse(STATIC_DIR / "manifest.json")),
+        Route("/api/health", healthcheck, methods=["GET"]),
+        Route("/sw.js", lambda r: FileResponse(web_root / "sw.js")),
+        Route("/manifest.json", lambda r: FileResponse(web_root / "manifest.json")),
         Route(
             "/favicon.ico",
-            lambda r: FileResponse(STATIC_DIR / "icons" / "icon-192.png"),
+            lambda r: FileResponse(web_root / "icons" / "icon-192.png"),
         ),
         WebSocketRoute("/ws", websocket_endpoint),
         # REST API
@@ -215,19 +371,24 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
             endpoint_analytics_stream_sessions,
             methods=["GET"],
         ),
-        # Archivos estáticos (CSS, JS, vendor, icons, manifest, sw.js)
-        Mount("/static", NoCacheStaticFiles(directory=str(STATIC_DIR)), name="static"),
+        # Bundle y recursos estáticos servidos desde dist/ (compilado por Vite)
+        Mount(
+            "/static",
+            SmartCacheStaticFiles(directory=str(web_root)),
+            name="static",
+        ),
     ]
 
     @asynccontextmanager
     async def lifespan(app_instance: Starlette) -> AsyncGenerator[None]:
-        task = asyncio.create_task(_watch_static_files(ws_manager))
+        task = asyncio.create_task(_watch_static_files(ws_manager)) if IS_DEV else None
         try:
             yield
         finally:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+            if task is not None:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
             await ws_manager.close_all()
 
     app = Starlette(
@@ -245,26 +406,54 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
     app.state.event_bus = event_bus
     app.state.ws_manager = ws_manager
 
-    LOGGER.info("Servidor web disponible en http://0.0.0.0:%d", WEB_PORT)
+    LOGGER.info("Servidor web disponible en http://%s:%d", WEB_HOST, WEB_PORT)
     return app
 
 
+async def _rebuild_vite_bundle() -> bool:
+    """Ejecuta `pnpm run build` de forma asíncrona cuando cambian archivos en dev."""
+    pnpm_bin = shutil.which("pnpm")
+    if not pnpm_bin or not (PROJECT_ROOT / "vite.config.js").exists():
+        return True
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            pnpm_bin,
+            "run",
+            "build",
+            cwd=str(PROJECT_ROOT),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            LOGGER.error(
+                "Error al recompilar con Vite: %s",
+                stderr.decode("utf-8", errors="replace"),
+            )
+            return False
+        return True
+    except Exception:
+        LOGGER.exception("Error ejecutando build de Vite en segundo plano")
+        return False
+
+
 async def _watch_static_files(ws_manager: WebSocketManager) -> None:
-    """Vigila los archivos estáticos en desarrollo y emite live reload por WebSocket."""
+    """Vigila STATIC_DIR en desarrollo, recompila con Vite y emite live reload."""
     try:
         from watchfiles import awatch
     except ImportError:
         LOGGER.debug("watchfiles no disponible; live reload desactivado")
         return
 
-    LOGGER.info("Live reload activo: vigilando %s", STATIC_DIR)
+    LOGGER.info("Live reload + Vite build activo: vigilando %s", STATIC_DIR)
     try:
         async for changes in awatch(STATIC_DIR):
             LOGGER.info(
-                "Cambios detectados en frontend (%d). Notificando...",
+                "Cambios detectados en frontend (%d). Recompilando con Vite...",
                 len(changes),
             )
-            await ws_manager.broadcast_dev_reload()
+            if await _rebuild_vite_bundle():
+                await ws_manager.broadcast_dev_reload()
     except asyncio.CancelledError:
         pass
     except Exception:

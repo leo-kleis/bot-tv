@@ -271,7 +271,7 @@ def setup() -> None:
             LOGGER.info(
                 "Ambas cuentas han sido autorizadas y almacenadas en la base de datos."
             )
-            LOGGER.info("Ya puedes iniciar el bot con: bot-web")
+            LOGGER.info("Ya puedes iniciar la aplicación web con: uv run bot-tv")
             LOGGER.info("=" * 65)
         finally:
             await pool.close()

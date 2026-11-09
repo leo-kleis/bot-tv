@@ -1,0 +1,13 @@
+.git
+.venv
+node_modules
+__pycache__
+*.py[cod]
+*$py.class
+.env
+certs/
+*.db
+*.sqlite
+*.sqlite3
+.ruff_cache
+.pytest_cache

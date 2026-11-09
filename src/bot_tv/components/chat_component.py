@@ -32,32 +32,6 @@ class ChatComponent(commands.Component):
         self._enrich_sem = asyncio.Semaphore(5)
         self._tasks: set[asyncio.Task[None]] = set()
 
-    def _get_chatter_role_cached(self, user_id: str, broadcaster_id: str | int) -> str:
-        """Determina el rol del chatter de forma instantánea usando UserMemoryCache."""
-        user_id_str = user_id
-        broadcaster_id_str = str(broadcaster_id)
-
-        if user_id_str == broadcaster_id_str:
-            return "Broadcaster"
-
-        if user_id_str == self.bot.bot_id:
-            return "Bot"
-
-        if self.bot.user_cache.is_user_bot(user_id_str):
-            return "Bot"
-
-        roles = self.bot.user_cache.get_user_roles(user_id_str, broadcaster_id_str)
-        if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
-            followed_at_iso = roles.get("followed_at")
-            try:
-                clean_str = followed_at_iso.replace("Z", "+00:00")
-                dt = datetime.fromisoformat(clean_str).astimezone()
-                return dt.strftime("%d/%m/%y")
-            except Exception:
-                return "Visita"
-
-        return "Visita"
-
     async def _enrich_and_persist(
         self,
         payload: twitchio.ChatMessage,
@@ -181,7 +155,7 @@ class ChatComponent(commands.Component):
         hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)
 
-        role = self._get_chatter_role_cached(user_id, payload.broadcaster.id)
+        role = cache.get_display_role(user_id, payload.broadcaster.id, self.bot.bot_id)
 
         # Extraer emotes nativos de Twitch desde los fragments del mensaje
         twitch_emotes: list[dict[str, str]] = []

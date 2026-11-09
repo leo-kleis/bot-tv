@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 import twitchio
 
 from bot_tv.actions.models import (
-    BotToggleResult,
     NicknameResult,
     UserResolveResult,
     UserRolesResult,
@@ -40,48 +39,29 @@ async def _sync_irc_user(
     sub_tier: str | None = None,
     update_sub_tier: bool = False,
 ) -> None:
-    """Actualiza en memoria y emite el UserJoinEvent de un usuario conectado en IRC."""
+    """Delega al cliente IRC la actualización de estado de un usuario conectado."""
     if not bot.irc:
         return
-
-    key = (
-        user_id
-        if user_id in bot.irc.connected_users
-        else (username.lower() if username.lower() in bot.irc.connected_users else None)
+    await bot.irc.sync_user_state(
+        user_id,
+        username,
+        nickname=nickname,
+        update_nickname=update_nickname,
+        role=role,
+        update_role=update_role,
+        is_bot=is_bot,
+        is_moderator=is_moderator,
+        is_vip=is_vip,
+        is_subscriber=is_subscriber,
+        sub_tier=sub_tier,
+        update_sub_tier=update_sub_tier,
     )
-    if not key:
-        u_lower = username.lower()
-        for k, v in bot.irc.connected_users.items():
-            if (user_id and v.user_id == user_id) or v.username.lower() == u_lower:
-                key = k
-                break
-
-    if key:
-        from dataclasses import replace as dataclass_replace
-
-        u = bot.irc.connected_users[key]
-        updated_u = dataclass_replace(
-            u,
-            nickname=nickname if update_nickname else u.nickname,
-            role=role if (update_role and role is not None) else u.role,
-            is_bot=is_bot if is_bot is not None else u.is_bot,
-            is_moderator=is_moderator if is_moderator is not None else u.is_moderator,
-            is_vip=is_vip if is_vip is not None else u.is_vip,
-            is_subscriber=(
-                is_subscriber if is_subscriber is not None else u.is_subscriber
-            ),
-            sub_tier=sub_tier if update_sub_tier else u.sub_tier,
-        )
-        target_key = user_id or key
-        if target_key != key:
-            bot.irc.connected_users.pop(key, None)
-        bot.irc.connected_users[target_key] = updated_u
-        await bot.event_bus.emit(updated_u)
 
 
 async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
-    """Busca user_id en DB local; si no está, consulta la API de Twitch."""
-    user_id = await bot.user_repo.get_user_id_by_name(username)
+    """Busca user_id en caché/DB local; si no está, consulta la API de Twitch."""
+    cache = bot.user_cache
+    user_id = await bot.user_repo.get_user_id_by_name(username, cache=cache)
     if user_id:
         return UserResolveResult(
             user_id=user_id, found_locally=True, found_on_twitch=False
@@ -102,6 +82,7 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
             user_id,
             twitch_user.name or username,
             twitch_user.display_name,
+            cache=cache,
         )
         return UserResolveResult(
             user_id=user_id, found_locally=False, found_on_twitch=True
@@ -114,51 +95,6 @@ async def resolve_user(bot: Bot, username: str) -> UserResolveResult:
             found_on_twitch=False,
             error=str(e),
         )
-
-
-async def action_toggle_bot(bot: Bot, username: str) -> BotToggleResult | str:
-    """Marca/desmarca un usuario como bot. Retorna BotToggleResult o string de error."""
-    cache = bot.user_cache
-    user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
-    if not user_id:
-        return f"El usuario '{username}' no existe en la base de datos."
-
-    es_bot = await bot.user_repo.is_user_bot(user_id, cache=cache)
-    nuevo_es_bot = not es_bot
-    await bot.user_repo.set_user_bot(user_id, nuevo_es_bot, cache=cache)
-
-    await _sync_irc_user(bot, user_id, username, is_bot=nuevo_es_bot)
-
-    display_name = username
-    if cache is not None:
-        cached_user = cache.get_user(user_id)
-        if cached_user and cached_user.get("display_name"):
-            display_name = cached_user["display_name"]
-
-    channels = await bot.get_channels()
-    broadcaster_id = channels[0]["user_id"] if channels else ""
-    roles_dict = await bot.user_repo.get_user_roles(
-        user_id, broadcaster_id, cache=cache
-    )
-    current_roles = roles_dict or {}
-
-    await bot.event_bus.emit(
-        UserRoleUpdatedEvent(
-            user_id=user_id,
-            username=username,
-            display_name=display_name,
-            is_bot=nuevo_es_bot,
-            is_moderator=current_roles.get("is_moderator", False),
-            is_vip=current_roles.get("is_vip", False),
-            is_subscriber=current_roles.get("is_subscriber", False),
-        )
-    )
-
-    return BotToggleResult(
-        username=username,
-        is_bot=nuevo_es_bot,
-        user_id=user_id,
-    )
 
 
 async def action_set_nickname(
@@ -357,7 +293,8 @@ async def action_sync_user_roles(
     channel_id: str | None = None,
 ) -> UserRolesResult | str:
     """Consulta Twitch para sincronizar los roles actuales de un usuario."""
-    user_id = await bot.user_repo.get_user_id_by_name(username.lower())
+    cache = bot.user_cache
+    user_id = await bot.user_repo.get_user_id_by_name(username.lower(), cache=cache)
     if not user_id:
         try:
             twitch_user = await bot.fetch_user(login=username)
@@ -368,6 +305,7 @@ async def action_sync_user_roles(
                 user_id,
                 twitch_user.name or username,
                 twitch_user.display_name,
+                cache=cache,
             )
         except Exception as e:
             LOGGER.exception("Error al buscar usuario en Twitch: %s", e)
@@ -388,6 +326,7 @@ async def action_sync_user_roles(
             is_subscriber=False,
             sub_tier=None,
             gifter_id=None,
+            cache=cache,
         )
         return UserRolesResult(
             username=username,
@@ -398,7 +337,9 @@ async def action_sync_user_roles(
             is_subscriber=False,
         )
 
-    current_roles = await bot.user_repo.get_user_roles(user_id, broadcaster_id)
+    current_roles = await bot.user_repo.get_user_roles(
+        user_id, broadcaster_id, cache=cache
+    )
     current_mod = current_roles.get("is_moderator", False) if current_roles else False
     current_vip = current_roles.get("is_vip", False) if current_roles else False
     current_sub = current_roles.get("is_subscriber", False) if current_roles else False
@@ -446,7 +387,9 @@ async def action_sync_user_roles(
             if sub.gift and sub.gifter and sub.gifter.name:
                 gifter_id = sub.gifter.id
                 gifter_name = sub.gifter.name
-                existing = await bot.user_repo.get_user_id_by_name(gifter_name.lower())
+                existing = await bot.user_repo.get_user_id_by_name(
+                    gifter_name.lower(), cache=cache
+                )
                 if not existing:
                     try:
                         gifter_user = await bot.fetch_user(id=gifter_id)
@@ -455,6 +398,7 @@ async def action_sync_user_roles(
                                 gifter_user.id,
                                 gifter_user.name,
                                 gifter_user.display_name,
+                                cache=cache,
                             )
                     except Exception as eg:
                         LOGGER.warning(
@@ -496,7 +440,6 @@ async def action_sync_user_roles(
             e,
         )
 
-    cache = bot.user_cache
     is_bot = cache.is_user_bot(user_id) if cache is not None else False
 
     updated = await bot.user_repo.update_user_roles(

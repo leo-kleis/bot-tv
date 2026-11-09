@@ -117,13 +117,17 @@ async def endpoint_sync_user_roles(request: Request) -> Response:
 
 
 async def endpoint_search_users(request: Request) -> Response:
-    """Busca usuarios en la DB local para autocompletar campos de usuario."""
+    """Busca usuarios en la caché/DB local para autocompletar campos de usuario."""
     bot: Bot = request.app.state.bot
     q = request.query_params.get("q", "").strip()
     if len(q) < 2:
         return _ok([])
 
-    rows = await bot.user_repo.search_users(q, limit=10)
+    channels = await bot.get_channels()
+    channel_id = channels[0]["user_id"] if channels else None
+    rows = await bot.user_repo.search_users(
+        q, limit=10, channel_id=channel_id, cache=bot.user_cache
+    )
 
     return _ok(
         [
@@ -265,13 +269,13 @@ async def endpoint_list_users(request: Request) -> Response:
 
 
 async def endpoint_get_avatar(request: Request) -> Response:
-    """Redirige a la URL del avatar de Twitch cacheada en la DB."""
+    """Redirige a la URL del avatar de Twitch cacheada en memoria o DB."""
     user_id = request.path_params.get("user_id", "")
     if not user_id:
         return _err("user_id requerido", 400)
 
     bot: Bot = request.app.state.bot
-    url = await bot.user_repo.get_profile_image_url(user_id)
+    url = await bot.user_repo.get_profile_image_url(user_id, cache=bot.user_cache)
     if not url or not url.startswith(("https://", "http://")):
         return _err("Avatar no encontrado", 404)
 
@@ -290,14 +294,21 @@ async def endpoint_get_user_detail(request: Request) -> Response:
         return _err("No hay canales configurados.")
     channel_id = channels[0]["user_id"]
 
-    row = await bot.user_repo.get_user_detail_by_name(username, channel_id)
+    row = await bot.user_repo.get_user_detail_by_name(
+        username, channel_id, cache=bot.user_cache
+    )
     if not row:
         return _err(f"Usuario '{username}' no encontrado.", status=404)
 
     is_follower = (
         row.get("followed_at") is not None and row.get("unfollowed_at") is None
     )
-    user_id = await bot.user_repo.get_user_id_by_name(username) or ""
+    user_id = str(row.get("user_id") or "")
+    if not user_id:
+        user_id = (
+            await bot.user_repo.get_user_id_by_name(username, cache=bot.user_cache)
+            or ""
+        )
     is_broadcaster = user_id == str(bot.owner_id) or user_id == channel_id
 
     ban_status = await action_get_user_ban_status(bot, username)
@@ -354,6 +365,10 @@ async def endpoint_user_messages(request: Request) -> Response:
         until = f"{until}T23:59:59Z"
 
     try:
+        user_id = (
+            await bot.user_repo.get_user_id_by_name(username, cache=bot.user_cache)
+            or ""
+        )
         messages = await bot.chat_repo.get_messages_with_filters(
             channel_id=channel_id,
             username=username,
@@ -368,7 +383,11 @@ async def endpoint_user_messages(request: Request) -> Response:
             messages = messages[:limit]
 
         total = await bot.chat_repo.get_user_message_count(
-            channel_id, await bot.user_repo.get_user_id_by_name(username) or ""
+            channel_id,
+            user_id,
+            search_term=search,
+            since=since,
+            until=until,
         )
 
         return _ok(

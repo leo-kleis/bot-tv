@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
+from bot_tv.actions.stream import action_update_channel_info
 from bot_tv.agent.tools._helpers import get_broadcaster_id
 from bot_tv.utils.formatting import format_date, parse_twitch_duration
 
@@ -37,9 +38,10 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 if channel_info and channel_info.title:
                     old_title = channel_info.title
 
-            canal = bot.create_partialuser(user_id=channel_id)
-            # pyrefly: ignore [missing-attribute]
-            await canal.modify_stream(title=new_title, token_for=channel_id)
+            res = await action_update_channel_info(bot, title=new_title)
+            if not res.get("ok"):
+                err_msg = res.get("error", "Error desconocido")
+                return f"Error al cambiar el título: {err_msg}"
             return (
                 f"Título cambiado con éxito.\n"
                 f"Antes: '{old_title}'\n"
@@ -79,9 +81,12 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 if channel_info and channel_info.game_name:
                     old_category = channel_info.game_name
 
-            canal = bot.create_partialuser(user_id=channel_id)
-            # pyrefly: ignore [missing-attribute]
-            await canal.modify_stream(game_id=game_id, token_for=channel_id)
+            res = await action_update_channel_info(bot, category_id=game_id)
+            if not res.get("ok"):
+                return (
+                    f"Error al cambiar la categoría: "
+                    f"{res.get('error', 'Error desconocido')}"
+                )
             return (
                 f"Categoría cambiada con éxito.\n"
                 f"Antes: '{old_category}'\n"

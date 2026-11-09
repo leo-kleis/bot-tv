@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -39,6 +38,28 @@ class TwitchEventsComponent(commands.Component):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
+
+    async def _record_analytics_event(
+        self,
+        channel_id: str,
+        event_type: str,
+        event_data: dict[str, Any],
+    ) -> None:
+        """Registra un evento de stream en analytics_repo con manejo de errores."""
+        try:
+            await self.bot.analytics_repo.save_stream_event(
+                channel_id=channel_id,
+                stream_id=self.bot.current_stream_id,
+                event_type=event_type,
+                event_data=event_data,
+            )
+        except Exception as e:
+            LOGGER.warning(
+                "Error al guardar evento de analíticas (%s) para canal %s: %s",
+                event_type,
+                channel_id,
+                e,
+            )
 
     # ── Follow ──────────────────────────────────────────────────────────────
 
@@ -116,13 +137,9 @@ class TwitchEventsComponent(commands.Component):
             "viewer_count": payload.viewer_count,
             "from_display_name": from_display_name,
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.to_broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="raid",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(
+            payload.to_broadcaster.id, "raid", event_data
+        )
 
         await self.bot.event_bus.emit(
             TwitchRaidEvent(
@@ -148,13 +165,9 @@ class TwitchEventsComponent(commands.Component):
             "tier": payload.tier or "1000",
             "gift": payload.gift,
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="subscription",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(
+            payload.broadcaster.id, "subscription", event_data
+        )
 
         await self.bot.event_bus.emit(
             TwitchSubscribeEvent(
@@ -181,13 +194,9 @@ class TwitchEventsComponent(commands.Component):
             "cumulative_total": payload.cumulative_total,
             "anonymous": payload.anonymous,
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="subscription_gift",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(
+            payload.broadcaster.id, "subscription_gift", event_data
+        )
 
         await self.bot.event_bus.emit(
             TwitchSubscriptionGiftEvent(
@@ -218,13 +227,9 @@ class TwitchEventsComponent(commands.Component):
             "streak_months": payload.streak_months,
             "message": msg or "",
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="subscription_message",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(
+            payload.broadcaster.id, "subscription_message", event_data
+        )
 
         await self.bot.event_bus.emit(
             TwitchSubscriptionMessageEvent(
@@ -252,13 +257,7 @@ class TwitchEventsComponent(commands.Component):
             "user_name": user_name,
             "display_name": display_name,
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="cheer",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(payload.broadcaster.id, "cheer", event_data)
 
         await self.bot.event_bus.emit(
             TwitchCheerEvent(
@@ -291,13 +290,9 @@ class TwitchEventsComponent(commands.Component):
             "user_name": username,
             "display_name": display_name,
         }
-        with contextlib.suppress(Exception):
-            await self.bot.analytics_repo.save_stream_event(
-                channel_id=payload.broadcaster.id,
-                stream_id=self.bot.current_stream_id,
-                event_type="channel_points",
-                event_data=event_data,
-            )
+        await self._record_analytics_event(
+            payload.broadcaster.id, "channel_points", event_data
+        )
 
         await self.bot.event_bus.emit(
             TwitchChannelPointsRedeemEvent(

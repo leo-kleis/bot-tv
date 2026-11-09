@@ -33,7 +33,22 @@ export function FollowersTable({
                   <tr>
                     <th
                       class="sortable"
+                      role="button"
+                      tabindex=${0}
+                      aria-sort=${
+                        sortBy === 'username'
+                          ? sortOrder === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                      }
                       onClick=${() => onSort('username')}
+                      onKeyDown=${e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSort('username');
+                        }
+                      }}
                       title="Ordenar por usuario (alfabético)"
                     >
                       Usuario
@@ -47,7 +62,22 @@ export function FollowersTable({
                     </th>
                     <th
                       class="sortable"
+                      role="button"
+                      tabindex=${0}
+                      aria-sort=${
+                        sortBy === 'role'
+                          ? sortOrder === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                      }
                       onClick=${() => onSort('role')}
+                      onKeyDown=${e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSort('role');
+                        }
+                      }}
                       title="Ordenar por rol prioritario (Moderador -> VIP -> Suscriptor -> Bot)"
                     >
                       Roles
@@ -61,7 +91,22 @@ export function FollowersTable({
                     </th>
                     <th
                       class="sortable"
+                      role="button"
+                      tabindex=${0}
+                      aria-sort=${
+                        sortBy === 'follow_date'
+                          ? sortOrder === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                      }
                       onClick=${() => onSort('follow_date')}
+                      onKeyDown=${e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onSort('follow_date');
+                        }
+                      }}
                       title="Ordenar por fecha y hora de seguimiento / unfollow"
                     >
                       Estado Seguimiento

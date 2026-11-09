@@ -1,6 +1,7 @@
 import { html, useState, useEffect, useRef, render } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { getFocusableElements, trapFocus, setupInertIsolation } from '/static/lib/a11y.js';
+import { sanitizeHttpUrl } from 'lib/utils';
 
 export function StreamEditModal({ initialTitle = '', initialCategory = '', onClose, onSaved }) {
   const [title, setTitle] = useState(initialTitle);
@@ -222,9 +223,10 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
         style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-modal-dropdown);"
       >
         ${searchResults.map(cat => {
-          const boxArt = cat.box_art_url
+          const rawArt = cat.box_art_url
             ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
-            : null;
+            : '';
+          const boxArt = sanitizeHttpUrl(rawArt);
           return html`
             <div
               key=${cat.id}
@@ -302,9 +304,11 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   const titleLength = title.length;
   const maxTitleLength = 140;
 
-  const cardBoxArt = selectedCategory?.box_art_url
-    ? selectedCategory.box_art_url.replace('{width}', '108').replace('{height}', '144')
-    : null;
+  const cardBoxArt = sanitizeHttpUrl(
+    selectedCategory?.box_art_url
+      ? selectedCategory.box_art_url.replace('{width}', '108').replace('{height}', '144')
+      : ''
+  );
 
   return html`
     <div

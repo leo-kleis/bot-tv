@@ -33,6 +33,7 @@ class ChatRepository(BaseRepository):
             maxlen=MAX_QUEUE_SIZE
         )
         self._batch_task: asyncio.Task[None] | None = None
+        self._flush_tasks: set[asyncio.Task[None]] = set()
         self._flush_lock = asyncio.Lock()
 
     def start_batch_worker(self) -> None:
@@ -63,7 +64,8 @@ class ChatRepository(BaseRepository):
 
         if len(self._msg_queue) >= MAX_BATCH_SIZE:
             task = asyncio.create_task(self.flush())
-            task.add_done_callback(lambda _: None)
+            self._flush_tasks.add(task)
+            task.add_done_callback(self._flush_tasks.discard)
 
     async def flush(self) -> None:
         """Escribe todos los mensajes acumulados en la cola a PostgreSQL."""
@@ -101,8 +103,8 @@ class ChatRepository(BaseRepository):
             except Exception as e:
                 LOGGER.exception("Error al hacer batch insert en chat_history: %s", e)
 
-                # Re-encolar si falla la transacción por error transitorio
-                self._msg_queue.extend(to_insert)
+                # Re-encolar al inicio preservando el orden cronológico original
+                self._msg_queue.extendleft(reversed(to_insert))
 
     async def close(self) -> None:
         """Cancela el worker y vacía los mensajes pendientes."""
@@ -110,6 +112,8 @@ class ChatRepository(BaseRepository):
             self._batch_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._batch_task
+        if self._flush_tasks:
+            await asyncio.gather(*self._flush_tasks, return_exceptions=True)
         await self.flush()
 
     async def get_message_count_in_range(
@@ -154,12 +158,18 @@ class ChatRepository(BaseRepository):
     ) -> list[dict[str, Any]]:
         """Devuelve los usuarios con mayor cantidad de mensajes enviados."""
         query = """
-            SELECT u.username, u.display_name, u.nickname, COUNT(c.id) as msg_count
-            FROM chat_history c
-            JOIN users u ON c.user_id = u.user_id
-            WHERE c.channel_id = $1
-            GROUP BY c.user_id, u.username, u.display_name, u.nickname
-            ORDER BY msg_count DESC LIMIT $2
+            WITH top_senders AS (
+                SELECT user_id, COUNT(*) AS msg_count
+                FROM chat_history
+                WHERE channel_id = $1
+                GROUP BY user_id
+                ORDER BY msg_count DESC
+                LIMIT $2
+            )
+            SELECT u.username, u.display_name, u.nickname, ts.msg_count
+            FROM top_senders ts
+            JOIN users u ON ts.user_id = u.user_id
+            ORDER BY ts.msg_count DESC
         """
         async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
@@ -240,13 +250,43 @@ class ChatRepository(BaseRepository):
             results.append(item)
         return results
 
-    async def get_user_message_count(self, channel_id: str, user_id: str) -> int:
-        """Devuelve el total de mensajes de un usuario en un canal."""
-        query = """
+    async def get_user_message_count(
+        self,
+        channel_id: str,
+        user_id: str,
+        search_term: str | None = None,
+        since: datetime | str | None = None,
+        until: datetime | str | None = None,
+    ) -> int:
+        """Devuelve el total de mensajes de un usuario en un canal (con filtros)."""
+        if not user_id:
+            return 0
+
+        where_clauses = ["channel_id = $1", "user_id = $2"]
+        params: list[Any] = [channel_id, user_id]
+
+        def _p() -> str:
+            return f"${len(params) + 1}"
+
+        dt_since = to_utc_datetime(since)
+        if dt_since is not None:
+            where_clauses.append(f"timestamp >= {_p()}")
+            params.append(dt_since)
+
+        dt_until = to_utc_datetime(until)
+        if dt_until is not None:
+            where_clauses.append(f"timestamp <= {_p()}")
+            params.append(dt_until)
+
+        if search_term:
+            where_clauses.append(f"message ILIKE {_p()} ESCAPE '\\'")
+            params.append(f"%{escape_like(search_term)}%")
+
+        query = f"""
             SELECT COUNT(*) AS total
             FROM chat_history
-            WHERE channel_id = $1 AND user_id = $2
-        """
+            WHERE {" AND ".join(where_clauses)}
+        """  # noqa: S608
         async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, channel_id, user_id)
+            row: asyncpg.Record | None = await conn.fetchrow(query, *params)
         return int(row["total"]) if row else 0

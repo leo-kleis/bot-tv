@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
+from bot_tv.agent.tools._helpers import (
+    format_user_details,
+    get_broadcaster_id,
+    sanitize_untrusted_text,
+)
 from bot_tv.utils.formatting import format_date
 
 if TYPE_CHECKING:
@@ -62,7 +67,7 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
             user_details = ""
             if username:
                 user_row = await bot.user_repo.get_user_detail_by_name(
-                    username, channel_id
+                    username, channel_id, cache=bot.user_cache
                 )
                 if not user_row:
                     return (
@@ -105,11 +110,13 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
 
             msg_lines = []
             for r in reversed(rows):
-                name = r["display_name"] or r["username"]
+                name = sanitize_untrusted_text(r["display_name"] or r["username"])
                 if r["nickname"]:
-                    name = f"{name} ({r['nickname']})"
+                    safe_nick = sanitize_untrusted_text(r["nickname"])
+                    name = f"{name} ({safe_nick})"
+                safe_msg = sanitize_untrusted_text(r["message"])
                 msg_lines.append(
-                    f"- [{format_date(r['timestamp'])}] {name}: {r['message']}"
+                    f"- [{format_date(r['timestamp'])}] {name}: {safe_msg}"
                 )
 
             body = "\n".join(msg_lines)
@@ -124,8 +131,10 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
         """
         try:
             channel_id = await get_broadcaster_id(bot)
-            stats_row = await bot.chat_repo.get_chat_stats(channel_id)
-            top_rows = await bot.chat_repo.get_top_chatters(channel_id, limit=5)
+            stats_row, top_rows = await asyncio.gather(
+                bot.chat_repo.get_chat_stats(channel_id),
+                bot.chat_repo.get_top_chatters(channel_id, limit=5),
+            )
 
             if not stats_row or stats_row["total_messages"] == 0:
                 return "No hay estadísticas de chat registradas aún."
@@ -140,9 +149,10 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
                 f"Top 5 usuarios más activos:"
             ]
             for idx, r in enumerate(top_rows, 1):
-                name = r["display_name"] or r["username"]
+                name = sanitize_untrusted_text(r["display_name"] or r["username"])
                 if r["nickname"]:
-                    name = f"{name} ({r['nickname']})"
+                    safe_nick = sanitize_untrusted_text(r["nickname"])
+                    name = f"{name} ({safe_nick})"
                 lines.append(f"{idx}. {name}: {r['msg_count']} mensajes")
 
             return "\n".join(lines)

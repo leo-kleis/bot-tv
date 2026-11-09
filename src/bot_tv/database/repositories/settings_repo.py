@@ -31,32 +31,30 @@ class SettingsRepository(BaseRepository):
     async def log_api_consumption(
         self, model: str, timestamp: float, type_str: str
     ) -> None:
-        """Registra un consumo de API o un bloqueo por rate limit."""
+        """Registra consumo de API y purga registros antiguos en 1 round-trip."""
         cutoff = time.time() - 86400
+        query = """
+            WITH purged AS (
+                DELETE FROM api_consumption_log WHERE timestamp <= $4
+            )
+            INSERT INTO api_consumption_log (model, timestamp, type)
+            VALUES ($1, $2, $3)
+        """
         async with self._db.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO api_consumption_log (model, timestamp, type) "
-                "VALUES ($1, $2, $3)",
-                model,
-                timestamp,
-                type_str,
-            )
-            await conn.execute(
-                "DELETE FROM api_consumption_log WHERE timestamp <= $1",
-                cutoff,
-            )
+            await conn.execute(query, model, timestamp, type_str, cutoff)
 
     async def get_api_consumption_history(self) -> list[tuple[str, float, str]]:
         """Obtiene el historial de consumo de API de las últimas 24 horas."""
         cutoff = time.time() - 86400
-        query = (
-            "SELECT model, timestamp, type FROM api_consumption_log "
-            "WHERE timestamp > $1 ORDER BY timestamp ASC"
-        )
-        async with self._db.acquire() as conn:
-            await conn.execute(
-                "DELETE FROM api_consumption_log WHERE timestamp <= $1",
-                cutoff,
+        query = """
+            WITH purged AS (
+                DELETE FROM api_consumption_log WHERE timestamp <= $1
             )
+            SELECT model, timestamp, type
+            FROM api_consumption_log
+            WHERE timestamp > $1
+            ORDER BY timestamp ASC
+        """
+        async with self._db.acquire() as conn:
             rows: list[asyncpg.Record] = await conn.fetch(query, cutoff)
         return [(row["model"], row["timestamp"], row["type"]) for row in rows]

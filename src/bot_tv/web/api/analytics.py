@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -245,8 +246,10 @@ async def endpoint_analytics_stream_events(request: Request) -> Response:
             return _json_err("Parámetro 'stream_id' requerido.")
         stream_id = raw_stream_id.strip()
 
-        summary = await repo.get_stream_event_summary(stream_id)
-        timeline = await repo.get_stream_event_timeline(stream_id)
+        summary, timeline = await asyncio.gather(
+            repo.get_stream_event_summary(stream_id),
+            repo.get_stream_event_timeline(stream_id),
+        )
         return _json_ok({"summary": summary, "timeline": timeline})
     except RuntimeError as e:
         LOGGER.error("Error al obtener dependencias: %s", e)
@@ -335,15 +338,15 @@ async def endpoint_analytics_overview(request: Request) -> Response:
 
         event_summary: list[dict[str, Any]] = []
         total_events = 0
+        total_messages = 0
         if target_stream_id:
-            event_summary = await repo.get_stream_event_summary(target_stream_id)
+            event_summary, total_messages = await asyncio.gather(
+                repo.get_stream_event_summary(target_stream_id),
+                repo.get_stream_message_count(target_stream_id),
+            )
             total_events = sum(
                 int(item.get("event_count") or 0) for item in event_summary
             )
-
-        total_messages = 0
-        if target_stream_id:
-            total_messages = await repo.get_stream_message_count(target_stream_id)
 
         overview_data = {
             "stream_id": target_stream_id,

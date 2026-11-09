@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import html
 from typing import TYPE_CHECKING
 
 from bot_tv.utils.formatting import format_date
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
+
+
+def sanitize_untrusted_text(text: str | None) -> str:
+    """Escapa delimitadores XML (< y >) en texto no confiable para prevenir
+    inyección de prompts indirecta al cerrar etiquetas de datos.
+    """
+    if not text:
+        return ""
+    return html.escape(text, quote=False)
 
 
 async def get_broadcaster_id(bot: Bot) -> str:
@@ -26,8 +36,9 @@ def format_user_details(
     unfollowed_at: str | None,
 ) -> str:
     """Formatea la información detallada de un usuario y su estado de seguimiento."""
-    name = display_name or username
-    name_str = f"{name} ({nickname})" if nickname else name
+    safe_name = sanitize_untrusted_text(display_name or username)
+    safe_nick = sanitize_untrusted_text(nickname) if nickname else None
+    name_str = f"{safe_name} ({safe_nick})" if safe_nick else safe_name
 
     if followed_at:
         if unfollowed_at:

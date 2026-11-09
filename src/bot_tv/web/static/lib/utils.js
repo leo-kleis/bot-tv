@@ -1,4 +1,5 @@
 const RGB_CACHE = new Map();
+const MAX_RGB_CACHE = 2000;
 
 // Convierte color_rgb [r,g,b] a un color suave y altamente legible para tema oscuro (Dark Mode)
 export function toRgb(rgb) {
@@ -60,6 +61,10 @@ export function toRgb(rgb) {
   const bOut = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
 
   const result = `rgb(${rOut}, ${gOut}, ${bOut})`;
+  if (RGB_CACHE.size >= MAX_RGB_CACHE) {
+    const firstKey = RGB_CACHE.keys().next().value;
+    if (firstKey !== undefined) RGB_CACHE.delete(firstKey);
+  }
   RGB_CACHE.set(cacheKey, result);
   return result;
 }

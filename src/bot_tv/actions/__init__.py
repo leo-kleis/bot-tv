@@ -5,6 +5,7 @@ __all__ = [
     "followers",
     "models",
     "moderation",
+    "stream",
     "system",
     "users",
 ]

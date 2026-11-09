@@ -63,15 +63,23 @@ class UserRolesMixin(BaseRepository):
         }
 
     async def get_user_detail_by_name(
-        self, username: str, channel_id: str
+        self,
+        username: str,
+        channel_id: str,
+        cache: UserMemoryCache | None = None,
     ) -> dict[str, Any] | None:
         """Obtiene información de roles y seguimiento de un usuario."""
+        if cache is not None:
+            cached_detail = cache.get_user_detail_by_name(username, channel_id)
+            if cached_detail is not None:
+                return cached_detail
+
         query = """
-            SELECT u.username, u.display_name, u.nickname, u.is_bot,
+            SELECT u.user_id, u.username, u.display_name, u.nickname, u.is_bot,
                    COALESCE(cu.is_moderator, FALSE) as is_moderator,
                    COALESCE(cu.is_vip, FALSE) as is_vip,
                    COALESCE(cu.is_subscriber, FALSE) as is_subscriber,
-                   cu.followed_at, cu.unfollowed_at
+                   cu.sub_tier, cu.followed_at, cu.unfollowed_at
             FROM users u
             LEFT JOIN channel_users cu ON u.user_id = cu.user_id AND cu.channel_id = $1
             WHERE LOWER(u.username) = LOWER($2)

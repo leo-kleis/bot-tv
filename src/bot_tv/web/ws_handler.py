@@ -45,14 +45,16 @@ from bot_tv.events import (
     UserRoleUpdatedEvent,
     ViewerUpdateEvent,
 )
+from bot_tv.utils.env import CORS_ORIGINS, IDLE_SHUTDOWN_SECONDS, MAX_WS_CLIENTS
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from bot_tv.bot import Bot
     from bot_tv.event_bus import EventBus
 
 LOGGER = logging.getLogger(__name__)
 
-MAX_WS_CLIENTS = 20
 WS_SEND_TIMEOUT_SECONDS = 2.0
 WS_POLICY_VIOLATION_CODE = 1008
 
@@ -100,7 +102,6 @@ HISTORY_EVENT_TYPES: list[type] = [
     StreamOfflineEvent,
     ViewerUpdateEvent,
     FollowerSyncEvent,
-    FollowerProgressEvent,
     AgentResponseEvent,
     ClipCreatedEvent,
     TwitchFollowEvent,
@@ -157,6 +158,36 @@ class WebSocketManager:
         self._bot = bot
         self._connections: set[WebSocket] = set()
         self._registered = False
+        self._shutdown_callback: Callable[[], None] | None = None
+        self._idle_task: asyncio.Task[None] | None = None
+
+    def set_shutdown_callback(self, callback: Callable[[], None]) -> None:
+        """Registra el callback para apagar el servidor cuando expira el idle timer."""
+        self._shutdown_callback = callback
+        if IDLE_SHUTDOWN_SECONDS > 0 and not self._connections:
+            self._schedule_idle_shutdown()
+
+    def _cancel_idle_shutdown(self) -> None:
+        if self._idle_task is not None and not self._idle_task.done():
+            self._idle_task.cancel()
+        self._idle_task = None
+
+    def _schedule_idle_shutdown(self) -> None:
+        if IDLE_SHUTDOWN_SECONDS <= 0 or self._shutdown_callback is None:
+            return
+        self._cancel_idle_shutdown()
+
+        async def _wait_and_shutdown() -> None:
+            await asyncio.sleep(IDLE_SHUTDOWN_SECONDS)
+            if not self._connections and self._shutdown_callback is not None:
+                LOGGER.warning(
+                    "Sin usuarios conectados durante %ds (IDLE_SHUTDOWN_SECONDS). "
+                    "Apagando servidor automáticamente (modo bajo demanda)...",
+                    IDLE_SHUTDOWN_SECONDS,
+                )
+                self._shutdown_callback()
+
+        self._idle_task = asyncio.create_task(_wait_and_shutdown())
 
     def register(self) -> None:
         """Suscribe al EventBus para todos los tipos de evento. Llámalo una vez."""
@@ -188,6 +219,8 @@ class WebSocketManager:
         dead = {ws for ws in results if ws is not None}
         if dead:
             self._connections -= dead
+            if not self._connections:
+                self._schedule_idle_shutdown()
 
     async def _broadcast(self, event: object) -> None:
         """Envía el evento serializado a todas las conexiones activas."""
@@ -210,6 +243,7 @@ class WebSocketManager:
 
     async def close_all(self) -> None:
         """Cierra activamente todas las conexiones WebSocket al apagar el servidor."""
+        self._cancel_idle_shutdown()
         clients = tuple(self._connections)
         self._connections.clear()
         for ws in clients:
@@ -219,11 +253,19 @@ class WebSocketManager:
 
     async def handle(self, ws: WebSocket) -> None:
         """Maneja el ciclo de vida de una conexión WebSocket entrante."""
+        from bot_tv.web.server import is_authorized_request
+
+        query_token = ws.query_params.get("token", "").strip()
+        if not is_authorized_request(ws.headers, ws.cookies, query_token=query_token):
+            LOGGER.warning("Conexión WebSocket rechazada: WEB_ACCESS_TOKEN inválido.")
+            await ws.close(code=WS_POLICY_VIOLATION_CODE)
+            return
+
         origin = ws.headers.get("origin")
-        if origin:
+        if origin and origin not in CORS_ORIGINS:
             origin_host = urlparse(origin).netloc
-            host = ws.headers.get("host", "")
-            if origin_host != host:
+            host = ws.headers.get("x-forwarded-host") or ws.headers.get("host", "")
+            if origin_host and host and origin_host != host:
                 LOGGER.warning(
                     "Conexión WebSocket rechazada por Origin inválido: %s (Host: %s)",
                     origin,
@@ -242,7 +284,12 @@ class WebSocketManager:
 
         await ws.accept()
         self._connections.add(ws)
-        LOGGER.info("WebSocket conectado. Clientes activos: %d", len(self._connections))
+        self._cancel_idle_shutdown()
+        LOGGER.info(
+            "WebSocket conectado (%d/%d clientes activos)",
+            len(self._connections),
+            MAX_WS_CLIENTS,
+        )
 
         try:
             # Enviar historial acumulado de la sesión actual en lote
@@ -263,8 +310,12 @@ class WebSocketManager:
         finally:
             self._connections.discard(ws)
             LOGGER.info(
-                "WebSocket desconectado. Clientes activos: %d", len(self._connections)
+                "WebSocket desconectado (%d/%d clientes activos)",
+                len(self._connections),
+                MAX_WS_CLIENTS,
             )
+            if not self._connections:
+                self._schedule_idle_shutdown()
 
     async def _send_history(self, ws: WebSocket) -> None:
         """Envía el historial acumulado del EventBus en un único lote al cliente."""

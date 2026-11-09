@@ -16,15 +16,6 @@ class UserResolveResult:
 
 
 @dataclass
-class BotToggleResult:
-    """Resultado de marcar/desmarcar un usuario como bot."""
-
-    username: str
-    is_bot: bool  # estado NUEVO (después del toggle)
-    user_id: str
-
-
-@dataclass
 class NicknameResult:
     """Resultado de asignar/eliminar un apodo."""
 

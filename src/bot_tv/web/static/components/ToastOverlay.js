@@ -46,6 +46,18 @@ function ToastItem({ toast, dispatch }) {
 }
 
 export function ToastOverlay({ toasts, dispatch, activeTab }) {
+  // Descartar inmediatamente toasts de seguidores si se generan estando en la pestaña 'users'
+  useEffect(() => {
+    if (activeTab !== 'users' || !toasts || toasts.length === 0) return;
+    toasts.forEach(toast => {
+      if (!toast) return;
+      const type = (toast.type || '').toLowerCase();
+      if (type === 'follower_new' || type === 'follower_lost' || type === 'twitch_follow') {
+        dispatch({ type: 'REMOVE_TOAST', id: toast.id });
+      }
+    });
+  }, [activeTab, toasts, dispatch]);
+
   if (!toasts || toasts.length === 0) return null;
 
   const visibleToasts = toasts.filter(toast => {
@@ -53,7 +65,7 @@ export function ToastOverlay({ toasts, dispatch, activeTab }) {
     const type = (toast.type || '').toLowerCase();
 
     // Notificaciones de seguidores solo cuando NO se está en la pestaña de usuarios
-    if (type === 'follower_new' || type === 'follower_lost') {
+    if (type === 'follower_new' || type === 'follower_lost' || type === 'twitch_follow') {
       return activeTab !== 'users';
     }
 

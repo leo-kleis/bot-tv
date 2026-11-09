@@ -1,5 +1,5 @@
 import { html, useEffect, useRef, useMemo } from 'preact-setup';
-import { Chart } from '/static/vendor/chart.js-auto.esm.js';
+import { Chart } from 'chart.js';
 import { getChartTheme, createAreaGradient, getBaseChartOptions } from './chartTheme.js';
 
 function formatTimestampTime(isoStr) {
@@ -18,6 +18,7 @@ function formatTimestampTime(isoStr) {
 export function ViewersTimelineChart({ data = [], session = null }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const dataRef = useRef([]);
 
   // Normalizar puntos de datos
   const normalizedData = useMemo(() => {
@@ -58,16 +59,37 @@ export function ViewersTimelineChart({ data = [], session = null }) {
     });
   }, [data, session]);
 
+  dataRef.current = normalizedData;
+
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
+    if (!canvas || normalizedData.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+      return;
     }
 
-    if (normalizedData.length === 0) return;
+    const labels = normalizedData.map(d => d.label);
+    const values = normalizedData.map(d => d.viewers);
+
+    if (chartRef.current) {
+      chartRef.current.data.labels = labels;
+      chartRef.current.data.datasets[0].data = values;
+      chartRef.current.data.datasets[0].pointRadius = normalizedData.length > 50 ? 0 : 2;
+      chartRef.current.update('none');
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     const theme = getChartTheme();
@@ -78,9 +100,6 @@ export function ViewersTimelineChart({ data = [], session = null }) {
       240
     );
 
-    const labels = normalizedData.map(d => d.label);
-    const values = normalizedData.map(d => d.viewers);
-
     const options = getBaseChartOptions({
       plugins: {
         tooltip: {
@@ -88,7 +107,7 @@ export function ViewersTimelineChart({ data = [], session = null }) {
             title: function (tooltipItems) {
               if (!tooltipItems.length) return '';
               const index = tooltipItems[0].dataIndex;
-              const item = normalizedData[index];
+              const item = dataRef.current[index];
               if (!item) return '';
               const minText = `Minuto ${item.minute}`;
               return item.timeStr ? `${minText} (${item.timeStr})` : minText;
@@ -149,13 +168,6 @@ export function ViewersTimelineChart({ data = [], session = null }) {
       },
       options,
     });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
   }, [normalizedData]);
 
   return html`

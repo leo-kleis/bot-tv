@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import twitchio
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 MAX_FFZ_CACHE_SIZE = 32
+MAX_CHAT_MESSAGE_LENGTH = 500
 _FFZ_CACHE: dict[str, dict[str, Any]] = {}
 
 
@@ -50,11 +52,22 @@ async def endpoint_send_chat_message(request: Request) -> Response:
         return _err("Campo 'sender_id' requerido.")
     if not message:
         return _err("Campo 'message' requerido.")
+    if len(message) > MAX_CHAT_MESSAGE_LENGTH:
+        return _err(
+            f"El mensaje supera el límite de {MAX_CHAT_MESSAGE_LENGTH} "
+            "caracteres de Twitch."
+        )
 
     try:
-        # 1. Obtener la información del canal destino (broadcaster)
-        # El canal es aquel cuyo user_id != bot_id en tokens
+        # 1. Obtener la información de cuentas autenticadas y validar sender_id
         tokens_metadata = await bot.token_repo.get_accounts_summary()
+        authorized_sender_ids = {t["user_id"] for t in tokens_metadata}
+        if sender_id not in authorized_sender_ids:
+            return _err(
+                "El 'sender_id' especificado no corresponde a una cuenta autorizada.",
+                status=403,
+            )
+
         broadcaster_accounts = [
             t for t in tokens_metadata if t["user_id"] != bot.bot_id
         ]
@@ -96,8 +109,6 @@ async def endpoint_get_ffz_emotes(request: Request) -> Response:
 
     url = f"https://api.frankerfacez.com/v1/room/id/{channel_id}"
     try:
-        import httpx
-
         async with httpx.AsyncClient(timeout=4.0) as client:
             resp = await client.get(url)
             if len(_FFZ_CACHE) >= MAX_FFZ_CACHE_SIZE:

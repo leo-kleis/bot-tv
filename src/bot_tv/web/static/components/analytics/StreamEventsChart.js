@@ -1,5 +1,5 @@
 import { html, useEffect, useRef, useMemo } from 'preact-setup';
-import { Chart } from '/static/vendor/chart.js-auto.esm.js';
+import { Chart } from 'chart.js';
 import { getChartTheme, getBaseChartOptions } from './chartTheme.js';
 
 export function StreamEventsChart({ data = null }) {
@@ -85,22 +85,38 @@ export function StreamEventsChart({ data = null }) {
   }, [eventCategories]);
 
   useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
+    if (!canvas || eventCategories.length === 0) {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+      return;
     }
-
-    if (eventCategories.length === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    const theme = getChartTheme();
 
     const labels = eventCategories.map(c => c.label);
     const counts = eventCategories.map(c => c.count);
     const bgColors = eventCategories.map(c => c.color);
+
+    if (chartRef.current) {
+      chartRef.current.data.labels = labels;
+      chartRef.current.data.datasets[0].data = counts;
+      chartRef.current.data.datasets[0].backgroundColor = bgColors;
+      chartRef.current.update('none');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const theme = getChartTheme();
 
     const options = getBaseChartOptions({
       cutout: '70%',
@@ -152,13 +168,6 @@ export function StreamEventsChart({ data = null }) {
       },
       options,
     });
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
   }, [eventCategories]);
 
   return html`

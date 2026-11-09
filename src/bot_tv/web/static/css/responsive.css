@@ -295,23 +295,36 @@
     padding: 8px 14px;
   }
 
-  /* Ajustar la posición absoluta del drawer IRC en móvil horizontal solo en pantallas angostas */
-  @media (max-width: 600px) and (orientation: landscape) {
-    #app-root .irc-panel {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      right: -280px;
-      z-index: var(--z-irc-drawer);
-      isolation: isolate;
-    }
-    #app-root .chat-tab.irc-open-mobile .irc-panel {
-      transform: translateX(-280px);
-    }
-    #app-root .irc-overlay-mobile {
-      top: 0;
-      height: 100%;
-    }
+  /* Panel IRC como Drawer deslizable en cualquier ancho de landscape (max-height: 480px) */
+  #app-root .irc-panel {
+    position: absolute;
+    top: 0;
+    right: -280px;
+    width: 270px;
+    height: 100%;
+    z-index: var(--z-irc-drawer);
+    isolation: isolate;
+    border-left: 1px solid var(--border);
+    background: rgba(18, 16, 23, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px 0 0 16px;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  #app-root .chat-tab.irc-open-mobile .irc-panel {
+    transform: translateX(-280px);
+    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
+  }
+  #app-root .irc-overlay-mobile {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: calc(var(--z-irc-drawer) - 1);
   }
 }
 

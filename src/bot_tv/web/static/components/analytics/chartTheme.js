@@ -155,6 +155,28 @@ export function getBaseChartOptions(overrides = {}) {
     merged.scales = {
       ...base.scales,
       ...overrides.scales,
+      ...(overrides.scales.x
+        ? {
+            x: {
+              ...base.scales.x,
+              ...overrides.scales.x,
+              grid: { ...base.scales.x.grid, ...overrides.scales.x.grid },
+              ticks: { ...base.scales.x.ticks, ...overrides.scales.x.ticks },
+              border: { ...base.scales.x.border, ...overrides.scales.x.border },
+            },
+          }
+        : {}),
+      ...(overrides.scales.y
+        ? {
+            y: {
+              ...base.scales.y,
+              ...overrides.scales.y,
+              grid: { ...base.scales.y.grid, ...overrides.scales.y.grid },
+              ticks: { ...base.scales.y.ticks, ...overrides.scales.y.ticks },
+              border: { ...base.scales.y.border, ...overrides.scales.y.border },
+            },
+          }
+        : {}),
     };
   }
   return merged;

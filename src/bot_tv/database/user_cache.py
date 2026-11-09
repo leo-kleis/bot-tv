@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from bot_tv.database.repositories.base import to_iso_str
@@ -103,6 +104,110 @@ class UserMemoryCache:
             }
         return dict(roles)
 
+    def get_display_role(
+        self,
+        user_id: str | None,
+        broadcaster_id: str | int,
+        bot_id: str | None = None,
+    ) -> str:
+        """Determina la etiqueta de rol de un usuario en el canal desde la caché."""
+        if not user_id:
+            return "Visita"
+
+        uid_str = str(user_id)
+        bid_str = str(broadcaster_id)
+
+        if uid_str == bid_str:
+            return "Broadcaster"
+
+        if (bot_id and uid_str == str(bot_id)) or self.is_user_bot(uid_str):
+            return "Bot"
+
+        roles = self.get_user_roles(uid_str, bid_str)
+        if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
+            fat = roles.get("followed_at")
+            if isinstance(fat, str):
+                try:
+                    clean = fat.replace("Z", "+00:00")
+                    dt = datetime.fromisoformat(clean).astimezone()
+                    return dt.strftime("%d/%m/%y")
+                except Exception:
+                    return "Visita"
+
+        return "Visita"
+
+    def get_user_detail_by_name(
+        self, username: str, channel_id: str
+    ) -> dict[str, Any] | None:
+        """Obtiene el detalle consolidado de un usuario y su rol desde la caché."""
+        uid = self._username_map.get(username.lower())
+        if not uid:
+            return None
+        user = self._users.get(uid)
+        if not user:
+            return None
+        roles = self._channel_roles.get((channel_id, uid), {})
+        return {
+            "user_id": uid,
+            "username": user.get("username", username),
+            "display_name": user.get("display_name"),
+            "nickname": user.get("nickname"),
+            "is_bot": bool(user.get("is_bot", False)),
+            "is_moderator": bool(roles.get("is_moderator", False)),
+            "is_vip": bool(roles.get("is_vip", False)),
+            "is_subscriber": bool(roles.get("is_subscriber", False)),
+            "sub_tier": roles.get("sub_tier"),
+            "followed_at": roles.get("followed_at"),
+            "unfollowed_at": roles.get("unfollowed_at"),
+        }
+
+    def search_users(
+        self,
+        q: str,
+        limit: int = 10,
+        channel_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Busca usuarios en la caché en memoria para autocompletado instantáneo."""
+        q_clean = q.strip().lower()
+        if not q_clean:
+            return []
+
+        matches: list[dict[str, Any]] = []
+        for uid, user in self._users.items():
+            u_name = (user.get("username") or "").lower()
+            d_name = (user.get("display_name") or "").lower()
+            n_name = (user.get("nickname") or "").lower()
+            if q_clean in u_name or q_clean in d_name or q_clean in n_name:
+                roles: dict[str, Any] = {}
+                if channel_id:
+                    roles = self._channel_roles.get((channel_id, uid), {})
+                else:
+                    # Buscar el primer registro de canal disponible para este usuario
+                    for (_cid, r_uid), r_data in self._channel_roles.items():
+                        if r_uid == uid:
+                            roles = r_data
+                            break
+
+                is_follower = bool(
+                    roles.get("followed_at") and not roles.get("unfollowed_at")
+                )
+                matches.append(
+                    {
+                        "user_id": uid,
+                        "username": user.get("username", ""),
+                        "display_name": user.get("display_name"),
+                        "nickname": user.get("nickname") or "",
+                        "is_bot": bool(user.get("is_bot", False)),
+                        "is_moderator": bool(roles.get("is_moderator", False)),
+                        "is_vip": bool(roles.get("is_vip", False)),
+                        "is_subscriber": bool(roles.get("is_subscriber", False)),
+                        "is_follower": is_follower,
+                    }
+                )
+
+        matches.sort(key=lambda r: (r.get("display_name") or r["username"]).lower())
+        return matches[: max(1, limit)]
+
     def needs_user_update(
         self,
         user_id: str,
@@ -159,8 +264,12 @@ class UserMemoryCache:
             }
             self._users[user_id] = user
         else:
+            old_username = user.get("username")
+            if old_username and username and old_username.lower() != username.lower():
+                self._username_map.pop(old_username.lower(), None)
             user["username"] = username
-            user["display_name"] = display_name
+            if display_name is not None:
+                user["display_name"] = display_name
             if is_bot is not None:
                 user["is_bot"] = is_bot
             if nickname is not None:
