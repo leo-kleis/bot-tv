@@ -46,7 +46,7 @@ def get_user_id(access_token: str, client_id: str, username: str) -> str:
     return data[0]["id"]
 
 
-def main():
+def main() -> None:
     load_dotenv()
 
     client_id = os.getenv("TWITCH_CLIENT_ID")
@@ -74,7 +74,7 @@ def main():
     print()
     print(f"OWNER_USERNAME : {owner_username}")
     print(f"OWNER_ID       : {owner_id}")
-    print("\nCopia estos valores en tu código de TwitchIO :)")
+    print("\nCopia estos valores en tu archivo .env")
 
 
 if __name__ == "__main__":

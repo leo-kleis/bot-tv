@@ -5,14 +5,38 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import asyncpg
 
 LOGGER = logging.getLogger(__name__)
 
 _LIKE_SPECIAL_RE = re.compile(r"([%_\\])")
+_DEFAULT_RETRY_ATTEMPTS = 3
+_RETRY_BASE_DELAY_SECONDS = 0.15
+_TRANSIENT_DB_ERRORS: tuple[type[BaseException], ...] = (
+    asyncpg.PostgresConnectionError,
+    asyncpg.TransactionRollbackError,
+    asyncpg.TooManyConnectionsError,
+    asyncpg.CannotConnectNowError,
+    asyncpg.AdminShutdownError,
+    asyncpg.CrashShutdownError,
+    asyncpg.IdleSessionTimeoutError,
+    asyncpg.IdleInTransactionSessionTimeoutError,
+    OSError,
+)
 T = TypeVar("T")
+
+
+def _is_transient_db_error(exc: BaseException) -> bool:
+    """Indica si una excepción proviene de desconexión, pool o deadlock."""
+    if isinstance(exc, _TRANSIENT_DB_ERRORS):
+        return True
+    # Distinguir conexión cerrada de errores de datos o pool en cierre (InterfaceError).
+    return (
+        type(exc) is asyncpg.InterfaceError
+        and "connection is closed" in str(exc).lower()
+    )
 
 
 def escape_like(term: str) -> str:
@@ -54,24 +78,85 @@ class BaseRepository:
         self,
         op_fn: Callable[[asyncpg.Connection], Awaitable[T]],
         context_label: str = "operación DB",
+        *,
+        max_attempts: int = _DEFAULT_RETRY_ATTEMPTS,
     ) -> T:
-        """Ejecuta una operación DB con reintento ante desconexión transitoria."""
-        for attempt in range(2):
+        """Ejecuta una operación DB con reintentos ante errores transitorios."""
+        attempts = max(1, max_attempts)
+        for attempt in range(attempts):
             try:
                 async with self._db.acquire() as conn:
                     return await op_fn(conn)
-            except (
-                asyncpg.ConnectionDoesNotExistError,
-                asyncpg.InterfaceError,
-                OSError,
-            ) as e:
-                if attempt == 0:
-                    LOGGER.warning(
-                        "Conexión perdida en %s (%s). Reintentando...",
-                        context_label,
-                        e,
-                    )
-                    await asyncio.sleep(0.15)
-                    continue
-                raise
+            except Exception as exc:
+                if not _is_transient_db_error(exc) or attempt >= attempts - 1:
+                    raise
+                delay = _RETRY_BASE_DELAY_SECONDS * (2**attempt)
+                LOGGER.warning(
+                    "Error transitorio en %s (intento %d/%d: %s). "
+                    "Reintentando en %.2fs...",
+                    context_label,
+                    attempt + 1,
+                    attempts,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
         raise RuntimeError(f"Fallo inesperado en _with_retry ({context_label})")
+
+    async def _with_transaction(
+        self,
+        op_fn: Callable[[asyncpg.Connection], Awaitable[T]],
+        context_label: str = "transacción DB",
+        *,
+        max_attempts: int = _DEFAULT_RETRY_ATTEMPTS,
+    ) -> T:
+        """Ejecuta múltiples sentencias de forma atómica con reintento completo."""
+
+        async def _run(conn: asyncpg.Connection) -> T:
+            async with conn.transaction():
+                return await op_fn(conn)
+
+        return await self._with_retry(
+            _run,
+            context_label=context_label,
+            max_attempts=max_attempts,
+        )
+
+    async def _fetch(
+        self,
+        query: str,
+        *args: Any,
+        context_label: str = "consulta DB",
+    ) -> list[asyncpg.Record]:
+        """Ejecuta una consulta SELECT multi-fila protegida por reintentos."""
+
+        async def _op(conn: asyncpg.Connection) -> list[asyncpg.Record]:
+            return await conn.fetch(query, *args)
+
+        return await self._with_retry(_op, context_label=context_label)
+
+    async def _fetchrow(
+        self,
+        query: str,
+        *args: Any,
+        context_label: str = "consulta DB",
+    ) -> asyncpg.Record | None:
+        """Ejecuta una consulta SELECT de una fila protegida por reintentos."""
+
+        async def _op(conn: asyncpg.Connection) -> asyncpg.Record | None:
+            return await conn.fetchrow(query, *args)
+
+        return await self._with_retry(_op, context_label=context_label)
+
+    async def _execute(
+        self,
+        query: str,
+        *args: Any,
+        context_label: str = "escritura DB",
+    ) -> str:
+        """Ejecuta una sentencia SQL de escritura protegida por reintentos."""
+
+        async def _op(conn: asyncpg.Connection) -> str:
+            return await conn.execute(query, *args)
+
+        return await self._with_retry(_op, context_label=context_label)

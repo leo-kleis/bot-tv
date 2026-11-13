@@ -5,24 +5,25 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import ipaddress
 import logging
+import re
 import shutil
-import subprocess
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from starlette.applications import Starlette
+from starlette.datastructures import Headers, MutableHeaders, QueryParams
 from starlette.middleware import Middleware
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.middleware.gzip import GZipMiddleware
-from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.requests import HTTPConnection, Request
+from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
-from starlette.types import Scope
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
 from bot_tv.utils.env import (
@@ -38,7 +39,9 @@ from bot_tv.utils.env import (
 )
 from bot_tv.web.api import (
     endpoint_analytics_chat_activity,
+    endpoint_analytics_followers_events,
     endpoint_analytics_followers_growth,
+    endpoint_analytics_messages,
     endpoint_analytics_overview,
     endpoint_analytics_stream_events,
     endpoint_analytics_stream_sessions,
@@ -61,7 +64,6 @@ from bot_tv.web.api import (
     endpoint_search_categories,
     endpoint_search_users,
     endpoint_send_chat_message,
-    endpoint_set_context_limit,
     endpoint_set_nickname,
     endpoint_switch_model,
     endpoint_sync_followers,
@@ -87,53 +89,70 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 ALLOWED_FETCH_SITES = frozenset({"same-origin", "none"})
 CROSS_ORIGIN_BLOCKED_MSG = "Solicitud cross-origin bloqueada."
+INVALID_HOST_MSG = "Cabecera Host inválida o no autorizada."
 AUTH_COOKIE_NAME = "bot_tv_token"
+AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 REVALIDATE_HEADERS = {"Cache-Control": "no-cache"}
+VITE_DEV_PORT = 5173
+PUBLIC_EXEMPT_METHODS = frozenset({"GET", "HEAD"})
+PUBLIC_EXEMPT_EXACT_PATHS = frozenset(
+    {"/api/health", "/manifest.json", "/sw.js", "/favicon.ico"}
+)
+PUBLIC_EXEMPT_PREFIXES = ("/icons/", "/static/icons/")
+VITE_MANIFEST_PATH_RE = re.compile(r"^/static/assets/manifest-[A-Za-z0-9_-]+\.json$")
+_HOST_FORBIDDEN_CHARS = frozenset(" \t\r\n/@\\?#;,")
+_CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
+_LOCALHOST_HOSTNAMES = frozenset({"localhost", "127.0.0.1", "::1"})
+_LOCAL_DOMAIN_SUFFIXES = (".local", ".lan", ".home", ".internal", ".ts.net")
 
 CSP_HEADER = (
     "default-src 'self'; "
     "script-src 'self' https://embed.twitch.tv https://player.twitch.tv; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
     "https://cdnjs.cloudflare.com; "
-    "img-src 'self' data: https:; "
-    "connect-src 'self' ws: wss: https:; "
+    "img-src 'self' data: blob: https://static-cdn.jtvnw.net https://*.jtvnw.net "
+    "https://cdn.frankerfacez.com https://cdn.betterttv.net; "
+    "connect-src 'self' ws: wss: https://api.frankerfacez.com "
+    "https://api.betterttv.net; "
     "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
     "frame-src 'self' https://player.twitch.tv https://embed.twitch.tv; "
-    "frame-ancestors 'self';"
+    "frame-ancestors 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self';"
 )
 
 
-def _apply_security_headers(response: Response) -> None:
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = CSP_HEADER
+def _expected_access_token() -> str:
+    return WEB_ACCESS_TOKEN.strip()
+
+
+def _apply_security_headers(headers: MutableHeaders) -> None:
+    headers["X-Content-Type-Options"] = "nosniff"
+    headers["X-Frame-Options"] = "SAMEORIGIN"
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    headers["Content-Security-Policy"] = CSP_HEADER
     if IS_PRODUCTION:
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
 
 def is_authorized_request(
-    headers: dict[str, str] | object,
-    cookies: dict[str, str],
+    headers: object,
+    cookies: Mapping[str, str],
     query_token: str = "",
 ) -> bool:
     """Verifica el token de acceso si WEB_ACCESS_TOKEN está configurado."""
-    if not WEB_ACCESS_TOKEN:
-        return True
-
-    expected = WEB_ACCESS_TOKEN.strip()
+    expected = _expected_access_token()
     if not expected:
         return True
 
     # 1. Cookie de sesión
-    cookie_val = cookies.get(AUTH_COOKIE_NAME, "")
+    cookie_val = cookies.get(AUTH_COOKIE_NAME, "").strip()
     if cookie_val and hmac.compare_digest(cookie_val, expected):
         return True
 
     # 2. Query param (?token=...)
-    if query_token and hmac.compare_digest(query_token, expected):
+    cleaned_query = query_token.strip()
+    if cleaned_query and hmac.compare_digest(cleaned_query, expected):
         return True
 
     # 3. Cabeceras Authorization / X-Access-Token
@@ -142,7 +161,7 @@ def is_authorized_request(
         auth_header = str(get_header("authorization", "") or "")
         if auth_header.lower().startswith("bearer "):
             bearer_val = auth_header[7:].strip()
-            if hmac.compare_digest(bearer_val, expected):
+            if bearer_val and hmac.compare_digest(bearer_val, expected):
                 return True
         x_token = str(get_header("x-access-token", "") or "").strip()
         if x_token and hmac.compare_digest(x_token, expected):
@@ -151,20 +170,288 @@ def is_authorized_request(
     return False
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Valida Same-Origin en mutaciones, acceso opcional por token y cabeceras."""
+def _is_public_exempt_request(method: str, path: str) -> bool:
+    """Permite únicamente endpoints/assets públicos para health e instalación PWA."""
+    if method.upper() not in PUBLIC_EXEMPT_METHODS:
+        return False
+    if ".." in path or "\\" in path:
+        return False
+    if path in PUBLIC_EXEMPT_EXACT_PATHS:
+        return True
+    if any(path.startswith(prefix) for prefix in PUBLIC_EXEMPT_PREFIXES):
+        return True
+    return bool(VITE_MANIFEST_PATH_RE.fullmatch(path))
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        path = request.url.path
 
-        # Verificar WEB_ACCESS_TOKEN si está configurado (excepto /api/health)
-        if WEB_ACCESS_TOKEN and path != "/api/health":
-            query_token = request.query_params.get("token", "").strip()
-            if not is_authorized_request(
-                request.headers, request.cookies, query_token=query_token
-            ):
+def _build_clean_redirect_url(path: str, raw_query_string: bytes) -> str:
+    """Elimina ?token= de la URL para evitar credenciales en historial del navegador."""
+    normalized_path = path.replace("\\", "/")
+    safe_path = (
+        normalized_path
+        if normalized_path.startswith("/") and not normalized_path.startswith("//")
+        else f"/{normalized_path.lstrip('/')}"
+    )
+    raw_qs = raw_query_string.decode("latin-1")
+    filtered_params = [
+        (key, value)
+        for key, value in parse_qsl(raw_qs, keep_blank_values=True)
+        if key != "token"
+    ]
+    clean_query = urlencode(filtered_params)
+    return f"{safe_path}?{clean_query}" if clean_query else safe_path
+
+
+def _parse_netloc(raw_value: str) -> tuple[str, int | None] | None:
+    """Valida sintácticamente una cabecera Host y retorna (hostname, puerto)."""
+    value = raw_value.strip()
+    if not value or any(ch in _HOST_FORBIDDEN_CHARS for ch in value):
+        return None
+    parsed = urlparse(f"http://{value}")
+    if (
+        parsed.username is not None
+        or parsed.password is not None
+        or parsed.path
+        or parsed.query
+        or parsed.fragment
+        or not parsed.hostname
+    ):
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is not None and not (1 <= port <= 65535):
+        return None
+    return parsed.hostname.lower(), port
+
+
+def _parse_origin_url(raw_origin: str) -> tuple[str, str, int | None] | None:
+    """Parsea una cabecera Origin estrictamente; rechaza 'null' y formas inválidas."""
+    origin = raw_origin.strip()
+    if not origin or origin.lower() == "null":
+        return None
+    parsed = urlparse(origin)
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        return None
+    if (
+        parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in {"", "/"}
+        or parsed.query
+        or parsed.fragment
+        or not parsed.hostname
+    ):
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+    if port is not None and not (1 <= port <= 65535):
+        return None
+    return scheme, parsed.hostname.lower(), port
+
+
+def _cors_origin_tuples(
+    cors_origins: frozenset[str] | None = None,
+) -> set[tuple[str, str, int]]:
+    allowed: set[tuple[str, str, int]] = set()
+    active_origins = CORS_ORIGINS if cors_origins is None else cors_origins
+    for raw in active_origins:
+        parsed = _parse_origin_url(raw)
+        if parsed is None:
+            continue
+        scheme, hostname, port = parsed
+        eff_port = port or (443 if scheme == "https" else 80)
+        allowed.add((scheme, hostname, eff_port))
+    return allowed
+
+
+def _cors_hostnames(cors_origins: frozenset[str] | None = None) -> set[str]:
+    hosts: set[str] = set()
+    active_origins = CORS_ORIGINS if cors_origins is None else cors_origins
+    for raw in active_origins:
+        parsed = _parse_origin_url(raw)
+        if parsed is not None:
+            hosts.add(parsed[1])
+    return hosts
+
+
+def _is_local_or_lan_hostname(hostname: str) -> bool:
+    norm = hostname.rstrip(".").lower()
+    if not norm:
+        return False
+    if norm in _LOCALHOST_HOSTNAMES:
+        return True
+    try:
+        ip = ipaddress.ip_address(norm)
+    except ValueError:
+        return "." not in norm or norm.endswith(_LOCAL_DOMAIN_SUFFIXES)
+
+    mapped = getattr(ip, "ipv4_mapped", None)
+    target_ip = mapped if mapped is not None else ip
+    return (
+        target_ip.is_loopback
+        or target_ip.is_private
+        or target_ip.is_link_local
+        or (target_ip.version == 4 and target_ip in _CGNAT_NETWORK)
+    )
+
+
+def _is_unspecified_ip(hostname: str) -> bool:
+    try:
+        return ipaddress.ip_address(hostname).is_unspecified
+    except ValueError:
+        return False
+
+
+def is_valid_host_header(
+    raw_host: str,
+    scope: Scope | None = None,
+    cors_origins: frozenset[str] | None = None,
+) -> bool:
+    """Valida Host sintácticamente y por origen permitido (sin proxy ciego)."""
+    parsed = _parse_netloc(raw_host)
+    if parsed is None:
+        return False
+    hostname, _ = parsed
+
+    if scope is not None:
+        server = scope.get("server")
+        if (
+            isinstance(server, (tuple, list))
+            and server
+            and isinstance(server[0], str)
+            and hostname == server[0].lower()
+        ):
+            return True
+
+    if hostname in _LOCALHOST_HOSTNAMES:
+        return True
+    if WEB_HOST and hostname == WEB_HOST.lower() and not _is_unspecified_ip(hostname):
+        return True
+    if hostname in _cors_hostnames(cors_origins):
+        return True
+    return _is_local_or_lan_hostname(hostname)
+
+
+def is_allowed_request_origin(
+    headers: Headers,
+    scope: Scope,
+    cors_origins: frozenset[str] | None = None,
+) -> bool:
+    """Valida Origin y Sec-Fetch-Site frente al Host real del servidor."""
+    origin_values = headers.getlist("origin")
+    if len(origin_values) > 1:
+        return False
+
+    origin = origin_values[0] if origin_values else None
+    sec_fetch_site = headers.get("sec-fetch-site", "").strip().lower()
+
+    parsed_origin: tuple[str, str, int | None] | None = None
+    if origin is not None:
+        parsed_origin = _parse_origin_url(origin)
+        if parsed_origin is None:
+            return False
+        o_scheme, o_host, o_port = parsed_origin
+        o_eff_port = o_port or (443 if o_scheme == "https" else 80)
+        if (o_scheme, o_host, o_eff_port) in _cors_origin_tuples(cors_origins):
+            return True
+    else:
+        o_scheme = ""
+        o_host = ""
+        o_port = None
+        o_eff_port = 0
+
+    if sec_fetch_site and sec_fetch_site not in ALLOWED_FETCH_SITES:
+        allow_dev_vite_samesite = (
+            IS_DEV
+            and sec_fetch_site == "same-site"
+            and parsed_origin is not None
+            and o_port == VITE_DEV_PORT
+            and _is_local_or_lan_hostname(o_host)
+        )
+        if not allow_dev_vite_samesite:
+            return False
+
+    if parsed_origin is None:
+        return True
+
+    host_values = headers.getlist("host")
+    if len(host_values) != 1 or not is_valid_host_header(
+        host_values[0], scope, cors_origins=cors_origins
+    ):
+        return False
+
+    parsed_host = _parse_netloc(host_values[0])
+    if parsed_host is None:
+        return False
+    h_host, h_port = parsed_host
+
+    req_scheme = str(scope.get("scheme", "http")).lower()
+    req_is_https = req_scheme in {"https", "wss"}
+    if req_is_https and o_scheme != "https":
+        return False
+
+    # Reverse proxy TLS (p. ej. Tailscale Serve) puede reenviar HTTP local sin puerto
+    if o_scheme == "https" and not req_is_https and h_port is None and o_port is None:
+        ports_match = True
+    else:
+        h_eff_port = h_port or (443 if req_is_https else 80)
+        ports_match = h_eff_port == o_eff_port
+
+    if o_host == h_host and ports_match:
+        return True
+
+    if IS_DEV and _is_local_or_lan_hostname(o_host):
+        if o_port == VITE_DEV_PORT:
+            return True
+        if (
+            o_host in _LOCALHOST_HOSTNAMES
+            and h_host in _LOCALHOST_HOSTNAMES
+            and ports_match
+        ):
+            return True
+
+    return False
+
+
+class SecurityHeadersMiddleware:
+    """Middleware ASGI puro para auth, validación Host/Origin y cabeceras seguras."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_security_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                resp_headers = MutableHeaders(scope=message)
+                _apply_security_headers(resp_headers)
+            await send(message)
+
+        headers = Headers(scope=scope)
+        method = str(scope.get("method", "GET")).upper()
+        path = str(scope.get("path", "/"))
+
+        host_values = headers.getlist("host")
+        if len(host_values) != 1 or not is_valid_host_header(host_values[0], scope):
+            invalid_host_resp = JSONResponse(
+                {"ok": False, "error": INVALID_HOST_MSG},
+                status_code=400,
+            )
+            await invalid_host_resp(scope, receive, send_with_security_headers)
+            return
+
+        expected_token = _expected_access_token()
+        if expected_token and not _is_public_exempt_request(method, path):
+            cookies = HTTPConnection(scope).cookies
+            query_params = QueryParams(scope.get("query_string", b""))
+            query_token = query_params.get("token", "").strip()
+            if not is_authorized_request(headers, cookies, query_token=query_token):
                 unauth_resp = JSONResponse(
                     {
                         "ok": False,
@@ -175,75 +462,56 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                     },
                     status_code=401,
                 )
-                _apply_security_headers(unauth_resp)
-                return unauth_resp
+                await unauth_resp(scope, receive, send_with_security_headers)
+                return
 
-        if request.method in MUTATING_METHODS:
-            sec_fetch_site = request.headers.get("sec-fetch-site", "").lower()
-            if sec_fetch_site and sec_fetch_site not in ALLOWED_FETCH_SITES:
-                blocked_resp = JSONResponse(
-                    {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
-                    status_code=403,
-                )
-                _apply_security_headers(blocked_resp)
-                return blocked_resp
-
-            origin = request.headers.get("origin")
-            if origin and origin not in CORS_ORIGINS:
-                origin_host = urlparse(origin).netloc
-                host = request.headers.get("x-forwarded-host") or request.headers.get(
-                    "host", ""
-                )
-                if origin_host and host and origin_host != host:
-                    blocked_resp = JSONResponse(
-                        {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
-                        status_code=403,
-                    )
-                    _apply_security_headers(blocked_resp)
-                    return blocked_resp
-
-        response = await call_next(request)
-        _apply_security_headers(response)
-
-        # Persistir cookie HttpOnly si el usuario ingresó con ?token=...
-        if WEB_ACCESS_TOKEN:
-            query_token = request.query_params.get("token", "").strip()
-            if query_token and hmac.compare_digest(
-                query_token, WEB_ACCESS_TOKEN.strip()
+            if (
+                method == "GET"
+                and query_token
+                and hmac.compare_digest(query_token, expected_token)
             ):
-                response.set_cookie(
-                    key=AUTH_COOKIE_NAME,
-                    value=WEB_ACCESS_TOKEN.strip(),
-                    httponly=True,
-                    secure=IS_PRODUCTION,
-                    samesite="lax",
-                    max_age=60 * 60 * 24 * 30,
+                clean_url = _build_clean_redirect_url(
+                    path, scope.get("query_string", b"")
                 )
+                redirect_resp = RedirectResponse(
+                    url=clean_url,
+                    status_code=302,
+                    headers={"Cache-Control": "no-store"},
+                )
+                redirect_resp.set_cookie(
+                    key=AUTH_COOKIE_NAME,
+                    value=expected_token,
+                    httponly=True,
+                    secure=str(scope.get("scheme", "http")).lower() == "https",
+                    samesite="lax",
+                    path="/",
+                    max_age=AUTH_COOKIE_MAX_AGE_SECONDS,
+                )
+                await redirect_resp(scope, receive, send_with_security_headers)
+                return
 
-        return response
+        if method in MUTATING_METHODS and not is_allowed_request_origin(headers, scope):
+            blocked_resp = JSONResponse(
+                {"ok": False, "error": CROSS_ORIGIN_BLOCKED_MSG},
+                status_code=403,
+            )
+            await blocked_resp(scope, receive, send_with_security_headers)
+            return
+
+        await self.app(scope, receive, send_with_security_headers)
 
 
 def _ensure_frontend_dist() -> Path:
-    """Garantiza que exista el bundle compilado por Vite en DIST_DIR."""
+    """Verifica el bundle compilado en DIST_DIR sin bloquear el arranque ASGI."""
     if (DIST_DIR / "index.html").exists():
         return DIST_DIR
 
-    pnpm_bin = shutil.which("pnpm")
-    if pnpm_bin and (PROJECT_ROOT / "vite.config.js").exists():
-        LOGGER.info("Compilando bundle frontend con Vite...")
-        try:
-            subprocess.run(  # noqa: S603
-                [pnpm_bin, "run", "build"],
-                cwd=str(PROJECT_ROOT),
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            if (DIST_DIR / "index.html").exists():
-                return DIST_DIR
-        except Exception:
-            LOGGER.exception("Fallo al compilar frontend con Vite; usando STATIC_DIR")
-
+    LOGGER.warning(
+        "Bundle frontend no encontrado en %s; usando %s. "
+        "Ejecuta 'pnpm run build' para compilar o 'pnpm run dev' en desarrollo.",
+        DIST_DIR,
+        STATIC_DIR,
+    )
     return STATIC_DIR
 
 
@@ -315,7 +583,6 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route("/api/sync_user_roles", endpoint_sync_user_roles, methods=["POST"]),
         Route("/api/switch_model", endpoint_switch_model, methods=["POST"]),
         Route("/api/agent/clear", endpoint_clear_agent_chat, methods=["POST"]),
-        Route("/api/agent/context_limit", endpoint_set_context_limit, methods=["POST"]),
         Route("/api/talk", endpoint_talk, methods=["POST"]),
         Route("/api/rpm", endpoint_get_rpm, methods=["GET"]),
         Route("/api/models", endpoint_get_models, methods=["GET"]),
@@ -377,6 +644,12 @@ def create_app(bot: Bot, agent: TalkAgent, event_bus: EventBus) -> Starlette:
         Route(
             "/api/analytics/stream_sessions",
             endpoint_analytics_stream_sessions,
+            methods=["GET"],
+        ),
+        Route("/api/analytics/messages", endpoint_analytics_messages, methods=["GET"]),
+        Route(
+            "/api/analytics/followers_events",
+            endpoint_analytics_followers_events,
             methods=["GET"],
         ),
         # Bundle y recursos estáticos servidos desde dist/ (compilado por Vite)

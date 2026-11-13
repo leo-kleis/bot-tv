@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from typing import Any
 
 import httpx
 
@@ -9,7 +10,7 @@ from bot_tv.database.connection import create_pg_pool
 from bot_tv.utils.security import get_fernet
 
 
-async def check_token(token: str) -> dict:
+async def check_token(token: str) -> dict[str, Any]:
     """Valida el token en Twitch y retorna la respuesta JSON."""
     url = "https://id.twitch.tv/oauth2/validate"
     headers = {"Authorization": f"OAuth {token}"}
@@ -19,7 +20,7 @@ async def check_token(token: str) -> dict:
         return response.json()
 
 
-async def main():
+async def main() -> None:
     print("Conectando a la base de datos PostgreSQL...")
     try:
         pool = await create_pg_pool()

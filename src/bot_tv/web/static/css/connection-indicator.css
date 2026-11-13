@@ -164,6 +164,20 @@
   color: var(--danger);
 }
 
+.conn-popover-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 10px 0;
+}
+
+.conn-popover-exit-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  font-size: var(--font-sm);
+}
+
 /* ── Responsive: en landscape y mobile corregir posición ── */
 @media (max-height: 480px) {
   .conn-popover {

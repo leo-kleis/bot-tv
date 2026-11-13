@@ -76,7 +76,7 @@ class StreamComponent(commands.Component):
                     params={"user_id": channel_id, "type": "archive", "first": 20},
                 )
                 try:
-                    resp = await self.bot.http.request(route)
+                    resp = await self.bot.twitch_http.request(route)
                     if isinstance(resp, dict):
                         videos = resp.get("data", [])
                         for vod in videos:
@@ -120,11 +120,12 @@ class StreamComponent(commands.Component):
         self._channel_ids = [channel["user_id"] for channel in channels]
         self._channel_map = {}
 
+        cache = self.bot.ready_user_cache
         missing_ids: list[int | str] = []
         for c in channels:
             cid = c["user_id"]
             name = c["username"]
-            cached = self.bot.user_cache.get_user(cid)
+            cached = cache.get_user(cid) if cache is not None else None
             if cached and cached.get("display_name"):
                 name = cached["display_name"]
             else:

@@ -6,7 +6,18 @@ import { FollowersTable } from './FollowersTable.js';
 import { FollowersPagination } from './FollowersPagination.js';
 import { UserProfileDrawer } from '/static/components/user/UserProfileDrawer.js';
 
-export function FollowersTab({ followers }) {
+/**
+ * @param {{
+ *   followers: {
+ *     allNewLabels?: string[],
+ *     allLostLabels?: string[],
+ *     lastSync?: unknown,
+ *     progress?: { count: number, total: number } | null,
+ *   },
+ *   dispatch?: (action: Record<string, unknown>) => void,
+ * }} props
+ */
+export function FollowersTab({ followers, dispatch }) {
   const allNewLabels = followers.allNewLabels || [];
   const allLostLabels = followers.allLostLabels || [];
   const [syncing, setSyncing] = useState(false);
@@ -53,11 +64,15 @@ export function FollowersTab({ followers }) {
   });
 
   const fetchControllerRef = useRef(null);
+  const syncTimerRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (fetchControllerRef.current) {
         fetchControllerRef.current.abort();
+      }
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
       }
     };
   }, []);
@@ -184,7 +199,9 @@ export function FollowersTab({ followers }) {
     if (data.ok) {
       setResult({ ok: true, msg: 'Sincronización completada.' });
       fetchUsers();
-      setTimeout(() => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => {
+        syncTimerRef.current = null;
         setResult(null);
       }, 5000);
     } else {
@@ -296,6 +313,7 @@ export function FollowersTab({ followers }) {
         ? html`
             <${UserProfileDrawer}
               user=${selectedUserForProfile}
+              dispatch=${dispatch}
               onClose=${() => {
                 setSelectedUserForProfile(null);
                 fetchUsers();

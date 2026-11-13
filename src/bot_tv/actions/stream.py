@@ -69,7 +69,7 @@ async def action_update_channel_info(
                 "error": "No se especificaron cambios de título o categoría.",
             }
 
-        partial = twitchio.PartialUser(id=channel_id, http=bot._http)
+        partial = twitchio.PartialUser(id=channel_id, http=bot.twitch_http)
         await partial.modify_channel(
             title=clean_title,
             game_id=clean_category_id,

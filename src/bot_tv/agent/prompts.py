@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-SYSTEM_INSTRUCTIONS = """
+from typing import Final
+
+SYSTEM_INSTRUCTIONS: Final[str] = """
 Eres el asistente de consola de un bot de Twitch TV. Tu rol es ayudar al
 operador del canal respondiendo preguntas y ejecutando acciones.
 

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from bot_tv.actions.followers import action_sync_followers
 from bot_tv.actions.moderation import action_get_user_ban_status
@@ -15,7 +16,13 @@ from bot_tv.actions.users import (
     action_sync_user_roles,
     action_update_user_roles,
 )
-from bot_tv.web.api.helpers import _err, _get_str, _ok, _parse_body
+from bot_tv.web.api.helpers import (
+    _err,
+    _get_str,
+    _ok,
+    _parse_body,
+    _parse_int_param,
+)
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -23,6 +30,10 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 MAX_USERS_PAGE_LIMIT = 200
+MAX_USER_MESSAGES_LIMIT = 100
+DEFAULT_USERS_PAGE_LIMIT = 50
+DEFAULT_USER_MESSAGES_LIMIT = 50
+ALLOWED_AVATAR_HOST = "static-cdn.jtvnw.net"
 
 
 async def endpoint_sync_followers(request: Request) -> Response:
@@ -126,7 +137,7 @@ async def endpoint_search_users(request: Request) -> Response:
     channels = await bot.get_channels()
     channel_id = channels[0]["user_id"] if channels else None
     rows = await bot.user_repo.search_users(
-        q, limit=10, channel_id=channel_id, cache=bot.user_cache
+        q, limit=10, channel_id=channel_id, cache=bot.ready_user_cache
     )
 
     return _ok(
@@ -196,26 +207,26 @@ async def endpoint_list_users(request: Request) -> Response:
     if sort_order not in ("asc", "desc"):
         sort_order = "asc"
 
-    limit_param = request.query_params.get("limit", "50")
-    try:
-        limit = int(limit_param)
-    except ValueError:
-        limit = 50
-    limit = max(1, min(limit, MAX_USERS_PAGE_LIMIT))
+    limit = _parse_int_param(
+        request,
+        "limit",
+        DEFAULT_USERS_PAGE_LIMIT,
+        min_val=1,
+        max_val=MAX_USERS_PAGE_LIMIT,
+    )
+    if isinstance(limit, JSONResponse):
+        return limit
 
-    page_param = request.query_params.get("page", "1")
-    try:
-        page = int(page_param)
-    except ValueError:
-        page = 1
-    page = max(1, page)
+    page = _parse_int_param(request, "page", 1, min_val=1, max_val=None)
+    if isinstance(page, JSONResponse):
+        return page
 
     offset = (page - 1) * limit
 
     try:
         rows, total_count = await bot.user_repo.list_users_with_filters(
             channel_id=channel_id,
-            broadcaster_id=bot.owner_id,
+            broadcaster_id=channel_id,
             role=role,
             has_chat_history=has_chat_history,
             username_search=name,
@@ -228,7 +239,7 @@ async def endpoint_list_users(request: Request) -> Response:
             sort_order=sort_order,
             limit=limit,
             offset=offset,
-            cache=bot.user_cache,
+            cache=bot.ready_user_cache,
         )
 
         users_list = [
@@ -252,9 +263,6 @@ async def endpoint_list_users(request: Request) -> Response:
             for r in rows
         ]
 
-        if is_follower is not None:
-            users_list = [u for u in users_list if not u["is_broadcaster"]]
-
         return _ok(
             {
                 "users": users_list,
@@ -275,11 +283,39 @@ async def endpoint_get_avatar(request: Request) -> Response:
         return _err("user_id requerido", 400)
 
     bot: Bot = request.app.state.bot
-    url = await bot.user_repo.get_profile_image_url(user_id, cache=bot.user_cache)
-    if not url or not url.startswith(("https://", "http://")):
+    url = await bot.user_repo.get_profile_image_url(user_id, cache=bot.ready_user_cache)
+    if not url:
         return _err("Avatar no encontrado", 404)
 
-    return RedirectResponse(url=url, status_code=302)
+    clean_url = url.strip()
+    if any(ch in clean_url for ch in ("\r", "\n", "\x00")):
+        LOGGER.warning(
+            "Avatar con caracteres inválidos bloqueado para user_id %s", user_id
+        )
+        return _err("URL de avatar inválida", 400)
+
+    try:
+        parsed = urlsplit(clean_url)
+    except ValueError:
+        LOGGER.warning("Avatar con URL malformada bloqueado para user_id %s", user_id)
+        return _err("URL de avatar inválida", 400)
+
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != ALLOWED_AVATAR_HOST
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port is not None
+    ):
+        LOGGER.warning(
+            "Redirección de avatar bloqueada para user_id %s (host=%s, scheme=%s)",
+            user_id,
+            parsed.hostname,
+            parsed.scheme,
+        )
+        return _err("URL de avatar inválida", 400)
+
+    return RedirectResponse(url=clean_url, status_code=302)
 
 
 async def endpoint_get_user_detail(request: Request) -> Response:
@@ -295,7 +331,7 @@ async def endpoint_get_user_detail(request: Request) -> Response:
     channel_id = channels[0]["user_id"]
 
     row = await bot.user_repo.get_user_detail_by_name(
-        username, channel_id, cache=bot.user_cache
+        username, channel_id, cache=bot.ready_user_cache
     )
     if not row:
         return _err(f"Usuario '{username}' no encontrado.", status=404)
@@ -306,7 +342,9 @@ async def endpoint_get_user_detail(request: Request) -> Response:
     user_id = str(row.get("user_id") or "")
     if not user_id:
         user_id = (
-            await bot.user_repo.get_user_id_by_name(username, cache=bot.user_cache)
+            await bot.user_repo.get_user_id_by_name(
+                username, cache=bot.ready_user_cache
+            )
             or ""
         )
     is_broadcaster = user_id == str(bot.owner_id) or user_id == channel_id
@@ -347,13 +385,19 @@ async def endpoint_user_messages(request: Request) -> Response:
         return _err("No hay canales configurados.")
     channel_id = channels[0]["user_id"]
 
-    limit_param = request.query_params.get("limit", "50")
-    offset_param = request.query_params.get("offset", "0")
-    try:
-        limit = max(1, min(100, int(limit_param)))
-        offset = max(0, int(offset_param))
-    except ValueError:
-        limit, offset = 50, 0
+    limit = _parse_int_param(
+        request,
+        "limit",
+        DEFAULT_USER_MESSAGES_LIMIT,
+        min_val=1,
+        max_val=MAX_USER_MESSAGES_LIMIT,
+    )
+    if isinstance(limit, JSONResponse):
+        return limit
+
+    offset = _parse_int_param(request, "offset", 0, min_val=0, max_val=None)
+    if isinstance(offset, JSONResponse):
+        return offset
 
     search = request.query_params.get("search", "").strip() or None
     since = request.query_params.get("since", "").strip() or None
@@ -366,7 +410,9 @@ async def endpoint_user_messages(request: Request) -> Response:
 
     try:
         user_id = (
-            await bot.user_repo.get_user_id_by_name(username, cache=bot.user_cache)
+            await bot.user_repo.get_user_id_by_name(
+                username, cache=bot.ready_user_cache
+            )
             or ""
         )
         messages = await bot.chat_repo.get_messages_with_filters(

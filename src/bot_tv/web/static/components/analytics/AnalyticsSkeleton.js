@@ -42,14 +42,7 @@ export function AnalyticsSkeleton() {
           <div class="skeleton-chart-body"></div>
         </div>
 
-        <div class="analytics-chart-card skeleton-chart-card">
-          <div class="skeleton-header">
-            <div class="skeleton-line skeleton-title"></div>
-          </div>
-          <div class="skeleton-chart-body"></div>
-        </div>
-
-        <div class="analytics-chart-card skeleton-chart-card">
+        <div class="analytics-chart-card skeleton-chart-card full-width">
           <div class="skeleton-header">
             <div class="skeleton-line skeleton-title"></div>
           </div>

@@ -33,19 +33,57 @@ class ChatRepository(BaseRepository):
             maxlen=MAX_QUEUE_SIZE
         )
         self._batch_task: asyncio.Task[None] | None = None
-        self._flush_tasks: set[asyncio.Task[None]] = set()
+        self._flush_task: asyncio.Task[None] | None = None
         self._flush_lock = asyncio.Lock()
+        self._closed = False
 
     def start_batch_worker(self) -> None:
         """Inicia el worker en segundo plano si no está corriendo."""
+        if self._closed:
+            return
         if self._batch_task is None or self._batch_task.done():
             self._batch_task = asyncio.create_task(self._batch_loop())
 
     async def _batch_loop(self) -> None:
         """Bucle periódico para hacer flush de la cola de chat."""
-        while True:
+        while not self._closed:
             await asyncio.sleep(BATCH_FLUSH_INTERVAL)
+            if self._closed:
+                break
             await self.flush()
+
+    async def _drain_batches(self) -> None:
+        """Drena lotes completos sin crear tareas concurrentes de flush."""
+        try:
+            while not self._closed and len(self._msg_queue) >= MAX_BATCH_SIZE:
+                if not await self._flush_locked():
+                    break
+        finally:
+            if asyncio.current_task() is self._flush_task:
+                self._flush_task = None
+
+    def _requeue_preserving_newest(
+        self,
+        batch: list[tuple[str, str, str, str, datetime, str | None]],
+    ) -> None:
+        """Re-encola mensajes fallidos sin expulsar los mensajes más recientes."""
+        available = MAX_QUEUE_SIZE - len(self._msg_queue)
+        if available <= 0:
+            LOGGER.warning(
+                "Cola chat_history llena (%d); descartando %d mensajes antiguos.",
+                MAX_QUEUE_SIZE,
+                len(batch),
+            )
+            return
+        if available < len(batch):
+            dropped = len(batch) - available
+            LOGGER.warning(
+                "Cola chat_history cerca del límite; descartando %d mensajes antiguos "
+                "para preservar los más recientes.",
+                dropped,
+            )
+            batch = batch[-available:]
+        self._msg_queue.extendleft(reversed(batch))
 
     async def save_chat_message(
         self,
@@ -56,64 +94,129 @@ class ChatRepository(BaseRepository):
         stream_id: str | None = None,
     ) -> None:
         """Encola un mensaje para su guardado en lote en chat_history."""
+        if self._closed:
+            LOGGER.warning(
+                "Mensaje descartado: ChatRepository ya fue cerrado (channel_id=%s).",
+                channel_id,
+            )
+            return
         if not msg_id:
             msg_id = str(uuid.uuid4())
         now = datetime.now(UTC)
         self._msg_queue.append((msg_id, channel_id, user_id, message, now, stream_id))
         self.start_batch_worker()
 
-        if len(self._msg_queue) >= MAX_BATCH_SIZE:
-            task = asyncio.create_task(self.flush())
-            self._flush_tasks.add(task)
-            task.add_done_callback(self._flush_tasks.discard)
+        if len(self._msg_queue) >= MAX_BATCH_SIZE and (
+            self._flush_task is None or self._flush_task.done()
+        ):
+            self._flush_task = asyncio.create_task(self._drain_batches())
 
     async def flush(self) -> None:
         """Escribe todos los mensajes acumulados en la cola a PostgreSQL."""
+        await self._flush_locked()
+
+    async def _flush_locked(self) -> bool:
+        """Ejecuta el flush serializado; False ante fallo transitorio."""
         async with self._flush_lock:
             if not self._msg_queue:
-                return
+                return True
 
             to_insert = list(self._msg_queue)
             self._msg_queue.clear()
+
+            ids: list[uuid.UUID] = []
+            channel_ids: list[str] = []
+            user_ids: list[str] = []
+            messages: list[str] = []
+            timestamps: list[datetime] = []
+            stream_ids: list[str | None] = []
+            valid_entries: list[tuple[str, str, str, str, datetime, str | None]] = []
+
+            for entry in to_insert:
+                raw_id, channel_id, user_id, message, ts, stream_id = entry
+                try:
+                    parsed_id = uuid.UUID(raw_id)
+                except ValueError, TypeError:
+                    LOGGER.error(
+                        "Mensaje descartado en chat_history por UUID inválido: %r",
+                        raw_id,
+                    )
+                    continue
+                ids.append(parsed_id)
+                channel_ids.append(channel_id)
+                user_ids.append(user_id)
+                messages.append(message)
+                timestamps.append(ts)
+                stream_ids.append(stream_id)
+                valid_entries.append(entry)
+
+            if not ids:
+                return True
 
             try:
                 query = """
                     INSERT INTO chat_history (
                         id, channel_id, user_id, message, timestamp, stream_id
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6)
+                    SELECT * FROM UNNEST(
+                        $1::uuid[],
+                        $2::text[],
+                        $3::text[],
+                        $4::text[],
+                        $5::timestamptz[],
+                        $6::text[]
+                    )
                     ON CONFLICT (id) DO NOTHING
                 """
-
-                async with self._db.acquire() as conn:
-                    await conn.executemany(query, to_insert)
+                await self._execute(
+                    query,
+                    ids,
+                    channel_ids,
+                    user_ids,
+                    messages,
+                    timestamps,
+                    stream_ids,
+                    context_label="flush chat_history",
+                )
                 LOGGER.debug(
                     "DB BATCH INSERT chat_history: %d mensajes guardados",
-                    len(to_insert),
+                    len(ids),
                 )
-
+                return True
             except (
                 asyncpg.IntegrityConstraintViolationError,
                 asyncpg.DataError,
-            ) as e:
+            ) as exc:
                 LOGGER.error(
                     "Lote descartado en chat_history por error de datos/integridad: %s",
-                    e,
+                    exc,
                 )
-            except Exception as e:
-                LOGGER.exception("Error al hacer batch insert en chat_history: %s", e)
-
-                # Re-encolar al inicio preservando el orden cronológico original
-                self._msg_queue.extendleft(reversed(to_insert))
+                return True
+            except Exception as exc:
+                LOGGER.exception(
+                    "Error al hacer batch insert en chat_history: %s",
+                    exc,
+                )
+                self._requeue_preserving_newest(valid_entries)
+                return False
 
     async def close(self) -> None:
-        """Cancela el worker y vacía los mensajes pendientes."""
+        """Cancela el worker y vacía los mensajes pendientes de forma idempotente."""
+        if self._closed:
+            return
+        self._closed = True
+
         if self._batch_task and not self._batch_task.done():
             self._batch_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._batch_task
-        if self._flush_tasks:
-            await asyncio.gather(*self._flush_tasks, return_exceptions=True)
+        self._batch_task = None
+
+        if self._flush_task and not self._flush_task.done():
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._flush_task
+        self._flush_task = None
+
         await self.flush()
 
     async def get_message_count_in_range(
@@ -130,10 +233,13 @@ class ChatRepository(BaseRepository):
             FROM chat_history
             WHERE channel_id = $1 AND timestamp >= $2 AND timestamp <= $3
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(
-                query, channel_id, dt_start, dt_end
-            )
+        row = await self._fetchrow(
+            query,
+            channel_id,
+            dt_start,
+            dt_end,
+            context_label="get_message_count_in_range",
+        )
         return row["msg_count"] if row else 0
 
     async def get_chat_stats(self, channel_id: str) -> dict[str, int] | None:
@@ -144,8 +250,7 @@ class ChatRepository(BaseRepository):
             FROM chat_history
             WHERE channel_id = $1
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, channel_id)
+        row = await self._fetchrow(query, channel_id, context_label="get_chat_stats")
         if not row:
             return None
         return {
@@ -171,8 +276,9 @@ class ChatRepository(BaseRepository):
             JOIN users u ON ts.user_id = u.user_id
             ORDER BY ts.msg_count DESC
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, limit)
+        rows = await self._fetch(
+            query, channel_id, limit, context_label="get_top_chatters"
+        )
         return [dict(row) for row in rows]
 
     async def get_messages_with_filters(
@@ -241,8 +347,9 @@ class ChatRepository(BaseRepository):
         params.append(limit)
         params.append(offset)
 
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, *params)
+        rows = await self._fetch(
+            query, *params, context_label="get_messages_with_filters"
+        )
         results: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
@@ -287,6 +394,7 @@ class ChatRepository(BaseRepository):
             FROM chat_history
             WHERE {" AND ".join(where_clauses)}
         """  # noqa: S608
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, *params)
+        row = await self._fetchrow(
+            query, *params, context_label="get_user_message_count"
+        )
         return int(row["total"]) if row else 0

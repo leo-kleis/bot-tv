@@ -8,6 +8,7 @@ export function UserInfoTabPanel({
   nickname,
   setNickname,
   savingNick,
+  nickError,
   onSaveNickname,
   userData,
   total,
@@ -87,6 +88,13 @@ export function UserInfoTabPanel({
                 </div>
               `
         }
+        ${
+          nickError
+            ? html`<div role="alert" style="margin-top:8px; font-size:12px; color:var(--danger);">
+                ${nickError}
+              </div>`
+            : null
+        }
       </div>
 
       <!-- Datos de Seguimiento -->
@@ -136,6 +144,8 @@ export function UserInfoTabPanel({
 export function UserRolesTabPanel({
   syncingRoles,
   savingRoles,
+  rolesError,
+  modError,
   tempRoles,
   setTempRoles,
   onSaveRoles,
@@ -234,6 +244,13 @@ export function UserRolesTabPanel({
                 : 'Guardar Roles'
           }
         </button>
+        ${
+          rolesError
+            ? html`<div role="alert" style="margin-top:8px; font-size:12px; color:var(--danger);">
+                ${rolesError}
+              </div>`
+            : null
+        }
       </div>
 
       <!-- Acciones de Moderación Directa -->
@@ -321,6 +338,13 @@ export function UserRolesTabPanel({
                 `
           }
         </div>
+        ${
+          modError
+            ? html`<div role="alert" style="margin-top:4px; font-size:12px; color:var(--danger);">
+                ${modError}
+              </div>`
+            : null
+        }
       </div>
     </div>
   `;

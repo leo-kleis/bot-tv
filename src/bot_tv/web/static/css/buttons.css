@@ -15,7 +15,12 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow: var(--shadow-inset), var(--shadow-sm);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform var(--transition-spring),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
   min-height: 42px;
   user-select: none;
@@ -94,6 +99,21 @@
 .btn-exit:active {
   transform: scale(0.97);
   background: rgba(244, 63, 94, 0.15);
+}
+
+.btn-secondary {
+  background: var(--surface2-solid);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface3);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.btn-secondary:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 .btn-sm {

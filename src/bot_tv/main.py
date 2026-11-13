@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -32,9 +33,17 @@ from bot_tv.utils.env import (
     WEB_PORT,
 )
 from bot_tv.utils.logger import setup_logging
+from bot_tv.utils.network import (
+    check_twitch_connection,
+    close_http_client,
+    get_port_process_info,
+    init_http_client,
+    is_port_in_use,
+)
 from bot_tv.web.server import create_app
 
 LOGGER = logging.getLogger(__name__)
+_DEFAULT_FORWARDED_ALLOW_IPS = "127.0.0.1,::1"
 
 
 def main() -> None:
@@ -61,6 +70,7 @@ def main() -> None:
             LOGGER.info("Conexión con PostgreSQL establecida.")
 
             try:
+                init_http_client()
                 LOGGER.info("Cargando tokens de autenticación y suscripciones...")
                 token_repo = TokenRepository(pool)
                 tokens, subs = await token_repo.load_tokens_and_subscriptions()
@@ -73,12 +83,6 @@ def main() -> None:
                     sys.exit(1)
 
                 LOGGER.info("Tokens cargados: %d", len(tokens))
-
-                from bot_tv.utils.network import (
-                    check_twitch_connection,
-                    get_port_process_info,
-                    is_port_in_use,
-                )
 
                 LOGGER.info("Verificando disponibilidad del puerto web %d...", WEB_PORT)
                 if await asyncio.to_thread(is_port_in_use, WEB_PORT, WEB_HOST):
@@ -124,79 +128,88 @@ def main() -> None:
 
                     agent = TalkAgent(bot, model=GEMINI_MODEL)
                     await agent.initialize()
+                    bot.agent = agent
 
-                    app = create_app(bot, agent, event_bus)
+                    try:
+                        app = create_app(bot, agent, event_bus)
 
-                    ssl_keyfile = None
-                    ssl_certfile = None
-                    certs_dir = Path("certs")
-                    # En desarrollo local usamos certs/ para la PWA en LAN;
-                    # en producción delegamos TLS al proxy (Tailscale / Cloud).
-                    if IS_DEV and certs_dir.exists():
-                        key_files = list(certs_dir.glob("*-key.pem"))
-                        cert_files = [
-                            f
-                            for f in certs_dir.glob("*.pem")
-                            if not f.name.endswith("-key.pem")
-                        ]
-                        if key_files and cert_files:
-                            ssl_keyfile = str(key_files[0])
-                            ssl_certfile = str(cert_files[0])
-                            LOGGER.info(
-                                "Configurando HTTPS local (DEV) con certs: %s y %s",
-                                ssl_certfile,
-                                ssl_keyfile,
-                            )
+                        ssl_keyfile = None
+                        ssl_certfile = None
+                        certs_dir = Path("certs")
+                        # En desarrollo local usamos certs/ para la PWA en LAN;
+                        # en producción delegamos TLS al proxy (Tailscale / Cloud).
+                        if IS_DEV and certs_dir.exists():
+                            key_files = list(certs_dir.glob("*-key.pem"))
+                            cert_files = [
+                                f
+                                for f in certs_dir.glob("*.pem")
+                                if not f.name.endswith("-key.pem")
+                            ]
+                            if key_files and cert_files:
+                                ssl_keyfile = str(key_files[0])
+                                ssl_certfile = str(cert_files[0])
+                                LOGGER.info(
+                                    "Configurando HTTPS local (DEV) con certs: %s y %s",
+                                    ssl_certfile,
+                                    ssl_keyfile,
+                                )
 
-                    config = uvicorn.Config(
-                        app,
-                        host=WEB_HOST,
-                        port=WEB_PORT,
-                        log_level="info",
-                        log_config=None,
-                        loop="none",
-                        ssl_keyfile=ssl_keyfile,
-                        ssl_certfile=ssl_certfile,
-                        timeout_graceful_shutdown=2,
-                        proxy_headers=True,
-                        forwarded_allow_ips="*",
-                    )
-                    server = uvicorn.Server(config)
-                    app.state.server = server
-                    app.state.ws_manager.set_shutdown_callback(
-                        lambda: setattr(server, "should_exit", True)
-                    )
-
-                    protocol = "https" if ssl_certfile else "http"
-                    LOGGER.info(
-                        "Dashboard [%s] en %s://%s:%d",
-                        APP_ENV.upper(),
-                        protocol,
-                        WEB_HOST,
-                        WEB_PORT,
-                    )
-
-                    bot_task = asyncio.create_task(
-                        bot.start(load_tokens=False, save_tokens=False)
-                    )
-                    server_task = asyncio.create_task(server.serve())
-
-                    _done, pending = await asyncio.wait(
-                        [bot_task, server_task],
-                        return_when=asyncio.FIRST_COMPLETED,
-                    )
-
-                    if pending:
-                        _done_after, pending = await asyncio.wait(
-                            pending,
-                            timeout=5.0,
+                        forwarded_allow_ips = (
+                            os.getenv("FORWARDED_ALLOW_IPS", "").strip()
+                            or _DEFAULT_FORWARDED_ALLOW_IPS
+                        )
+                        config = uvicorn.Config(
+                            app,
+                            host=WEB_HOST,
+                            port=WEB_PORT,
+                            log_level="info",
+                            log_config=None,
+                            loop="none",
+                            ssl_keyfile=ssl_keyfile,
+                            ssl_certfile=ssl_certfile,
+                            timeout_graceful_shutdown=2,
+                            proxy_headers=True,
+                            forwarded_allow_ips=forwarded_allow_ips,
+                        )
+                        server = uvicorn.Server(config)
+                        app.state.server = server
+                        app.state.ws_manager.set_shutdown_callback(
+                            lambda: setattr(server, "should_exit", True)
                         )
 
-                    for task in pending:
-                        task.cancel()
-                        with contextlib.suppress(asyncio.CancelledError):
-                            await task
+                        protocol = "https" if ssl_certfile else "http"
+                        LOGGER.info(
+                            "Dashboard [%s] en %s://%s:%d",
+                            APP_ENV.upper(),
+                            protocol,
+                            WEB_HOST,
+                            WEB_PORT,
+                        )
+
+                        bot_task = asyncio.create_task(
+                            bot.start(load_tokens=False, save_tokens=False)
+                        )
+                        server_task = asyncio.create_task(server.serve())
+
+                        _done, pending = await asyncio.wait(
+                            [bot_task, server_task],
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
+
+                        if pending:
+                            _done_after, pending = await asyncio.wait(
+                                pending,
+                                timeout=5.0,
+                            )
+
+                        for task in pending:
+                            task.cancel()
+                            with contextlib.suppress(asyncio.CancelledError):
+                                await task
+                    finally:
+                        await agent.close()
             finally:
+                await close_http_client()
                 await pool.close()
         finally:
             import gc

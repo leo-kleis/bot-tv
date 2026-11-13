@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
+from bot_tv.agent.tools._helpers import (
+    AgentToolFn,
+    clamp_limit,
+    format_user_details_row,
+    handle_tool_error,
+    normalize_non_empty,
+    normalize_username,
+    require_broadcaster_id,
+)
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -12,7 +19,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
+def build_channel_user_tools(bot: Bot) -> list[AgentToolFn]:
     """Construye las herramientas relacionadas con la consulta de usuarios y seguidores
     del canal en la base de datos.
     """
@@ -20,7 +27,9 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
     async def get_channel_user_stats() -> str:
         """Obtiene estadísticas generales sobre los seguidores en la base de datos."""
         try:
-            channel_id = await get_broadcaster_id(bot)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
             row = await bot.channel_user_repo.get_follower_stats(channel_id)
             if not row:
                 return "No hay datos de seguidores registrados en la base de datos."
@@ -35,9 +44,10 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
                 f"Seguidores activos: {active}\n"
                 f"Dejaron de seguir (unfollow): {unfollowed}"
             )
-        except Exception as e:
-            LOGGER.error("Error al obtener estadísticas de seguidores: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener estadísticas de seguidores", exc
+            )
 
     async def search_channel_users(
         search_term: str, active_only: bool = False, limit: int = 10
@@ -50,37 +60,35 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             active_only: Si es True, filtra para mostrar solo seguidores activos.
             limit: Límite de resultados a retornar.
         """
+        clean_term, term_err = normalize_non_empty(search_term, "search_term")
+        if term_err or clean_term is None:
+            return term_err or "El parámetro 'search_term' no puede estar vacío."
+
         try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 100))
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit)
             rows = await bot.channel_user_repo.search_followers(
                 channel_id=channel_id,
-                search_term=search_term,
+                search_term=clean_term,
                 active_only=active_only,
-                limit=limit,
+                limit=safe_limit,
             )
 
             if not rows:
                 suffix = " activos" if active_only else ""
                 return (
                     f"No se encontraron seguidores{suffix} "
-                    f"con el término '{search_term}'."
+                    f"con el término '{clean_term}'."
                 )
 
-            lines = [f"Resultados de búsqueda ({len(rows)} encontrados):"]
+            lines: list[str] = [f"Resultados de búsqueda ({len(rows)} encontrados):"]
             for r in rows:
-                user_detail = format_user_details(
-                    r["username"],
-                    r["display_name"],
-                    r["nickname"],
-                    r["followed_at"],
-                    r["unfollowed_at"],
-                )
-                lines.append(f"- {user_detail}")
+                lines.append(f"- {format_user_details_row(r)}")
             return "\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al buscar seguidores: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(LOGGER, "Error al buscar seguidores", exc)
 
     async def get_channel_user_info(username: str) -> str:
         """Obtiene información detallada de seguimiento y roles de un usuario
@@ -89,27 +97,28 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         Args:
             username: El nombre de usuario de Twitch exacto (ej: 'twitchdev').
         """
+        clean_username, user_err = normalize_username(username)
+        if user_err or clean_username is None:
+            return user_err or "El nombre de usuario no puede estar vacío."
+
         try:
-            channel_id = await get_broadcaster_id(bot)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
             row = await bot.user_repo.get_user_detail_by_name(
-                username, channel_id, cache=bot.user_cache
+                clean_username, channel_id, cache=bot.ready_user_cache
             )
             if not row:
                 return (
                     f"No se encontró información del usuario "
-                    f"'{username}' en la base de datos."
+                    f"'{clean_username}' en la base de datos."
                 )
 
-            return format_user_details(
-                row["username"],
-                row["display_name"],
-                row["nickname"],
-                row["followed_at"],
-                row["unfollowed_at"],
+            return format_user_details_row(row)
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener información del seguidor", exc
             )
-        except Exception as e:
-            LOGGER.error("Error al obtener información del seguidor: %s", e)
-            return f"Error al consultar base de datos: {e}"
 
     async def get_recent_channel_users(limit: int = 5, active_only: bool = True) -> str:
         """Obtiene la lista de los últimos seguidores activos reales del canal.
@@ -122,33 +131,27 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             active_only: Si es True, solo muestra seguidores vigentes/activos
                 (por defecto True).
         """
-
         try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 100))
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit)
             rows = await bot.channel_user_repo.get_recent_followers(
-                channel_id=channel_id, limit=limit, active_only=active_only
+                channel_id=channel_id, limit=safe_limit, active_only=active_only
             )
 
+            suffix = " activos" if active_only else ""
             if not rows:
-                suffix = " activos" if active_only else ""
                 return f"No se encontraron seguidores{suffix} en la base de datos."
 
-            suffix = " activos" if active_only else ""
-            lines = [f"Últimos {len(rows)} seguidores{suffix}:"]
+            lines: list[str] = [f"Últimos {len(rows)} seguidores{suffix}:"]
             for r in rows:
-                user_detail = format_user_details(
-                    r["username"],
-                    r["display_name"],
-                    r["nickname"],
-                    r["followed_at"],
-                    r["unfollowed_at"],
-                )
-                lines.append(f"- {user_detail}")
+                lines.append(f"- {format_user_details_row(r)}")
             return "\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al obtener seguidores recientes: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener seguidores recientes", exc
+            )
 
     async def get_recent_channel_unfollowers(limit: int = 5) -> str:
         """Obtiene la lista de los usuarios que han dejado de seguir
@@ -158,10 +161,12 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad de usuarios a mostrar.
         """
         try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 100))
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit)
             rows = await bot.channel_user_repo.get_recent_unfollowers(
-                channel_id=channel_id, limit=limit
+                channel_id=channel_id, limit=safe_limit
             )
 
             if not rows:
@@ -169,20 +174,14 @@ def build_channel_user_tools(bot: Bot) -> list[Callable[..., Any]]:
                     "No hay registros recientes de usuarios que hayan dejado de seguir."
                 )
 
-            lines = [f"Últimos {len(rows)} usuarios que dejaron de seguir:"]
+            lines: list[str] = [f"Últimos {len(rows)} usuarios que dejaron de seguir:"]
             for r in rows:
-                user_detail = format_user_details(
-                    r["username"],
-                    r["display_name"],
-                    r["nickname"],
-                    r["followed_at"],
-                    r["unfollowed_at"],
-                )
-                lines.append(f"- {user_detail}")
+                lines.append(f"- {format_user_details_row(r)}")
             return "\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al obtener unfollowers recientes: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener unfollowers recientes", exc
+            )
 
     return [
         get_channel_user_stats,

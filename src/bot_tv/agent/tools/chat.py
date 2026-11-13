@@ -3,12 +3,19 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+import math
+from typing import TYPE_CHECKING
 
 from bot_tv.agent.tools._helpers import (
-    format_user_details,
-    get_broadcaster_id,
+    AgentToolFn,
+    clamp_limit,
+    format_user_details_row,
+    format_user_display_name,
+    handle_tool_error,
+    normalize_iso_timestamp,
+    normalize_role_filter,
+    normalize_username,
+    require_broadcaster_id,
     sanitize_untrusted_text,
 )
 from bot_tv.utils.formatting import format_date
@@ -19,7 +26,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
+def build_chat_tools(bot: Bot) -> list[AgentToolFn]:
     """Construye las herramientas relacionadas con la consulta del historial
     y estadísticas del chat.
     """
@@ -52,85 +59,106 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
                 momento (opcional).
             limit: Cantidad máxima de mensajes a retornar.
         """
-        try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 100))
-            since_param = since.replace(" ", "T") if since else None
-            if hours_ago is not None:
-                since_param = (
-                    datetime.datetime.now(datetime.UTC)
-                    - datetime.timedelta(hours=hours_ago)
-                ).isoformat()
+        clean_username: str | None = None
+        if username is not None and username.strip():
+            clean_username, user_err = normalize_username(username)
+            if user_err:
+                return user_err
 
-            until_param = until.replace(" ", "T") if until else None
+        clean_role, role_err = normalize_role_filter(role)
+        if role_err:
+            return role_err
+
+        if hours_ago is not None and (not math.isfinite(hours_ago) or hours_ago <= 0):
+            return "El parámetro 'hours_ago' debe ser un número mayor que 0."
+
+        since_param, since_err = normalize_iso_timestamp(since, "since")
+        if since_err:
+            return since_err
+
+        until_param, until_err = normalize_iso_timestamp(until, "until")
+        if until_err:
+            return until_err
+
+        if hours_ago is not None:
+            since_param = (
+                datetime.datetime.now(datetime.UTC)
+                - datetime.timedelta(hours=hours_ago)
+            ).isoformat()
+
+        clean_search = search_term.strip() if search_term else None
+        if clean_search == "":
+            clean_search = None
+
+        try:
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit)
 
             user_details = ""
-            if username:
+            if clean_username:
                 user_row = await bot.user_repo.get_user_detail_by_name(
-                    username, channel_id, cache=bot.user_cache
+                    clean_username, channel_id, cache=bot.ready_user_cache
                 )
                 if not user_row:
                     return (
-                        f"No se encontró al usuario '{username}' en la base de datos."
+                        f"No se encontró al usuario '{clean_username}' "
+                        "en la base de datos."
                     )
-
-                user_details = format_user_details(
-                    user_row["username"],
-                    user_row["display_name"],
-                    user_row["nickname"],
-                    user_row["followed_at"],
-                    user_row["unfollowed_at"],
-                )
+                user_details = format_user_details_row(user_row)
 
             rows = await bot.chat_repo.get_messages_with_filters(
                 channel_id=channel_id,
-                username=username,
-                role=role,
-                search_term=search_term,
+                username=clean_username,
+                role=clean_role,
+                search_term=clean_search,
                 since=since_param,
                 until=until_param,
-                limit=limit,
+                limit=safe_limit,
             )
 
             if not rows:
                 if user_details:
                     return (
                         f"Historial de chat para {user_details}:\n"
-                        f"No hay mensajes registrados."
+                        "No hay mensajes registrados."
                     )
                 return (
                     "No se encontraron mensajes registrados en el chat "
                     "con los filtros indicados."
                 )
 
-            if user_details:
-                header = f"Historial de chat para {user_details}:"
-            else:
-                header = "Mensajes de chat encontrados:"
+            header = (
+                f"Historial de chat para {user_details}:"
+                if user_details
+                else "Mensajes de chat encontrados:"
+            )
 
-            msg_lines = []
+            msg_lines: list[str] = []
             for r in reversed(rows):
-                name = sanitize_untrusted_text(r["display_name"] or r["username"])
-                if r["nickname"]:
-                    safe_nick = sanitize_untrusted_text(r["nickname"])
-                    name = f"{name} ({safe_nick})"
-                safe_msg = sanitize_untrusted_text(r["message"])
+                name = format_user_display_name(
+                    str(r["username"]), r.get("display_name"), r.get("nickname")
+                )
+                safe_msg = sanitize_untrusted_text(r.get("message"))
                 msg_lines.append(
-                    f"- [{format_date(r['timestamp'])}] {name}: {safe_msg}"
+                    f"- [{format_date(r.get('timestamp'))}] {name}: {safe_msg}"
                 )
 
             body = "\n".join(msg_lines)
             return f"{header}\n<untrusted_chat_data>\n{body}\n</untrusted_chat_data>"
-        except Exception as e:
-            LOGGER.error("Error al obtener mensajes del chat: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(LOGGER, "Error al obtener mensajes del chat", exc)
 
     async def get_chat_stats() -> str:
         """Obtiene estadísticas generales del chat, incluyendo total de mensajes,
         usuarios únicos y top chatters.
         """
         try:
-            channel_id = await get_broadcaster_id(bot)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+
             stats_row, top_rows = await asyncio.gather(
                 bot.chat_repo.get_chat_stats(channel_id),
                 bot.chat_repo.get_top_chatters(channel_id, limit=5),
@@ -142,23 +170,23 @@ def build_chat_tools(bot: Bot) -> list[Callable[..., Any]]:
             total = stats_row["total_messages"]
             users = stats_row["unique_users"]
 
-            lines = [
+            lines: list[str] = [
                 f"Estadísticas del Chat:\n"
                 f"Mensajes totales guardados: {total}\n"
                 f"Usuarios únicos activos: {users}\n\n"
-                f"Top 5 usuarios más activos:"
+                "Top 5 usuarios más activos:"
             ]
             for idx, r in enumerate(top_rows, 1):
-                name = sanitize_untrusted_text(r["display_name"] or r["username"])
-                if r["nickname"]:
-                    safe_nick = sanitize_untrusted_text(r["nickname"])
-                    name = f"{name} ({safe_nick})"
+                name = format_user_display_name(
+                    str(r["username"]), r.get("display_name"), r.get("nickname")
+                )
                 lines.append(f"{idx}. {name}: {r['msg_count']} mensajes")
 
             return "\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al obtener estadísticas de chat: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener estadísticas de chat", exc
+            )
 
     return [
         get_chat_messages,

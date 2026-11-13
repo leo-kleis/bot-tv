@@ -3,11 +3,20 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from collections.abc import Callable
+from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any, Literal
 
+import twitchio
+
 from bot_tv.actions.stream import action_update_channel_info
-from bot_tv.agent.tools._helpers import get_broadcaster_id
+from bot_tv.agent.tools._helpers import (
+    MAX_VOD_LIMIT,
+    AgentToolFn,
+    clamp_limit,
+    handle_tool_error,
+    normalize_non_empty,
+    require_broadcaster_id,
+)
 from bot_tv.utils.formatting import format_date, parse_twitch_duration
 
 if TYPE_CHECKING:
@@ -16,7 +25,27 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
+async def _get_current_stream_field(
+    bot: Bot,
+    channel_id: str,
+    field: Literal["title", "game_name"],
+    default: str,
+) -> str:
+    """Obtiene el título o categoría actual consultando stream activo o canal."""
+    streams = bot.fetch_streams(user_ids=[channel_id])
+    async for stream in streams:
+        val = getattr(stream, field, None)
+        return val if val else default
+
+    channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
+    if channel_info:
+        val = getattr(channel_info, field, None)
+        if val:
+            return val
+    return default
+
+
+def build_stream_tools(bot: Bot) -> list[AgentToolFn]:
     """Construye las herramientas relacionadas con la gestión y consulta del stream."""
 
     async def change_stream_title(new_title: str) -> str:
@@ -25,31 +54,38 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
         Args:
             new_title: El nuevo título para el stream.
         """
-        try:
-            channel_id = await get_broadcaster_id(bot)
-            old_title = "Desconocido (Stream offline o sin título)"
-            streams = bot.fetch_streams(user_ids=[channel_id])
-            async for stream in streams:
-                if stream.title:
-                    old_title = stream.title
-                break
-            else:
-                channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
-                if channel_info and channel_info.title:
-                    old_title = channel_info.title
+        clean_title, title_err = normalize_non_empty(new_title, "new_title")
+        if title_err or clean_title is None:
+            return title_err or "El parámetro 'new_title' no puede estar vacío."
 
-            res = await action_update_channel_info(bot, title=new_title)
+        try:
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+
+            old_title = await _get_current_stream_field(
+                bot,
+                channel_id,
+                "title",
+                "Desconocido (Stream offline o sin título)",
+            )
+
+            res = await action_update_channel_info(bot, title=clean_title)
             if not res.get("ok"):
                 err_msg = res.get("error", "Error desconocido")
                 return f"Error al cambiar el título: {err_msg}"
             return (
                 f"Título cambiado con éxito.\n"
                 f"Antes: '{old_title}'\n"
-                f"Después: '{new_title}'"
+                f"Después: '{clean_title}'"
             )
-        except Exception as e:
-            LOGGER.error("Error al cambiar título del stream: %s", e)
-            return f"Error al cambiar el título: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER,
+                "Error al cambiar título del stream",
+                exc,
+                prefix="Error al cambiar el título",
+            )
 
     async def change_stream_category(category_name: str) -> str:
         """Cambia la categoría/juego del stream actual del canal.
@@ -57,29 +93,29 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
         Args:
             category_name: El nombre de la nueva categoría o juego en Twitch.
         """
+        clean_category, cat_err = normalize_non_empty(category_name, "category_name")
+        if cat_err or clean_category is None:
+            return cat_err or "El parámetro 'category_name' no puede estar vacío."
+
         try:
-            channel_id = await get_broadcaster_id(bot)
-            games = await bot.fetch_games(names=[category_name])
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+
+            games = await bot.fetch_games(names=[clean_category])
             if not games:
                 return (
-                    f"No se pudo encontrar la categoría '{category_name}' "
-                    f"en Twitch. Verifica el nombre."
+                    f"No se pudo encontrar la categoría '{clean_category}' "
+                    "en Twitch. Verifica el nombre."
                 )
 
             target_game = games[0]
             game_id = target_game.id
             resolved_name = target_game.name
 
-            old_category = "Desconocida"
-            streams = bot.fetch_streams(user_ids=[channel_id])
-            async for stream in streams:
-                if stream.game_name:
-                    old_category = stream.game_name
-                break
-            else:
-                channel_info = await bot.fetch_channel(broadcaster_id=channel_id)
-                if channel_info and channel_info.game_name:
-                    old_category = channel_info.game_name
+            old_category = await _get_current_stream_field(
+                bot, channel_id, "game_name", "Desconocida"
+            )
 
             res = await action_update_channel_info(bot, category_id=game_id)
             if not res.get("ok"):
@@ -92,9 +128,13 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 f"Antes: '{old_category}'\n"
                 f"Después: '{resolved_name}'"
             )
-        except Exception as e:
-            LOGGER.error("Error al cambiar categoría del stream: %s", e)
-            return f"Error al cambiar la categoría: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER,
+                "Error al cambiar categoría del stream",
+                exc,
+                prefix="Error al cambiar la categoría",
+            )
 
     async def get_stream_info() -> str:
         """Obtiene información sobre el stream actual del canal.
@@ -102,7 +142,10 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
         Retorna título, categoría y cantidad de espectadores actuales.
         """
         try:
-            channel_id = await get_broadcaster_id(bot)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+
             streams = bot.fetch_streams(user_ids=[channel_id])
             async for stream in streams:
                 return (
@@ -120,9 +163,13 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                     f"Última categoría: '{channel_info.game_name}'"
                 )
             return "No se pudo obtener la información del canal."
-        except Exception as e:
-            LOGGER.error("Error al obtener información de stream: %s", e)
-            return f"Error al consultar información de stream: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER,
+                "Error al obtener información de stream",
+                exc,
+                prefix="Error al consultar información de stream",
+            )
 
     async def get_history_vod_streams(
         game_name: str | None = None,
@@ -145,18 +192,21 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad de streams pasados a retornar.
         """
         try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 25))
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit, maximum=MAX_VOD_LIMIT)
 
-            game_id = None
-            if game_name:
-                games = await bot.fetch_games(names=[game_name])
+            game_id: str | None = None
+            clean_game = game_name.strip() if game_name else None
+            if clean_game:
+                games = await bot.fetch_games(names=[clean_game])
                 if not games:
-                    return f"No se encontró la categoría '{game_name}' en Twitch."
+                    return f"No se encontró la categoría '{clean_game}' en Twitch."
                 game_id = games[0].id
 
             # pyrefly: ignore [missing-attribute]
-            videos = await bot.fetch_videos(
+            videos: list[twitchio.Video] = await bot.fetch_videos(
                 user_id=channel_id,
                 type="archive",
                 period=period,
@@ -169,10 +219,10 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                     "con los filtros indicados."
                 )
 
-            recent_videos = videos[:limit]
+            recent_videos = videos[:safe_limit]
 
-            video_ranges: list[tuple[Any, str, str]] = []
-            count_tasks = []
+            video_ranges: list[tuple[twitchio.Video, str, str]] = []
+            count_tasks: list[Coroutine[Any, Any, int]] = []
             for video in recent_videos:
                 duration_secs = parse_twitch_duration(video.duration)
                 duration = datetime.timedelta(seconds=duration_secs)
@@ -187,7 +237,7 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
 
             msg_counts = await asyncio.gather(*count_tasks)
 
-            lines = [f"Últimos {len(recent_videos)} streams encontrados:"]
+            lines: list[str] = [f"Últimos {len(recent_videos)} streams encontrados:"]
             for idx, ((video, start_utc, end_utc), msg_count) in enumerate(
                 zip(video_ranges, msg_counts, strict=True), 1
             ):
@@ -204,9 +254,13 @@ def build_stream_tools(bot: Bot) -> list[Callable[..., Any]]:
                 )
 
             return "\n\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al obtener streams pasados: %s", e)
-            return f"Error al consultar streams pasados: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER,
+                "Error al obtener streams pasados",
+                exc,
+                prefix="Error al consultar streams pasados",
+            )
 
     return [
         change_stream_title,

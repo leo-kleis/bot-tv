@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-import asyncpg
-
 from bot_tv.database.repositories.base import (
     BaseRepository,
     escape_like,
@@ -13,6 +11,8 @@ from bot_tv.database.repositories.base import (
 )
 
 if TYPE_CHECKING:
+    import asyncpg
+
     from bot_tv.database.user_cache import UserMemoryCache
 
 LOGGER = logging.getLogger(__name__)
@@ -30,10 +30,11 @@ class UserQueriesMixin(BaseRepository):
         query = (
             "SELECT u.user_id, u.display_name, u.nickname, cu.followed_at"
             " FROM users u JOIN channel_users cu ON u.user_id = cu.user_id"
-            " WHERE cu.channel_id = $1 AND cu.user_id = ANY($2)"
+            " WHERE cu.channel_id = $1 AND cu.user_id = ANY($2::text[])"
         )
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, user_ids)
+        rows = await self._fetch(
+            query, channel_id, user_ids, context_label="get_unfollowers_data"
+        )
         return {
             row["user_id"]: {
                 "display_name": row["display_name"],
@@ -66,11 +67,12 @@ class UserQueriesMixin(BaseRepository):
         limit = max(1, min(limit, 200))
         offset = max(0, offset)
 
-        if cache is not None and has_chat_history is None:
+        if cache is not None and cache.has_users and has_chat_history is None:
             users, total = cache.list_users_with_filters(
                 channel_id=channel_id,
                 broadcaster_id=broadcaster_id,
                 role=role,
+                has_nickname=has_nickname,
                 username_search=username_search,
                 followed_after=followed_after,
                 followed_before=followed_before,
@@ -230,13 +232,17 @@ class UserQueriesMixin(BaseRepository):
             {order_by_sql} LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}
         """  # noqa: S608
 
-        async with self._db.acquire() as conn:
+        async def _fetch_page(
+            conn: asyncpg.Connection,
+        ) -> tuple[int, list[asyncpg.Record]]:
             count_row = await conn.fetchrow(count_query, *params)
-            total_count: int = count_row["total"] if count_row else 0
+            total = int(count_row["total"]) if count_row else 0
+            page_rows = await conn.fetch(data_query, *params, limit, offset)
+            return total, page_rows
 
-            rows: list[asyncpg.Record] = await conn.fetch(
-                data_query, *params, limit, offset
-            )
+        total_count, rows = await self._with_retry(
+            _fetch_page, context_label="list_users_with_filters"
+        )
 
         users_page: list[dict[str, Any]] = []
         for row in rows:
@@ -261,7 +267,7 @@ class UserQueriesMixin(BaseRepository):
         cache: UserMemoryCache | None = None,
     ) -> list[dict[str, Any]]:
         """Busca usuarios en la caché en memoria o en la DB local para autocompletar."""
-        if cache is not None and cache._users:
+        if cache is not None and cache.has_users:
             return cache.search_users(q, limit=limit, channel_id=channel_id)
 
         like_pattern = f"%{escape_like(q)}%"
@@ -286,10 +292,13 @@ class UserQueriesMixin(BaseRepository):
                 ORDER BY u.display_name
                 LIMIT $2
             """
-            async with self._db.acquire() as conn:
-                rows: list[asyncpg.Record] = await conn.fetch(
-                    query, like_pattern, limit, channel_id
-                )
+            rows = await self._fetch(
+                query,
+                like_pattern,
+                limit,
+                channel_id,
+                context_label="search_users",
+            )
         else:
             query = """
                 SELECT u.user_id, u.username, u.display_name,
@@ -310,8 +319,12 @@ class UserQueriesMixin(BaseRepository):
                 ORDER BY u.display_name
                 LIMIT $2
             """
-            async with self._db.acquire() as conn:
-                rows = await conn.fetch(query, like_pattern, limit)
+            rows = await self._fetch(
+                query,
+                like_pattern,
+                limit,
+                context_label="search_users",
+            )
         return [dict(row) for row in rows]
 
     async def _fetch_message_counts_batch(
@@ -323,9 +336,13 @@ class UserQueriesMixin(BaseRepository):
         query = """
             SELECT user_id, COUNT(*) AS total
             FROM chat_history
-            WHERE channel_id = $1 AND user_id = ANY($2)
+            WHERE channel_id = $1 AND user_id = ANY($2::text[])
             GROUP BY user_id
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id, user_ids)
+        rows = await self._fetch(
+            query,
+            channel_id,
+            user_ids,
+            context_label="_fetch_message_counts_batch",
+        )
         return {row["user_id"]: int(row["total"]) for row in rows}

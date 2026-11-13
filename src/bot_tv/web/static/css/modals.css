@@ -10,9 +10,7 @@
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: rgba(7, 6, 10, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(7, 6, 10, 0.84);
   z-index: var(--z-modal);
   isolation: isolate;
   display: flex;

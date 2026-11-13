@@ -1,35 +1,152 @@
-import { html, useState, useEffect, useRef } from 'preact-setup';
+import { html, useState, useEffect, useRef, useMemo } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { fmtTime } from 'lib/utils';
+import { ComposerBar } from '../ComposerBar.js';
+import { DisplaySettingsMenu } from '../DisplaySettingsMenu.js';
 
+/**
+ * @typedef {{
+ *   timestamp: string,
+ *   question: string,
+ *   response?: string | null,
+ *   model?: string,
+ * }} AgentConversation
+ */
+
+/**
+ * @typedef {{
+ *   name: string,
+ *   display_name: string,
+ *   rpm_limit: number,
+ *   enabled?: boolean,
+ * }} ModelInfo
+ */
+
+/**
+ * @typedef {{
+ *   model: string,
+ *   display_name: string,
+ *   rpm_used: number,
+ *   rpm_limit: number,
+ *   is_blocked?: boolean,
+ *   next_slot_in?: number,
+ * }} RpmStatus
+ */
+
+/**
+ * @param {{
+ *   conversations?: AgentConversation[],
+ *   dispatch?: (action: Record<string, unknown>) => void,
+ * }} props
+ */
 export function AgentTab({ conversations = [], dispatch }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [rpmInfo, setRpmInfo] = useState(null);
-  const feedRef = useRef(null);
+  const [switchingModel, setSwitchingModel] = useState(false);
+  const [rpmInfo, setRpmInfo] = useState(/** @type {RpmStatus | null} */ (null));
+  const [models, setModels] = useState(/** @type {ModelInfo[]} */ ([]));
+  const feedRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const inputRef = useRef(/** @type {HTMLTextAreaElement | null} */ (null));
+  const isMountedRef = useRef(true);
+  const rpmControllerRef = useRef(/** @type {AbortController | null} */ (null));
 
-  // Cargar estado RPM al montar
+  // Cargar estado RPM y lista de modelos al montar
   useEffect(() => {
-    apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data) {
-        const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
-        if (statuses?.length) setRpmInfo(statuses[0]);
+    isMountedRef.current = true;
+    const controller = new AbortController();
+
+    apiGet('/api/rpm', { signal: controller.signal })
+      .then(d => {
+        if (controller.signal.aborted || !isMountedRef.current) return;
+        if (d.ok && d.data) {
+          const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+          if (statuses?.length) setRpmInfo(statuses[0]);
+        }
+      })
+      .catch(() => {});
+
+    apiGet('/api/models', { signal: controller.signal })
+      .then(d => {
+        if (controller.signal.aborted || !isMountedRef.current) return;
+        if (d.ok && Array.isArray(d.data)) {
+          setModels(d.data.filter(m => m.enabled !== false));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMountedRef.current = false;
+      controller.abort();
+      if (rpmControllerRef.current) {
+        rpmControllerRef.current.abort();
       }
-    });
+    };
   }, []);
 
   async function clearChat() {
     if (loading) return;
     const res = await apiPost('/api/agent/clear', {});
-    if (res.ok) {
+    if (res.ok && dispatch) {
       dispatch({ type: 'agent_clear_history' });
     }
   }
 
-  // Auto-scroll al final
+  // Auto-scroll al final cuando llegan nuevas respuestas
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
   }, [conversations]);
+
+  async function refreshRpm() {
+    if (rpmControllerRef.current) {
+      rpmControllerRef.current.abort();
+    }
+    const rpmController = new AbortController();
+    rpmControllerRef.current = rpmController;
+    try {
+      const d = await apiGet('/api/rpm', { signal: rpmController.signal });
+      if (rpmController.signal.aborted || !isMountedRef.current) return;
+      if (d.ok && d.data) {
+        const statuses = Array.isArray(d.data) ? d.data : d.data?.statuses;
+        if (statuses?.length) setRpmInfo(statuses[0]);
+      }
+    } catch {
+      // Ignorar abortos
+    }
+  }
+
+  /**
+   * @param {string} newModel
+   */
+  async function handleModelChange(newModel) {
+    if (!newModel || switchingModel || newModel === rpmInfo?.model) return;
+    setSwitchingModel(true);
+    const data = await apiPost('/api/switch_model', { model: newModel });
+    if (!isMountedRef.current) return;
+    setSwitchingModel(false);
+
+    if (data.ok) {
+      await refreshRpm();
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'success',
+            data: { message: data.data?.message || 'Modelo actualizado.' },
+          },
+        });
+      }
+    } else if (dispatch) {
+      dispatch({
+        type: 'ADD_TOAST',
+        toast: {
+          id: Date.now().toString(),
+          type: 'api_error',
+          data: { message: data.error || 'No se pudo cambiar el modelo.' },
+        },
+      });
+    }
+  }
 
   async function send() {
     const msg = input.trim();
@@ -39,23 +156,20 @@ export function AgentTab({ conversations = [], dispatch }) {
 
     const ts = new Date().toISOString();
 
-    dispatch({
-      type: 'agent_question_pending',
-      data: { question: msg, timestamp: ts },
-    });
+    if (dispatch) {
+      dispatch({
+        type: 'agent_question_pending',
+        data: { question: msg, timestamp: ts },
+      });
+    }
 
     const data = await apiPost('/api/talk', { message: msg });
+    if (!isMountedRef.current) return;
     setLoading(false);
 
-    // Recargar RPM después de la consulta
-    apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data) {
-        const statuses = Array.isArray(d.data) ? d.data : d.data?.statuses;
-        if (statuses?.length) setRpmInfo(statuses[0]);
-      }
-    });
+    refreshRpm();
 
-    if (!data.ok) {
+    if (!data.ok && dispatch) {
       dispatch({
         type: 'agent_response',
         data: {
@@ -66,35 +180,82 @@ export function AgentTab({ conversations = [], dispatch }) {
         },
       });
     }
+
+    requestAnimationFrame(() => {
+      if (inputRef.current && isMountedRef.current) {
+        inputRef.current.focus();
+      }
+    });
   }
 
-  function onKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }
+  const modelOptions = useMemo(
+    () =>
+      models.map(m => ({
+        value: m.name,
+        label: m.display_name || m.name,
+      })),
+    [models]
+  );
 
   const rpm = rpmInfo;
-  const rpmDotClass = rpm?.is_blocked ? 'block' : rpm?.rpm_used > 0 ? 'warn' : '';
+  const rpmDotClass = rpm?.is_blocked ? 'block' : rpm && rpm.rpm_used > 0 ? 'warn' : '';
+
+  const rpmMetaContent = rpm
+    ? html`
+        <span class="composer-rpm-badge ${rpm.is_blocked ? 'is-blocked' : ''}">
+          ${rpm.rpm_used}/${rpm.rpm_limit}
+          RPM${rpm.is_blocked && rpm.next_slot_in ? ` · ${Math.ceil(rpm.next_slot_in)}s` : ''}
+        </span>
+      `
+    : null;
 
   return html`
     <div class="agent-tab">
-      <!-- Conversación -->
-      <div class="agent-convo" ref=${feedRef} id="agent-convo">
+      <div class="agent-header">
+        <div class="agent-header-title">
+          <i class="fa-solid fa-robot" aria-hidden="true"></i>
+          <span>Agente IA</span>
+        </div>
+        <div class="agent-header-actions">
+          <${DisplaySettingsMenu} showHideBots=${false} buttonId="agent-display-btn" />
+          ${
+            conversations.length > 0
+              ? html`
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    onClick=${clearChat}
+                    disabled=${loading}
+                    title="Borrar conversación y empezar un nuevo chat con el agente"
+                  >
+                    <i class="fa-solid fa-trash" aria-hidden="true"></i> Limpiar chat
+                  </button>
+                `
+              : null
+          }
+        </div>
+      </div>
+
+      <div
+        class="agent-convo agent-feed"
+        ref=${feedRef}
+        id="agent-convo"
+        style="font-size: var(--font-size, 14px);"
+      >
         ${
           conversations.length === 0
             ? html`
                 <div class="agent-empty">
-                  <span class="empty-icon"
-                    ><i
+                  <span class="empty-icon">
+                    <i
                       class="fa-solid fa-robot fa-3x"
                       style="color:var(--text-muted);margin-bottom:12px"
-                    ></i
-                  ></span>
-                  <span style="font-size:13px;color:var(--text-muted)"
-                    >Escribe un mensaje para consultar al agente</span
-                  >
+                      aria-hidden="true"
+                    ></i>
+                  </span>
+                  <span style="font-size:13px;color:var(--text-muted)">
+                    Escribe un mensaje para consultar al agente
+                  </span>
                 </div>
               `
             : conversations.map(
@@ -120,66 +281,34 @@ export function AgentTab({ conversations = [], dispatch }) {
         }
       </div>
 
-      <!-- Info RPM y Limpiar Chat -->
-      <div
-        class="agent-model-info"
-        style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;min-width:0;"
-      >
-        <div style="display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap;">
-          ${
-            rpm
-              ? html`
-                  <span class="rpm-dot ${rpmDotClass}"></span>
-                  <span>${rpm.display_name} · ${rpm.rpm_used}/${rpm.rpm_limit} RPM</span>
-                  ${
-                    rpm.is_blocked
-                      ? html`<span style="color:var(--danger)"
-                          >Bloqueado
-                          ${rpm.next_slot_in ? `(${Math.ceil(rpm.next_slot_in)}s)` : ''}</span
-                        >`
-                      : null
-                  }
-                `
-              : null
-          }
-        </div>
-        ${
-          conversations.length > 0
-            ? html`
-                <button
-                  class="btn btn-secondary"
-                  style="padding:4px 10px;font-size:12px;"
-                  onClick=${clearChat}
-                  title="Borrar conversación y empezar un nuevo chat con el agente"
-                >
-                  <i class="fa-solid fa-trash" style="margin-right:4px"></i> Limpiar chat
-                </button>
-              `
-            : null
-        }
-      </div>
-
-      <!-- Input -->
-      <div class="agent-input-area">
-        <textarea
-          id="agent-input"
-          placeholder="Pregunta algo al agente..."
+      <div class="mi-tab-fixed-bottom">
+        <${ComposerBar}
           value=${input}
-          onInput=${e => setInput(e.target.value)}
-          onKeyDown=${onKeyDown}
-          rows="2"
-          style="flex:1;min-height:42px;max-height:120px;resize:none;min-width:0;"
+          onChange=${setInput}
+          onSubmit=${send}
+          placeholder="Pregunta algo al agente..."
+          ariaLabel="Pregunta algo al agente"
+          submitAriaLabel="Enviar mensaje al agente"
           disabled=${loading}
-        ></textarea>
-        <button
-          id="btn-agent-send"
-          class="btn btn-primary"
-          style="align-self:flex-end;min-width:44px;padding:9px 14px"
-          onClick=${send}
-          disabled=${loading || !input.trim()}
-        >
-          ${loading ? html`<span class="spinner"></span>` : '↑'}
-        </button>
+          sending=${loading}
+          sendDisabled=${loading || !input.trim()}
+          multiline=${true}
+          inputRef=${inputRef}
+          inputId="agent-input"
+          submitId="btn-agent-send"
+          selectId="agent-model-select"
+          selectOptions=${modelOptions}
+          selectValue=${rpm?.model || ''}
+          onSelectChange=${handleModelChange}
+          selectAriaLabel="Seleccionar modelo de IA"
+          selectDisabled=${loading || switchingModel || modelOptions.length === 0}
+          selectPlaceholder="Modelo IA"
+          selectTriggerPrefix=${html`<span
+            class="rpm-dot ${rpmDotClass}"
+            aria-hidden="true"
+          ></span>`}
+          metaContent=${rpmMetaContent}
+        />
       </div>
     </div>
   `;

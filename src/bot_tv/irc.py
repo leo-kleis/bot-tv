@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from dataclasses import replace as dataclass_replace
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,42 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
+_MAX_CONNECTED_USERS = 2000
 _MAX_PARTED_USERS = 500
+
+
+def _store_bounded_user[T](
+    store: dict[str, T], key: str, value: T, max_size: int
+) -> None:
+    """Inserta o refresca una entrada manteniendo un límite máximo ordenado."""
+    store.pop(key, None)
+    store[key] = value
+    while len(store) > max_size:
+        oldest_key = next(iter(store))
+        store.pop(oldest_key, None)
+
+
+def _format_detail_role(
+    *,
+    user_id: str | None,
+    broadcaster_id: str,
+    bot_id: str | None,
+    is_bot: bool,
+    followed_at: str | None,
+    unfollowed_at: str | None,
+) -> str:
+    """Calcula la etiqueta de rol de usuario cuando la caché aún no está lista."""
+    if not user_id:
+        return "Visita"
+    if user_id == broadcaster_id:
+        return "Broadcaster"
+    if (bot_id and user_id == bot_id) or is_bot:
+        return "Bot"
+    if followed_at and unfollowed_at is None:
+        with contextlib.suppress(ValueError):
+            dt = datetime.fromisoformat(followed_at.replace("Z", "+00:00"))
+            return dt.astimezone().strftime("%d/%m/%y")
+    return "Visita"
 
 
 class TwitchIRCClient:
@@ -46,6 +82,22 @@ class TwitchIRCClient:
         self._resolving_users: set[str] = set()
         self._tasks: set[asyncio.Task[None]] = set()
         self._running = True
+        self.is_connected = False
+
+    async def close(self) -> None:
+        """Detiene el cliente IRC, cierra la conexión y cancela tareas pendientes."""
+        self._running = False
+        for task in list(self._tasks):
+            if not task.done():
+                task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+        if self.writer:
+            with contextlib.suppress(Exception):
+                self.writer.close()
+                await self.writer.wait_closed()
+            self.writer = None
+        self.reader = None
         self.is_connected = False
 
     async def _emit_status(self, connected: bool) -> None:
@@ -168,8 +220,6 @@ class TwitchIRCClient:
         update_sub_tier: bool = False,
     ) -> None:
         """Actualiza en memoria y emite UserJoinEvent de un usuario en IRC."""
-        from dataclasses import replace as dataclass_replace
-
         key = (
             user_id
             if user_id in self.connected_users
@@ -203,12 +253,13 @@ class TwitchIRCClient:
             target_key = user_id or key
             if target_key != key:
                 self.connected_users.pop(key, None)
-            self.connected_users[target_key] = updated_u
+            _store_bounded_user(
+                self.connected_users, target_key, updated_u, _MAX_CONNECTED_USERS
+            )
             await self.bot.event_bus.emit(updated_u)
 
     async def _resolve_and_cache_new_user(self, usuario: str) -> None:
         """Resuelve en background datos para usuarios no presentes en caché."""
-        cache = self.bot.user_cache
         try:
             twitch_user = await self.bot.fetch_user(login=usuario)
             if twitch_user:
@@ -218,7 +269,7 @@ class TwitchIRCClient:
                     uid,
                     twitch_user.name or usuario,
                     display_name,
-                    cache=cache,
+                    cache=self.bot.ready_user_cache,
                 )
         except Exception as e:
             LOGGER.debug(
@@ -231,37 +282,77 @@ class TwitchIRCClient:
         if usuario == self.bot_username:
             return
 
-        cache = self.bot.user_cache
-        user_id = cache.get_user_id_by_name(usuario)
-        user_data = cache.get_user(user_id) if user_id else None
-
-        display_name = (user_data.get("display_name") if user_data else None) or usuario
-        nickname = user_data.get("nickname") if user_data else None
-        r, g, b = get_chatter_rgb(None, usuario)
-        role = cache.get_display_role(user_id, self.bot.owner_id or "", self.bot.bot_id)
-
-        is_bot = (user_id == self.bot.bot_id) or (
-            cache.is_user_bot(user_id) if user_id else False
-        )
+        cache = self.bot.ready_user_cache
+        user_id: str | None = None
+        display_name = usuario
+        nickname: str | None = None
+        role = "Visita"
+        is_bot = False
         is_mod = False
         is_vip = False
         is_sub = False
-        sub_tier = None
+        sub_tier: str | None = None
 
-        if user_id:
-            roles = cache.get_user_roles(user_id, str(self.bot.owner_id))
-            if roles:
-                is_mod = bool(roles.get("is_moderator", False))
-                is_vip = bool(roles.get("is_vip", False))
-                is_sub = bool(roles.get("is_subscriber", False))
-                sub_tier = roles.get("sub_tier")
-        elif action == "JOIN" and usuario not in self._resolving_users:
-            # Si el usuario no estaba en caché, resolverlo en segundo plano sin duplicar
+        if cache is not None:
+            user_id = cache.get_user_id_by_name(usuario)
+            user_data = cache.get_user(user_id) if user_id else None
+            display_name = (
+                user_data.get("display_name") if user_data else None
+            ) or usuario
+            nickname = user_data.get("nickname") if user_data else None
+            role = cache.get_display_role(
+                user_id, self.bot.owner_id or "", self.bot.bot_id
+            )
+            is_bot = (user_id == self.bot.bot_id) or (
+                cache.is_user_bot(user_id) if user_id else False
+            )
+            if user_id:
+                roles = cache.get_user_roles(user_id, str(self.bot.owner_id))
+                if roles:
+                    is_mod = bool(roles.get("is_moderator", False))
+                    is_vip = bool(roles.get("is_vip", False))
+                    is_sub = bool(roles.get("is_subscriber", False))
+                    sub_tier = roles.get("sub_tier")
+        else:
+            channel_id = self.bot.owner_id or ""
+            if not channel_id:
+                channels = await self.bot.get_channels()
+                channel_id = channels[0]["user_id"] if channels else ""
+            detail = (
+                await self.bot.user_repo.get_user_detail_by_name(
+                    usuario, channel_id, cache=None
+                )
+                if channel_id
+                else None
+            )
+            if detail:
+                user_id = detail.get("user_id")
+                display_name = detail.get("display_name") or usuario
+                nickname = detail.get("nickname")
+                is_bot = (user_id == self.bot.bot_id) or bool(
+                    detail.get("is_bot", False)
+                )
+                is_mod = bool(detail.get("is_moderator", False))
+                is_vip = bool(detail.get("is_vip", False))
+                is_sub = bool(detail.get("is_subscriber", False))
+                sub_tier = detail.get("sub_tier")
+                role = _format_detail_role(
+                    user_id=user_id,
+                    broadcaster_id=channel_id,
+                    bot_id=self.bot.bot_id,
+                    is_bot=is_bot,
+                    followed_at=detail.get("followed_at"),
+                    unfollowed_at=detail.get("unfollowed_at"),
+                )
+
+        if not user_id and action == "JOIN" and usuario not in self._resolving_users:
+            # Si el usuario no estaba en caché ni DB, resolverlo en background
             self._resolving_users.add(usuario)
             task = asyncio.create_task(self._resolve_and_cache_new_user(usuario))
             self._tasks.add(task)
             task.add_done_callback(self._tasks.discard)
 
+        r, g, b = get_chatter_rgb(None, usuario)
         user_key = user_id or usuario
 
         if action == "JOIN":
@@ -279,7 +370,9 @@ class TwitchIRCClient:
                 is_subscriber=is_sub,
                 sub_tier=sub_tier,
             )
-            self.connected_users[user_key] = join_event
+            _store_bounded_user(
+                self.connected_users, user_key, join_event, _MAX_CONNECTED_USERS
+            )
             self.parted_users.pop(user_key, None)
             if user_id:
                 self.parted_users.pop(user_id, None)
@@ -300,9 +393,8 @@ class TwitchIRCClient:
             if user_id:
                 self.connected_users.pop(user_id, None)
             self.connected_users.pop(usuario, None)
-            self.parted_users[user_key] = part_event
-            if len(self.parted_users) > _MAX_PARTED_USERS:
-                oldest_key = next(iter(self.parted_users))
-                self.parted_users.pop(oldest_key, None)
+            _store_bounded_user(
+                self.parted_users, user_key, part_event, _MAX_PARTED_USERS
+            )
 
             await self.bot.event_bus.emit(part_event)

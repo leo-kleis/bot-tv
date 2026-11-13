@@ -4,11 +4,12 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import twitchio
 from twitchio import eventsub
+from twitchio.authentication import ManagedHTTPClient
 from twitchio.ext import commands
 
 from bot_tv.components.chat_component import ChatComponent
@@ -36,6 +37,9 @@ from bot_tv.utils.env import (
     OWNER_ID,
 )
 
+if TYPE_CHECKING:
+    from bot_tv.agent.client import TalkAgent
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -52,7 +56,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
         self.database = database
         self.event_bus = event_bus
         self._irc_task: asyncio.Task[None] | None = None
+        self._preload_task: asyncio.Task[None] | None = None
+        self._cache_ready: bool = False
         self.irc: TwitchIRCClient | None = None
+        self.agent: TalkAgent | None = None
 
         self.current_stream_id: str | None = None
         self._channels_cache: list[dict[str, str]] | None = None
@@ -75,6 +82,33 @@ class Bot(TokenPersistMixin, commands.AutoBot):
             subscriptions=subs,
             force_subscribe=True,
         )
+
+    @property
+    def twitch_http(self) -> ManagedHTTPClient:
+        """Retorna el cliente HTTP gestionado de TwitchIO."""
+        return self._http
+
+    def get_component(self, name: str) -> commands.Component | None:
+        """Retorna un componente registrado por nombre."""
+        return super().get_component(name)
+
+    @property
+    def ready_user_cache(self) -> UserMemoryCache | None:
+        """Retorna la caché en memoria solo tras completar la precarga inicial."""
+        return self.user_cache if self._cache_ready else None
+
+    async def _preload_user_cache(self) -> None:
+        """Precarga usuarios y roles en memoria sin bloquear el arranque."""
+        try:
+            await self.user_repo.preload_cache(self.user_cache)
+            self._cache_ready = True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            LOGGER.exception(
+                "Error al precargar caché de usuarios; "
+                "se continuará operando contra PostgreSQL."
+            )
 
     async def setup_hook(self) -> None:
         """Registra los componentes del bot."""
@@ -120,7 +154,10 @@ class Bot(TokenPersistMixin, commands.AutoBot):
 
     async def event_ready(self) -> None:
         """Se ejecuta cuando el bot se conecta correctamente."""
-        await self.user_repo.preload_cache(self.user_cache)
+        if not self._cache_ready and (
+            self._preload_task is None or self._preload_task.done()
+        ):
+            self._preload_task = asyncio.create_task(self._preload_user_cache())
         accounts = await self.token_repo.get_accounts_summary()
         self._channels_cache = [
             {"user_id": row["user_id"], "username": row["username"]}
@@ -166,21 +203,36 @@ class Bot(TokenPersistMixin, commands.AutoBot):
     async def close(self, **options: Any) -> None:
         """Cancela tareas pendientes antes de cerrar el bot."""
         if self.current_stream_id is not None:
+            stream_id = self.current_stream_id
+            self.current_stream_id = None
             try:
                 await self.analytics_repo.close_session(
-                    self.current_stream_id,
+                    stream_id,
                     datetime.now(UTC),
                     "graceful_shutdown",
                 )
             except Exception as e:
                 LOGGER.warning("Error al cerrar sesión en shutdown: %s", e)
+
+        if self._preload_task and not self._preload_task.done():
+            self._preload_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._preload_task
+
+        if self.agent is not None:
+            await self.agent.close()
+
         await self.chat_repo.close()
+
         if self._irc_task and not self._irc_task.done():
             if self.irc:
                 self.irc._running = False
             self._irc_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._irc_task
+        if self.irc is not None:
+            await self.irc.close()
+
         await super().close(**options)
 
     async def event_command_error(self, payload: commands.CommandErrorPayload) -> None:

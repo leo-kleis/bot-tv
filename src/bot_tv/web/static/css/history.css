@@ -5,9 +5,7 @@
   display: block;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.72);
   z-index: calc(var(--z-history-drawer) - 1);
   animation: fade-in 0.2s ease;
 }
@@ -59,6 +57,7 @@
 .history-drawer-tab-btn {
   flex: 1;
   min-width: 0;
+  min-height: 36px;
   border-radius: 0 !important;
   border: none !important;
   font-size: 12px !important;
@@ -74,6 +73,11 @@
   gap: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.history-drawer-tab-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .history-drawer-tab-btn:hover {
@@ -171,6 +175,8 @@
 
 .history-header-close {
   flex-shrink: 0;
+  min-width: 28px;
+  min-height: 28px;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -422,6 +428,20 @@
   .history-drawer {
     width: 100%;
   }
+
+  .history-header-close {
+    min-width: var(--touch-target-min, 44px);
+    min-height: var(--touch-target-min, 44px);
+    padding: 8px;
+  }
+
+  .history-load-more .btn {
+    min-height: var(--touch-target-min, 44px);
+  }
+
+  .history-drawer-tab-btn {
+    min-height: var(--touch-target-min, 44px);
+  }
 }
 
 /* Landscape: drawer ocupa 100% del ancho, paddings compactos */
@@ -497,6 +517,10 @@
 
   .history-drawer-panel.roles-panel {
     gap: 10px;
+  }
+
+  .history-load-more {
+    padding: 6px 8px;
   }
 }
 

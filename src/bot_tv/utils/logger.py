@@ -44,7 +44,20 @@ class RichColorFormatter(logging.Formatter):
         timestamp = self.formatTime(record, "%d/%m/%y %H:%M:%S")
         message = escape(record.getMessage())
 
-        return f"{TIMESTAMP_COLOR}[{timestamp}]{RESET} {level} {name}: {message}"
+        formatted = f"{TIMESTAMP_COLOR}[{timestamp}]{RESET} {level} {name}: {message}"
+
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            if not formatted.endswith("\n"):
+                formatted += "\n"
+            formatted += escape(record.exc_text)
+        if record.stack_info:
+            if not formatted.endswith("\n"):
+                formatted += "\n"
+            formatted += escape(self.formatStack(record.stack_info))
+
+        return formatted
 
 
 class ConduitWarningFilter(logging.Filter):
@@ -73,14 +86,13 @@ class EventSubReconnectFilter(logging.Filter):
 
 def setup_logging(level: int = logging.INFO) -> None:
     """Configura el logging con colores personalizados usando Rich."""
-    handler = RichConsoleHandler()
-    formatter = RichColorFormatter()
-    handler.setFormatter(formatter)
-
     # Configurar el logger raíz en WARNING para silenciar logs del SDK/terceros
     root = logging.getLogger()
     root.setLevel(logging.WARNING)
-    root.addHandler(handler)
+    if not any(isinstance(h, RichConsoleHandler) for h in root.handlers):
+        handler = RichConsoleHandler()
+        handler.setFormatter(RichColorFormatter())
+        root.addHandler(handler)
 
     # Configurar el logger específico de la aplicación en INFO
     app_logger = logging.getLogger("bot_tv")
@@ -98,7 +110,14 @@ def setup_logging(level: int = logging.INFO) -> None:
     logging.getLogger("google.antigravity").setLevel(logging.WARNING)
 
     # Filtros específicos para logs de twitchio
-    logging.getLogger("twitchio.client").addFilter(ConduitWarningFilter())
-    logging.getLogger("twitchio.eventsub.websockets").addFilter(
-        EventSubReconnectFilter()
-    )
+    twitchio_client_logger = logging.getLogger("twitchio.client")
+    if not any(
+        isinstance(f, ConduitWarningFilter) for f in twitchio_client_logger.filters
+    ):
+        twitchio_client_logger.addFilter(ConduitWarningFilter())
+
+    twitchio_ws_logger = logging.getLogger("twitchio.eventsub.websockets")
+    if not any(
+        isinstance(f, EventSubReconnectFilter) for f in twitchio_ws_logger.filters
+    ):
+        twitchio_ws_logger.addFilter(EventSubReconnectFilter())

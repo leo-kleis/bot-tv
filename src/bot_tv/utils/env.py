@@ -28,6 +28,11 @@ DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 DIRECT_URL: str = os.getenv("DIRECT_URL", DATABASE_URL)
 
 # ==========================================
+# Seguridad y Cifrado
+# ==========================================
+ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "").strip()
+
+# ==========================================
 # Google Gemini AI
 # ==========================================
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")

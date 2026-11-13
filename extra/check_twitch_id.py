@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Any
 
 import httpx
 from dotenv import load_dotenv
@@ -26,7 +27,9 @@ def get_app_access_token(client_id: str, client_secret: str) -> str:
     return body["access_token"]
 
 
-def get_user_by_id(access_token: str, client_id: str, user_id: str) -> dict | None:
+def get_user_by_id(
+    access_token: str, client_id: str, user_id: str
+) -> dict[str, Any] | None:
     """
     Consulta la API de Twitch Helix /users usando un ID numérico.
     Retorna el diccionario con los datos del usuario, o None si no existe.
@@ -50,7 +53,7 @@ def get_user_by_id(access_token: str, client_id: str, user_id: str) -> dict | No
     return data[0]
 
 
-def print_user_info(user: dict) -> None:
+def print_user_info(user: dict[str, Any]) -> None:
     """Imprime de forma ordenada la información devuelta por la API."""
     twitch_username = user.get("login")
     print("\n--- Informacion del usuario ---")
@@ -66,7 +69,7 @@ def print_user_info(user: dict) -> None:
     print("-------------------------------\n")
 
 
-def main():
+def main() -> None:
     load_dotenv()
 
     client_id = os.getenv("TWITCH_CLIENT_ID")

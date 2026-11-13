@@ -247,9 +247,11 @@ export function FollowersTable({
                         <td data-label="Acciones">
                           <div class="user-table-actions">
                             <button
+                              type="button"
                               class="btn btn-secondary btn-sm"
                               onClick=${() => onOpenProfile(u)}
                               title="Ver perfil y gestionar usuario"
+                              aria-label="Ver perfil de ${u.display_name || u.username}"
                             >
                               <i class="fa-solid fa-user-gear"></i> Ver Perfil
                             </button>

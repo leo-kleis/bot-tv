@@ -25,8 +25,9 @@ export function FollowersFilterBar({
     <div class="filters-bar">
       <!-- Buscar por Nombre -->
       <div class="filter-group">
-        <label class="filter-label">Nombre / Apodo</label>
+        <label class="filter-label" for="followers-name-search">Nombre / Apodo</label>
         <input
+          id="followers-name-search"
           type="text"
           placeholder="Buscar usuario..."
           value=${nameInput}
@@ -58,6 +59,7 @@ export function FollowersFilterBar({
         <div class="filter-dates-row">
           <input
             type="date"
+            aria-label="Seguidor desde"
             value=${followedAfter}
             onChange=${e => {
               const val = e.target.value;
@@ -76,6 +78,7 @@ export function FollowersFilterBar({
           <span class="filter-separator">a</span>
           <input
             type="date"
+            aria-label="Seguidor hasta"
             value=${followedBefore}
             onChange=${e => {
               const val = e.target.value;
@@ -100,6 +103,7 @@ export function FollowersFilterBar({
         <div class="filter-dates-row">
           <input
             type="date"
+            aria-label="Dejó de seguir desde"
             value=${unfollowedAfter}
             onChange=${e => {
               const val = e.target.value;
@@ -118,6 +122,7 @@ export function FollowersFilterBar({
           <span class="filter-separator">a</span>
           <input
             type="date"
+            aria-label="Dejó de seguir hasta"
             value=${unfollowedBefore}
             onChange=${e => {
               const val = e.target.value;
@@ -139,9 +144,11 @@ export function FollowersFilterBar({
       <!-- Botón Limpiar -->
       <div class="filter-group filter-group-actions">
         <button
+          type="button"
           class="btn btn-secondary btn-icon"
           onClick=${onClearFilters}
           title="Limpiar filtros"
+          aria-label="Limpiar filtros"
         >
           <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar
         </button>

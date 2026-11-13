@@ -85,7 +85,7 @@ class TwitchEventsComponent(commands.Component):
         except Exception:
             role = "Visita"
 
-        cache = self.bot.user_cache
+        cache = self.bot.ready_user_cache
 
         # 1. Upsert usuario en DB y caché
         await self.bot.user_repo.upsert_user(
@@ -100,7 +100,7 @@ class TwitchEventsComponent(commands.Component):
             broadcaster_id,
             user_id,
             followed_at_iso,
-            cache=cache,
+            cache=self.bot.ready_user_cache,
         )
 
         # 3. Sincronizar usuario IRC si está conectado

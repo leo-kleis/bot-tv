@@ -18,8 +18,7 @@ async def action_sync_followers(bot: Bot) -> list[SyncFollowersResult]:
     from bot_tv.components.followers_component import FollowersComponent
 
     channels = await bot.get_channels()
-    # pyrefly: ignore [missing-attribute]
-    component = bot._components.get("FollowersComponent")
+    component = bot.get_component("FollowersComponent")
 
     results: list[SyncFollowersResult] = []
 

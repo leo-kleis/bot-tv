@@ -73,8 +73,8 @@ class FollowersComponent(commands.Component):
             }
             current_ids = set(current_map.keys())
 
-            # 2. Obtener IDs previos de la DB / Caché (ya están en memoria)
-            cache = self.bot.user_cache
+            # 2. Obtener IDs previos de la DB / Caché (si ya terminó precarga)
+            cache = self.bot.ready_user_cache
             previous_ids = await self.bot.channel_user_repo.get_follower_ids(
                 channel_id, cache=cache
             )
@@ -150,7 +150,7 @@ class FollowersComponent(commands.Component):
                 channel_id,
                 new_followers,
                 unfollowed_ids=list(perdidos_ids),
-                cache=cache,
+                cache=self.bot.ready_user_cache,
             )
 
         finally:

@@ -22,8 +22,7 @@ async def action_create_clip(bot: Bot) -> ClipCreatedEvent | str:
     """Dispara la creación de un clip vía el ClipComponent y retorna el resultado."""
     from bot_tv.components.clip_component import ClipComponent
 
-    # pyrefly: ignore [missing-attribute]
-    component = bot._components.get("ClipComponent")
+    component = bot.get_component("ClipComponent")
     if not isinstance(component, ClipComponent):
         LOGGER.error("ClipComponent no encontrado.")
         return "Componente ClipComponent no disponible."

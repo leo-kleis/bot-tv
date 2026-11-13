@@ -39,7 +39,7 @@ class ClipComponent(commands.Component):
             # Verificar si el stream está online
             from bot_tv.components.stream_component import StreamComponent
 
-            stream_comp = self.bot._components.get("StreamComponent")
+            stream_comp = self.bot.get_component("StreamComponent")
             if (
                 isinstance(stream_comp, StreamComponent)
                 and not stream_comp._stream_online
@@ -75,7 +75,7 @@ class ClipComponent(commands.Component):
             canal_user = twitchio.PartialUser(
                 id=broadcaster_id,
                 name=broadcaster_name,
-                http=self.bot._http,
+                http=self.bot.twitch_http,
             )
 
             # 3. Llamar a create_clip

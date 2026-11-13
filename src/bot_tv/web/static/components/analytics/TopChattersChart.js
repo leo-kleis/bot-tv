@@ -2,27 +2,61 @@ import { html, useEffect, useRef, useMemo } from 'preact-setup';
 import { Chart } from 'chart.js';
 import { getChartTheme, getBaseChartOptions } from './chartTheme.js';
 
-export function TopChattersChart({ data = [], period = '24h' }) {
-  const canvasRef = useRef(null);
-  const chartRef = useRef(null);
-  const dataRef = useRef([]);
+/**
+ * @typedef {{
+ *   userId: string,
+ *   username: string,
+ *   displayName: string,
+ *   count: number,
+ * }} TopChatterSelection
+ */
+
+/**
+ * @param {{
+ *   data?: Array<Record<string, unknown>> | Record<string, unknown>,
+ *   onSelectChatter?: (chatter: TopChatterSelection) => void,
+ * }} props
+ */
+export function TopChattersChart({ data = [], onSelectChatter }) {
+  const canvasRef = useRef(/** @type {HTMLCanvasElement | null} */ (null));
+  const chartRef = useRef(/** @type {InstanceType<typeof Chart> | null} */ (null));
+  const dataRef = useRef(
+    /** @type {Array<{ userId: string, username: string, displayName: string, count: number }>} */ ([])
+  );
+  const onSelectChatterRef = useRef(onSelectChatter);
+  onSelectChatterRef.current = onSelectChatter;
 
   const normalizedData = useMemo(() => {
     const rawList = Array.isArray(data)
       ? data
-      : (data && (data.chatters || data.data || data.top_users)) || [];
+      : (data &&
+          /** @type {Array<Record<string, unknown>>} */ (
+            data.chatters || data.data || data.top_users
+          )) ||
+        [];
 
     if (!rawList || rawList.length === 0) return [];
 
     return rawList
       .slice(0, 10)
       .map(item => {
-        const username = item.username || item.user || item.name || 'Desconocido';
+        const userId = String(item.user_id || '');
+        const username = String(item.username || item.user || item.name || 'Desconocido');
+        const displayName = String(
+          item.nickname ||
+            item.display_name ||
+            item.username ||
+            item.user ||
+            item.name ||
+            'Desconocido'
+        );
         const count =
-          item.message_count != null
-            ? Number(item.message_count)
-            : Number(item.count || item.messages || 0);
-        return { username, count };
+          item.msg_count != null
+            ? Number(item.msg_count)
+            : item.message_count != null
+              ? Number(item.message_count)
+              : Number(item.count || item.messages || 0);
+        return { userId, username, displayName, count };
       })
       .sort((a, b) => b.count - a.count);
   }, [data]);
@@ -48,7 +82,7 @@ export function TopChattersChart({ data = [], period = '24h' }) {
       return;
     }
 
-    const labels = normalizedData.map(d => d.username);
+    const labels = normalizedData.map(d => d.displayName);
     const counts = normalizedData.map(d => d.count);
 
     if (chartRef.current) {
@@ -59,10 +93,29 @@ export function TopChattersChart({ data = [], period = '24h' }) {
     }
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const theme = getChartTheme();
 
     const options = getBaseChartOptions({
       indexAxis: 'y',
+      onHover: (event, elements) => {
+        const target = event?.native?.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (elements && elements.length > 0) {
+          const item = dataRef.current[elements[0].index];
+          target.style.cursor = item && item.userId ? 'pointer' : 'default';
+        } else {
+          target.style.cursor = 'default';
+        }
+      },
+      onClick: (_event, elements) => {
+        if (!elements || elements.length === 0) return;
+        const item = dataRef.current[elements[0].index];
+        if (!item || !item.userId) return;
+        if (onSelectChatterRef.current) {
+          onSelectChatterRef.current(item);
+        }
+      },
       plugins: {
         tooltip: {
           callbacks: {
@@ -70,7 +123,7 @@ export function TopChattersChart({ data = [], period = '24h' }) {
               if (!tooltipItems.length) return '';
               const index = tooltipItems[0].dataIndex;
               const item = dataRef.current[index];
-              return item ? `Usuario: @${item.username}` : '';
+              return item ? `Usuario: ${item.displayName}` : '';
             },
             label: function (context) {
               return ` Mensajes enviados: ${context.parsed.x}`;
@@ -148,23 +201,17 @@ export function TopChattersChart({ data = [], period = '24h' }) {
     });
   }, [normalizedData]);
 
-  const periodLabelMap = {
-    '24h': 'Últimas 24h',
-    '7d': 'Últimos 7 días',
-    '30d': 'Últimos 30 días',
-    all: 'Historial completo',
-  };
-
   return html`
     <div class="analytics-chart-card">
       <div class="analytics-chart-header">
         <div class="analytics-chart-title-wrap">
-          <i class="fas fa-trophy chart-icon icon-gold"></i>
+          <i class="fas fa-trophy chart-icon icon-gold" aria-hidden="true"></i>
           <div>
             <h4 class="analytics-chart-title">Top 10 Chatters</h4>
             <span class="analytics-chart-subtitle">
-              Usuarios más participativos (${periodLabelMap[period] || period})
+              Usuarios más participativos de la sesión seleccionada
             </span>
+            <span class="analytics-chart-hint">Clic en una barra para ver mensajes</span>
           </div>
         </div>
       </div>
@@ -173,8 +220,8 @@ export function TopChattersChart({ data = [], period = '24h' }) {
           normalizedData.length === 0
             ? html`
                 <div class="chart-empty-placeholder">
-                  <i class="fas fa-user-friends"></i>
-                  <p>Sin datos de participación en este período</p>
+                  <i class="fas fa-user-friends" aria-hidden="true"></i>
+                  <p>Sin datos de participación en esta sesión</p>
                 </div>
               `
             : html`

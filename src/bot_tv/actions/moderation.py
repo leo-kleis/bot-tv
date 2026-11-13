@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import twitchio
 
+from bot_tv.actions._helpers import get_broadcaster_partial
 from bot_tv.actions.users import resolve_user
 
 if TYPE_CHECKING:
@@ -39,43 +41,71 @@ class UserBanStatus:
     moderator_name: str | None = None
 
 
-async def _get_broadcaster_channel(bot: Bot) -> twitchio.PartialUser | str:
-    """Obtiene el objeto PartialUser del canal (broadcaster) para operaciones Helix."""
-    channels = await bot.get_channels()
-    if not channels:
-        return "No hay canales configurados."
+async def _resolve_target_and_channel(
+    bot: Bot, action: str, target_username: str
+) -> tuple[str, twitchio.PartialUser] | ModerationActionResult:
+    """Resuelve el user_id objetivo y el PartialUser del broadcaster."""
+    res = await resolve_user(bot, target_username)
+    if not res.user_id:
+        return ModerationActionResult(
+            ok=False,
+            action=action,
+            target_username=target_username,
+            error=res.error or f"No se pudo resolver el ID de '{target_username}'.",
+        )
 
-    broadcaster_id = channels[0]["user_id"]
-    broadcaster_name = channels[0]["username"]
+    canal = await get_broadcaster_partial(bot)
+    if isinstance(canal, str):
+        return ModerationActionResult(
+            ok=False, action=action, target_username=target_username, error=canal
+        )
 
-    return twitchio.PartialUser(
-        id=broadcaster_id,
-        name=broadcaster_name,
-        http=bot._http,
-    )
+    return res.user_id, canal
+
+
+async def _run_moderation_call(
+    action: str,
+    target_username: str,
+    operation: Callable[[], Awaitable[None]],
+    *,
+    http_log_context: str,
+    unexpected_log_context: str,
+) -> ModerationActionResult:
+    """Ejecuta una llamada de moderación en Twitch mapeando errores."""
+    try:
+        await operation()
+        return ModerationActionResult(
+            ok=True, action=action, target_username=target_username
+        )
+    except twitchio.HTTPException as e:
+        LOGGER.error("%s '%s': %s", http_log_context, target_username, e)
+        return ModerationActionResult(
+            ok=False,
+            action=action,
+            target_username=target_username,
+            error=f"Error de Twitch (HTTP {e.status}).",
+        )
+    except Exception as e:
+        LOGGER.exception("%s '%s': %s", unexpected_log_context, target_username, e)
+        return ModerationActionResult(
+            ok=False,
+            action=action,
+            target_username=target_username,
+            error="Error inesperado al ejecutar la acción de moderación.",
+        )
 
 
 async def action_ban_user(
     bot: Bot, target_username: str, reason: str | None = None
 ) -> ModerationActionResult:
     """Banea permanentemente a un usuario en el canal de Twitch."""
-    res = await resolve_user(bot, target_username)
-    if not res.user_id:
-        return ModerationActionResult(
-            ok=False,
-            action="ban",
-            target_username=target_username,
-            error=res.error or f"No se pudo resolver el ID de '{target_username}'.",
-        )
+    resolved = await _resolve_target_and_channel(bot, "ban", target_username)
+    if isinstance(resolved, ModerationActionResult):
+        return resolved
+    user_id, canal = resolved
 
-    canal = await _get_broadcaster_channel(bot)
-    if isinstance(canal, str):
-        return ModerationActionResult(
-            ok=False, action="ban", target_username=target_username, error=canal
-        )
-
-    try:
-        target_partial = twitchio.PartialUser(id=res.user_id, http=bot._http)
+    async def _ban() -> None:
+        target_partial = twitchio.PartialUser(id=user_id, http=bot.twitch_http)
         await canal.ban_user(
             moderator=bot.bot_id,
             user=target_partial,
@@ -84,69 +114,34 @@ async def action_ban_user(
         LOGGER.info(
             "Usuario '%s' baneado en el canal. Razón: %s", target_username, reason
         )
-        return ModerationActionResult(
-            ok=True, action="ban", target_username=target_username
-        )
-    except twitchio.HTTPException as e:
-        LOGGER.error("Fallo al banear usuario '%s' en Twitch: %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="ban",
-            target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}).",
-        )
-    except Exception as e:
-        LOGGER.exception("Error inesperado al banear a '%s': %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="ban",
-            target_username=target_username,
-            error="Error inesperado al ejecutar la acción de moderación.",
-        )
+
+    return await _run_moderation_call(
+        "ban",
+        target_username,
+        _ban,
+        http_log_context="Fallo al banear usuario en Twitch",
+        unexpected_log_context="Error inesperado al banear",
+    )
 
 
 async def action_unban_user(bot: Bot, target_username: str) -> ModerationActionResult:
     """Desbanea a un usuario en el canal de Twitch."""
-    res = await resolve_user(bot, target_username)
-    if not res.user_id:
-        return ModerationActionResult(
-            ok=False,
-            action="unban",
-            target_username=target_username,
-            error=res.error or f"No se pudo resolver el ID de '{target_username}'.",
-        )
+    resolved = await _resolve_target_and_channel(bot, "unban", target_username)
+    if isinstance(resolved, ModerationActionResult):
+        return resolved
+    user_id, canal = resolved
 
-    canal = await _get_broadcaster_channel(bot)
-    if isinstance(canal, str):
-        return ModerationActionResult(
-            ok=False, action="unban", target_username=target_username, error=canal
-        )
-
-    try:
-        await canal.unban_user(
-            moderator=bot.bot_id,
-            user_id=res.user_id,
-        )
+    async def _unban() -> None:
+        await canal.unban_user(moderator=bot.bot_id, user_id=user_id)
         LOGGER.info("Usuario '%s' desbaneado en el canal.", target_username)
-        return ModerationActionResult(
-            ok=True, action="unban", target_username=target_username
-        )
-    except twitchio.HTTPException as e:
-        LOGGER.error("Fallo al desbanear usuario '%s': %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="unban",
-            target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}).",
-        )
-    except Exception as e:
-        LOGGER.exception("Error inesperado al desbanear a '%s': %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="unban",
-            target_username=target_username,
-            error="Error inesperado al ejecutar la acción de moderación.",
-        )
+
+    return await _run_moderation_call(
+        "unban",
+        target_username,
+        _unban,
+        http_log_context="Fallo al desbanear usuario",
+        unexpected_log_context="Error inesperado al desbanear",
+    )
 
 
 async def action_get_user_ban_status(bot: Bot, target_username: str) -> UserBanStatus:
@@ -157,7 +152,7 @@ async def action_get_user_ban_status(bot: Bot, target_username: str) -> UserBanS
     if not res.user_id:
         return UserBanStatus(is_banned=False)
 
-    canal = await _get_broadcaster_channel(bot)
+    canal = await get_broadcaster_partial(bot)
     if isinstance(canal, str):
         return UserBanStatus(is_banned=False)
 
@@ -214,7 +209,7 @@ async def action_delete_messages(
     Si message_id es None, ejecuta /clear del chat.
     NOTA: NO borra nada de la base de datos local PostgreSQL.
     """
-    canal = await _get_broadcaster_channel(bot)
+    canal = await get_broadcaster_partial(bot)
     if isinstance(canal, str):
         return ModerationActionResult(
             ok=False,
@@ -223,7 +218,7 @@ async def action_delete_messages(
             error=canal,
         )
 
-    try:
+    async def _delete() -> None:
         await canal.delete_chat_messages(
             moderator=bot.bot_id,
             message_id=message_id if message_id and message_id.strip() else None,
@@ -234,25 +229,14 @@ async def action_delete_messages(
             else f"Mensaje {message_id} eliminado"
         )
         LOGGER.info("%s ejecutado en Twitch para '%s'", action_name, target_username)
-        return ModerationActionResult(
-            ok=True, action="delete_message", target_username=target_username
-        )
-    except twitchio.HTTPException as e:
-        LOGGER.error("Fallo al eliminar mensajes en Twitch: %s", e)
-        return ModerationActionResult(
-            ok=False,
-            action="delete_message",
-            target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}).",
-        )
-    except Exception as e:
-        LOGGER.exception("Error inesperado al borrar mensajes: %s", e)
-        return ModerationActionResult(
-            ok=False,
-            action="delete_message",
-            target_username=target_username,
-            error="Error inesperado al ejecutar la acción de moderación.",
-        )
+
+    return await _run_moderation_call(
+        "delete_message",
+        target_username,
+        _delete,
+        http_log_context="Fallo al eliminar mensajes en Twitch para",
+        unexpected_log_context="Error inesperado al borrar mensajes de",
+    )
 
 
 async def action_purge_user(bot: Bot, target_username: str) -> ModerationActionResult:
@@ -260,23 +244,13 @@ async def action_purge_user(bot: Bot, target_username: str) -> ModerationActionR
 
     NOTA: NO borra nada de la base de datos local PostgreSQL.
     """
-    res = await resolve_user(bot, target_username)
-    if not res.user_id:
-        return ModerationActionResult(
-            ok=False,
-            action="purge",
-            target_username=target_username,
-            error=res.error or f"No se pudo resolver el ID de '{target_username}'.",
-        )
+    resolved = await _resolve_target_and_channel(bot, "purge", target_username)
+    if isinstance(resolved, ModerationActionResult):
+        return resolved
+    user_id, canal = resolved
 
-    canal = await _get_broadcaster_channel(bot)
-    if isinstance(canal, str):
-        return ModerationActionResult(
-            ok=False, action="purge", target_username=target_username, error=canal
-        )
-
-    try:
-        target_partial = twitchio.PartialUser(id=res.user_id, http=bot._http)
+    async def _purge() -> None:
+        target_partial = twitchio.PartialUser(id=user_id, http=bot.twitch_http)
         await canal.timeout_user(
             moderator=bot.bot_id,
             user=target_partial,
@@ -286,22 +260,11 @@ async def action_purge_user(bot: Bot, target_username: str) -> ModerationActionR
         LOGGER.info(
             "Purga de mensajes de '%s' ejecutada (timeout 1s).", target_username
         )
-        return ModerationActionResult(
-            ok=True, action="purge", target_username=target_username
-        )
-    except twitchio.HTTPException as e:
-        LOGGER.error("Fallo al purgar usuario '%s' en Twitch: %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="purge",
-            target_username=target_username,
-            error=f"Error de Twitch (HTTP {e.status}).",
-        )
-    except Exception as e:
-        LOGGER.exception("Error inesperado al purgar a '%s': %s", target_username, e)
-        return ModerationActionResult(
-            ok=False,
-            action="purge",
-            target_username=target_username,
-            error="Error inesperado al ejecutar la acción de moderación.",
-        )
+
+    return await _run_moderation_call(
+        "purge",
+        target_username,
+        _purge,
+        http_log_context="Fallo al purgar usuario en Twitch",
+        unexpected_log_context="Error inesperado al purgar",
+    )

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import contextlib
 import json
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from starlette.requests import Request
@@ -12,12 +14,37 @@ from starlette.responses import JSONResponse
 MAX_BODY_BYTES = 65536
 
 
+def _serialize(obj: Any) -> Any:
+    """Serializa recursivamente estructuras para JSON seguro."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    if isinstance(obj, dict):
+        return {str(k): _serialize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_serialize(item) for item in obj]
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    return obj
+
+
 def _ok(data: object = None) -> JSONResponse:
-    return JSONResponse({"ok": True, "data": data})
+    return JSONResponse({"ok": True, "data": _serialize(data)})
 
 
 def _err(message: str, status: int = 400) -> JSONResponse:
     return JSONResponse({"ok": False, "error": message}, status_code=status)
+
+
+def _json_ok(data: Any = None) -> JSONResponse:
+    """Genera respuesta JSON estandarizada con código 200 y serialización segura."""
+    return _ok(data)
+
+
+def _json_err(message: str, status_code: int = 400) -> JSONResponse:
+    """Genera respuesta JSON estandarizada de error."""
+    return _err(message, status=status_code)
 
 
 def _get_str(body: dict[str, Any], key: str, default: str = "") -> str:
@@ -32,14 +59,31 @@ def _parse_int_param(
     default: int,
     *,
     min_val: int = 1,
-    max_val: int = 500,
-) -> int:
-    """Parsea un query param entero y lo acota al rango [min_val, max_val]."""
+    max_val: int | None = 500,
+    strict_min: bool = False,
+) -> int | JSONResponse:
+    """Parsea un query param entero y retorna error 400 si no es válido."""
     raw = request.query_params.get(name)
     if raw is None or not raw.strip():
-        return max(min_val, min(max_val, default))
-    val = int(raw.strip())
-    return max(min_val, min(max_val, val))
+        clamped = max(min_val, default)
+        return min(max_val, clamped) if max_val is not None else clamped
+
+    try:
+        val = int(raw.strip())
+    except ValueError:
+        return _err(
+            f"El parámetro '{name}' debe ser un número entero válido.",
+            status=400,
+        )
+
+    if strict_min and val < min_val:
+        return _err(
+            f"El parámetro '{name}' debe ser un número entero >= {min_val}.",
+            status=400,
+        )
+
+    clamped = max(min_val, val)
+    return min(max_val, clamped) if max_val is not None else clamped
 
 
 async def _parse_body(

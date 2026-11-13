@@ -32,6 +32,14 @@ class ChatComponent(commands.Component):
         self._enrich_sem = asyncio.Semaphore(5)
         self._tasks: set[asyncio.Task[None]] = set()
 
+    async def component_teardown(self) -> None:
+        """Cancela tareas en segundo plano al descargar el componente."""
+        for task in list(self._tasks):
+            if not task.done():
+                task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+
     async def _enrich_and_persist(
         self,
         payload: twitchio.ChatMessage,
@@ -42,7 +50,6 @@ class ChatComponent(commands.Component):
         es_bot: bool,
     ) -> None:
         """Persiste datos en PostgreSQL y enriquece avatar/follow en segundo plano."""
-        cache = self.bot.user_cache
         chatter = payload.chatter
         broadcaster_id = payload.broadcaster.id
 
@@ -51,7 +58,7 @@ class ChatComponent(commands.Component):
                 user_id,
                 username,
                 display_name,
-                cache=cache,
+                cache=self.bot.ready_user_cache,
             )
 
             await self.bot.channel_user_repo.upsert_channel_user_roles(
@@ -60,7 +67,7 @@ class ChatComponent(commands.Component):
                 is_moderator=chatter.moderator,
                 is_vip=chatter.vip,
                 is_subscriber=chatter.subscriber,
-                cache=cache,
+                cache=self.bot.ready_user_cache,
             )
 
             if not es_bot:
@@ -78,8 +85,13 @@ class ChatComponent(commands.Component):
             self._inflight_enrich.add(user_id)
             try:
                 async with self._enrich_sem:
+                    cache = self.bot.ready_user_cache
                     # Verificar avatar si aún no se tiene
-                    profile_image_url = cache.get_profile_image_url(user_id)
+                    profile_image_url = (
+                        cache.get_profile_image_url(user_id)
+                        if cache is not None
+                        else await self.bot.user_repo.get_profile_image_url(user_id)
+                    )
                     if (
                         profile_image_url is None
                         or user_id not in self._verified_avatars
@@ -94,7 +106,9 @@ class ChatComponent(commands.Component):
                                     new_url = profile_image.url
                                     if new_url != profile_image_url:
                                         await self.bot.user_repo.set_profile_image_url(
-                                            user_id, new_url, cache=cache
+                                            user_id,
+                                            new_url,
+                                            cache=self.bot.ready_user_cache,
                                         )
                                     if (
                                         len(self._verified_avatars)
@@ -109,7 +123,12 @@ class ChatComponent(commands.Component):
 
                     # Verificar follow_info si no está en caché y no fue consultado aún
                     follow_key = (broadcaster_id, user_id)
-                    cached_roles = cache.get_user_roles(user_id, broadcaster_id)
+                    cache = self.bot.ready_user_cache
+                    cached_roles = (
+                        cache.get_user_roles(user_id, broadcaster_id)
+                        if cache is not None
+                        else None
+                    )
                     if (
                         not cached_roles or not cached_roles.get("followed_at")
                     ) and follow_key not in self._checked_follows:
@@ -123,7 +142,7 @@ class ChatComponent(commands.Component):
                                     broadcaster_id,
                                     user_id,
                                     follow.followed_at.isoformat(),
-                                    cache=cache,
+                                    cache=self.bot.ready_user_cache,
                                 )
                         except Exception:
                             LOGGER.debug(
@@ -145,17 +164,30 @@ class ChatComponent(commands.Component):
         user_id = chatter.id
         username = chatter.name or user_id
         display_name = chatter.display_name or username
-        cache = self.bot.user_cache
+        cache = self.bot.ready_user_cache
         msg_id = getattr(payload, "id", None)
 
-        es_bot = (user_id == self.bot.bot_id) or cache.is_user_bot(user_id)
-        nickname = cache.get_user_nickname(user_id)
-        profile_image_url = cache.get_profile_image_url(user_id)
+        es_bot = (user_id == self.bot.bot_id) or (
+            cache.is_user_bot(user_id) if cache is not None else False
+        )
+        nickname = cache.get_user_nickname(user_id) if cache is not None else None
+        profile_image_url = (
+            cache.get_profile_image_url(user_id) if cache is not None else None
+        )
 
         hex_str = chatter.color.hex if chatter.color else None
         r, g, b = get_chatter_rgb(hex_str, username)
 
-        role = cache.get_display_role(user_id, payload.broadcaster.id, self.bot.bot_id)
+        if cache is not None:
+            role = cache.get_display_role(
+                user_id, payload.broadcaster.id, self.bot.bot_id
+            )
+        elif user_id == payload.broadcaster.id:
+            role = "Broadcaster"
+        elif es_bot:
+            role = "Bot"
+        else:
+            role = "Visita"
 
         # Extraer emotes nativos de Twitch desde los fragments del mensaje
         twitch_emotes: list[dict[str, str]] = []

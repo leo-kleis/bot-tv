@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, render } from 'preact-setup';
+import { html, useState, useEffect, useRef, createPortal } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { getFocusableElements, trapFocus, setupInertIsolation } from '/static/lib/a11y.js';
 import { sanitizeHttpUrl } from 'lib/utils';
@@ -15,7 +15,9 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+  const [portalRoot, setPortalRoot] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -29,28 +31,31 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
 
   // Cargar metadatos completos (portada box_art_url) si existe una categoría inicial
   useEffect(() => {
-    if (initialCategory && (!selectedCategory || !selectedCategory.box_art_url)) {
-      apiGet(`/api/categories/search?query=${encodeURIComponent(initialCategory)}`)
-        .then(res => {
-          if (
-            res &&
-            res.ok &&
-            Array.isArray(res.data?.categories) &&
-            res.data.categories.length > 0
-          ) {
-            const match =
-              res.data.categories.find(
-                c => c.name.toLowerCase() === initialCategory.toLowerCase()
-              ) || res.data.categories[0];
-            setSelectedCategory({
-              id: match.id,
-              name: match.name,
-              box_art_url: match.box_art_url,
-            });
-          }
-        })
-        .catch(() => {});
-    }
+    if (!initialCategory || (selectedCategory && selectedCategory.box_art_url)) return;
+    const controller = new AbortController();
+    apiGet(`/api/categories/search?query=${encodeURIComponent(initialCategory)}`, {
+      signal: controller.signal,
+    })
+      .then(res => {
+        if (controller.signal.aborted) return;
+        if (
+          res &&
+          res.ok &&
+          Array.isArray(res.data?.categories) &&
+          res.data.categories.length > 0
+        ) {
+          const match =
+            res.data.categories.find(c => c.name.toLowerCase() === initialCategory.toLowerCase()) ||
+            res.data.categories[0];
+          setSelectedCategory({
+            id: match.id,
+            name: match.name,
+            box_art_url: match.box_art_url,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, [initialCategory]);
 
   // Aislamiento inert, foco inicial y restauración de foco al desmontar
@@ -141,6 +146,14 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     }
   }, [dropdownOpen, searchResults]);
 
+  useEffect(() => {
+    if (!dropdownOpen || activeIndex < 0) return;
+    const activeEl = document.getElementById(`stream-category-option-${activeIndex}`);
+    if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  }, [dropdownOpen, activeIndex]);
+
   // Debounce de búsqueda de categoría (500ms)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -155,34 +168,40 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     if (!query) {
       setSearchResults([]);
       setDropdownOpen(false);
+      setActiveIndex(-1);
       return;
     }
 
-    let active = true;
+    const controller = new AbortController();
     setSearching(true);
     setErrorMsg(null);
 
-    apiGet(`/api/categories/search?query=${encodeURIComponent(query)}`)
+    apiGet(`/api/categories/search?query=${encodeURIComponent(query)}`, {
+      signal: controller.signal,
+    })
       .then(res => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         setSearching(false);
         if (res && res.ok && Array.isArray(res.data?.categories)) {
           setSearchResults(res.data.categories);
           setDropdownOpen(res.data.categories.length > 0);
+          setActiveIndex(-1);
         } else {
           setSearchResults([]);
           setDropdownOpen(false);
+          setActiveIndex(-1);
         }
       })
       .catch(() => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         setSearching(false);
         setSearchResults([]);
         setDropdownOpen(false);
+        setActiveIndex(-1);
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [categorySearch]);
 
@@ -195,81 +214,69 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
     setCategoryInput('');
     setSearchResults([]);
     setDropdownOpen(false);
+    setActiveIndex(-1);
   }
 
   function handleRemoveCategory() {
     setSelectedCategory(null);
   }
 
-  // Renderizar dropdown en portal a document.body para evitar recorte por scroll del modal
-  useEffect(() => {
-    let portalRoot = document.getElementById('stream-category-portal');
-    if (!dropdownOpen || searchResults.length === 0) {
-      if (portalRoot) {
-        render(null, portalRoot);
+  function handleCategoryKeyDown(e) {
+    if (!searchResults.length) {
+      if (e.key === 'Escape' && dropdownOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropdownOpen(false);
+        setActiveIndex(-1);
       }
       return;
     }
 
-    if (!portalRoot) {
-      portalRoot = document.createElement('div');
-      portalRoot.id = 'stream-category-portal';
-      document.body.appendChild(portalRoot);
-    }
-
-    const dropdownContent = html`
-      <div
-        class="category-dropdown-list"
-        style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-modal-dropdown);"
-      >
-        ${searchResults.map(cat => {
-          const rawArt = cat.box_art_url
-            ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
-            : '';
-          const boxArt = sanitizeHttpUrl(rawArt);
-          return html`
-            <div
-              key=${cat.id}
-              class="category-dropdown-item"
-              onClick=${() => handleSelectCategory(cat)}
-            >
-              ${
-                boxArt
-                  ? html`<img
-                      src=${boxArt}
-                      alt=${cat.name}
-                      class="category-box-art"
-                      loading="lazy"
-                      onError=${e => {
-                        e.target.style.display = 'none';
-                      }}
-                    />`
-                  : html`<div class="category-box-art-placeholder">
-                      <i class="fa-solid fa-gamepad"></i>
-                    </div>`
-              }
-              <span class="category-item-name">${cat.name}</span>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-
-    render(dropdownContent, portalRoot);
-
-    return () => {
-      if (portalRoot) {
-        render(null, portalRoot);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!dropdownOpen) {
+        setDropdownOpen(true);
+        setActiveIndex(0);
+      } else {
+        setActiveIndex(prev => (prev + 1) % searchResults.length);
       }
-    };
-  }, [dropdownOpen, searchResults, dropdownPos]);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!dropdownOpen) {
+        setDropdownOpen(true);
+        setActiveIndex(searchResults.length - 1);
+      } else {
+        setActiveIndex(prev => (prev <= 0 ? searchResults.length - 1 : prev - 1));
+      }
+    } else if (e.key === 'Enter') {
+      if (dropdownOpen && activeIndex >= 0 && searchResults[activeIndex]) {
+        e.preventDefault();
+        handleSelectCategory(searchResults[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      if (dropdownOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropdownOpen(false);
+        setActiveIndex(-1);
+      }
+    }
+  }
 
-  // Limpiar portal al desmontar
+  // Crear y limpiar contenedor portal en document.body para el dropdown
   useEffect(() => {
+    let el = document.getElementById('stream-category-portal');
+    let created = false;
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'stream-category-portal';
+      document.body.appendChild(el);
+      created = true;
+    }
+    setPortalRoot(el);
     return () => {
-      const portalRoot = document.getElementById('stream-category-portal');
-      if (portalRoot) {
-        render(null, portalRoot);
+      if (created && el.parentNode) {
+        el.parentNode.removeChild(el);
       }
     };
   }, []);
@@ -377,7 +384,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           <!-- Campo Categoría -->
           <div class="stream-modal-field category-field" ref=${categoryBoxRef}>
             <div class="stream-modal-label-row">
-              <label class="stream-modal-label"> Categoría </label>
+              <label class="stream-modal-label" for="stream-category-search"> Categoría </label>
             </div>
 
             <!-- Categoría Actualmente Seleccionada (Tarjeta Estilo Twitch) -->
@@ -408,6 +415,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                         class="twitch-category-remove-btn"
                         onClick=${handleRemoveCategory}
                         title="Cambiar categoría"
+                        aria-label="Quitar categoría seleccionada"
                         disabled=${saving}
                       >
                         <i class="fa-solid fa-xmark"></i>
@@ -421,7 +429,17 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
             <div class="category-search-box">
               <i class="fa-solid fa-magnifying-glass search-box-icon"></i>
               <input
+                id="stream-category-search"
                 type="text"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded=${dropdownOpen && searchResults.length > 0}
+                aria-controls="stream-category-listbox"
+                aria-activedescendant=${
+                  dropdownOpen && activeIndex >= 0
+                    ? `stream-category-option-${activeIndex}`
+                    : undefined
+                }
                 class="stream-modal-input category-search-input"
                 placeholder=${
                   selectedCategory
@@ -430,6 +448,7 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
                 }
                 value=${categoryInput}
                 onInput=${e => setCategoryInput(e.target.value)}
+                onKeyDown=${handleCategoryKeyDown}
                 onFocus=${() => searchResults.length > 0 && setDropdownOpen(true)}
                 disabled=${saving}
               />
@@ -468,6 +487,59 @@ export function StreamEditModal({ initialTitle = '', initialCategory = '', onClo
           </button>
         </div>
       </div>
+
+      ${
+        dropdownOpen && searchResults.length > 0 && portalRoot
+          ? createPortal(
+              html`
+                <div
+                  id="stream-category-listbox"
+                  role="listbox"
+                  aria-label="Categorías disponibles"
+                  class="category-dropdown-list"
+                  style="position:fixed;top:${dropdownPos.top}px;left:${dropdownPos.left}px;width:${dropdownPos.width}px;z-index:var(--z-modal-dropdown);"
+                >
+                  ${searchResults.map((cat, idx) => {
+                    const rawArt = cat.box_art_url
+                      ? cat.box_art_url.replace('{width}', '52').replace('{height}', '72')
+                      : '';
+                    const boxArt = sanitizeHttpUrl(rawArt);
+                    const isSelected = idx === activeIndex;
+                    return html`
+                      <div
+                        key=${cat.id}
+                        id="stream-category-option-${idx}"
+                        role="option"
+                        aria-selected=${isSelected}
+                        class="category-dropdown-item ${isSelected ? 'active' : ''}"
+                        onMouseEnter=${() => setActiveIndex(idx)}
+                        onClick=${() => handleSelectCategory(cat)}
+                      >
+                        ${
+                          boxArt
+                            ? html`<img
+                                src=${boxArt}
+                                alt=${cat.name}
+                                class="category-box-art"
+                                loading="lazy"
+                                onError=${e => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />`
+                            : html`<div class="category-box-art-placeholder">
+                                <i class="fa-solid fa-gamepad"></i>
+                              </div>`
+                        }
+                        <span class="category-item-name">${cat.name}</span>
+                      </div>
+                    `;
+                  })}
+                </div>
+              `,
+              portalRoot
+            )
+          : null
+      }
     </div>
   `;
 }

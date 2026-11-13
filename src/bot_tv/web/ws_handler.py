@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import logging
+from collections import OrderedDict
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
@@ -57,6 +56,8 @@ LOGGER = logging.getLogger(__name__)
 
 WS_SEND_TIMEOUT_SECONDS = 2.0
 WS_POLICY_VIOLATION_CODE = 1008
+MAX_SERIALIZED_CACHE_SIZE = 4096
+_DEFAULT_CORS_ORIGINS = CORS_ORIGINS
 
 # Mapeo tipo de evento Python → tipo de mensaje JSON
 EVENT_TYPE_MAP: dict[type, str] = {
@@ -160,6 +161,8 @@ class WebSocketManager:
         self._registered = False
         self._shutdown_callback: Callable[[], None] | None = None
         self._idle_task: asyncio.Task[None] | None = None
+        # Caché acotada por id(evento) con ref fuerte para reutilizar en reconexiones
+        self._serialized_cache: OrderedDict[int, tuple[object, str]] = OrderedDict()
 
     def set_shutdown_callback(self, callback: Callable[[], None]) -> None:
         """Registra el callback para apagar el servidor cuando expira el idle timer."""
@@ -197,15 +200,35 @@ class WebSocketManager:
         for event_type in EVENT_TYPE_MAP:
             self._event_bus.subscribe(event_type, self._broadcast)
 
+    def _serialize_cached(self, event: object) -> str | None:
+        """Serializa un evento reutilizando JSON cacheado mientras siga en memoria."""
+        event_id = id(event)
+        cached = self._serialized_cache.get(event_id)
+        if cached is not None and cached[0] is event:
+            self._serialized_cache.move_to_end(event_id)
+            return cached[1]
+
+        serialized = _serialize(event)
+        if serialized is None:
+            return None
+
+        self._serialized_cache[event_id] = (event, serialized)
+        if len(self._serialized_cache) > MAX_SERIALIZED_CACHE_SIZE:
+            self._serialized_cache.popitem(last=False)
+        return serialized
+
     async def _send_with_timeout(self, ws: WebSocket, message: str) -> WebSocket | None:
         """Envía mensaje a un cliente con timeout; retorna el cliente si falló."""
-        with contextlib.suppress(Exception):
-            if ws.client_state == WebSocketState.CONNECTED:
-                await asyncio.wait_for(
-                    ws.send_text(message), timeout=WS_SEND_TIMEOUT_SECONDS
-                )
-                return None
-        return ws
+        if ws.client_state != WebSocketState.CONNECTED:
+            return ws
+        try:
+            await asyncio.wait_for(
+                ws.send_text(message), timeout=WS_SEND_TIMEOUT_SECONDS
+            )
+            return None
+        except TimeoutError, WebSocketDisconnect, RuntimeError, OSError:
+            LOGGER.debug("Fallo al enviar mensaje WebSocket; descartando cliente")
+            return ws
 
     async def _send_to_all(self, message: str) -> None:
         """Envía un mensaje en paralelo a un snapshot de las conexiones activas."""
@@ -227,7 +250,7 @@ class WebSocketManager:
         if not self._connections:
             return
 
-        message = _serialize(event)
+        message = self._serialize_cached(event)
         if message is None:
             return
 
@@ -247,13 +270,20 @@ class WebSocketManager:
         clients = tuple(self._connections)
         self._connections.clear()
         for ws in clients:
-            with contextlib.suppress(Exception):
-                if ws.client_state == WebSocketState.CONNECTED:
-                    await ws.close(code=1001)
+            if ws.client_state != WebSocketState.CONNECTED:
+                continue
+            try:
+                await ws.close(code=1001)
+            except WebSocketDisconnect, RuntimeError, OSError:
+                LOGGER.debug("Cliente WebSocket ya cerrado al apagar servidor")
 
     async def handle(self, ws: WebSocket) -> None:
         """Maneja el ciclo de vida de una conexión WebSocket entrante."""
-        from bot_tv.web.server import is_authorized_request
+        from bot_tv.web.server import (
+            is_allowed_request_origin,
+            is_authorized_request,
+            is_valid_host_header,
+        )
 
         query_token = ws.query_params.get("token", "").strip()
         if not is_authorized_request(ws.headers, ws.cookies, query_token=query_token):
@@ -261,18 +291,30 @@ class WebSocketManager:
             await ws.close(code=WS_POLICY_VIOLATION_CODE)
             return
 
-        origin = ws.headers.get("origin")
-        if origin and origin not in CORS_ORIGINS:
-            origin_host = urlparse(origin).netloc
-            host = ws.headers.get("x-forwarded-host") or ws.headers.get("host", "")
-            if origin_host and host and origin_host != host:
-                LOGGER.warning(
-                    "Conexión WebSocket rechazada por Origin inválido: %s (Host: %s)",
-                    origin,
-                    host,
-                )
-                await ws.close(code=WS_POLICY_VIOLATION_CODE)
-                return
+        override_cors = (
+            CORS_ORIGINS if CORS_ORIGINS is not _DEFAULT_CORS_ORIGINS else None
+        )
+        host_values = ws.headers.getlist("host")
+        if len(host_values) != 1 or not is_valid_host_header(
+            host_values[0], ws.scope, cors_origins=override_cors
+        ):
+            LOGGER.warning(
+                "Conexión WebSocket rechazada por cabecera Host inválida: %s",
+                host_values[0] if host_values else "<ausente>",
+            )
+            await ws.close(code=WS_POLICY_VIOLATION_CODE)
+            return
+
+        if not is_allowed_request_origin(
+            ws.headers, ws.scope, cors_origins=override_cors
+        ):
+            LOGGER.warning(
+                "Conexión WS rechazada por Origin inválido: %s (Host: %s)",
+                ws.headers.get("origin", "<ausente>"),
+                host_values[0],
+            )
+            await ws.close(code=WS_POLICY_VIOLATION_CODE)
+            return
 
         if len(self._connections) >= MAX_WS_CLIENTS:
             LOGGER.warning(
@@ -293,17 +335,22 @@ class WebSocketManager:
 
         try:
             # Enviar historial acumulado de la sesión actual en lote
-            await self._send_history(ws)
+            if not await self._send_history(ws):
+                return
 
             # Señal de fin de historial
-            await ws.send_text(json.dumps({"type": "history_end"}))
+            try:
+                await ws.send_text('{"type":"history_end"}')
+            except WebSocketDisconnect, RuntimeError, OSError:
+                LOGGER.debug("Cliente desconectado al enviar history_end")
+                return
 
             # Mantener la conexión abierta hasta que el cliente desconecte
             while True:
                 data = await ws.receive_text()
                 LOGGER.debug("Mensaje WS recibido (ignorado): %s", data[:100])
 
-        except WebSocketDisconnect, asyncio.CancelledError:
+        except WebSocketDisconnect, asyncio.CancelledError, OSError:
             pass
         except Exception:
             LOGGER.exception("Error en WebSocket handler")
@@ -317,32 +364,32 @@ class WebSocketManager:
             if not self._connections:
                 self._schedule_idle_shutdown()
 
-    async def _send_history(self, ws: WebSocket) -> None:
+    async def _send_history(self, ws: WebSocket) -> bool:
         """Envía el historial acumulado del EventBus en un único lote al cliente."""
         all_events: list[object] = []
         for event_type in HISTORY_EVENT_TYPES:
             all_events.extend(self._event_bus.get_history(event_type))
 
-        with contextlib.suppress(Exception):
-            all_events.sort(key=lambda e: getattr(e, "timestamp", ""))
-
-        batch: list[dict[str, Any]] = []
-        for event in all_events:
-            item = _serialize_dict(event)
-            if item is not None:
-                batch.append(item)
+        try:
+            all_events.sort(key=lambda e: str(getattr(e, "timestamp", "")))
+        except TypeError:
+            LOGGER.exception("Error ordenando historial de eventos por timestamp")
 
         if self._bot and self._bot.irc is not None:
-            for join_event in list(self._bot.irc.connected_users.values()):
-                item = _serialize_dict(join_event)
-                if item is not None:
-                    batch.append(item)
+            all_events.extend(list(self._bot.irc.connected_users.values()))
+            all_events.extend(list(self._bot.irc.parted_users.values()))
 
-            for part_event in list(self._bot.irc.parted_users.values()):
-                item = _serialize_dict(part_event)
-                if item is not None:
-                    batch.append(item)
+        batch_items: list[str] = []
+        for event in all_events:
+            serialized = self._serialize_cached(event)
+            if serialized is not None:
+                batch_items.append(serialized)
 
-        if batch:
-            with contextlib.suppress(Exception):
-                await ws.send_text(json.dumps({"type": "history_batch", "data": batch}))
+        if batch_items:
+            payload = f'{{"type":"history_batch","data":[{",".join(batch_items)}]}}'
+            try:
+                await ws.send_text(payload)
+            except WebSocketDisconnect, RuntimeError, OSError:
+                LOGGER.debug("Cliente desconectado al enviar lote de historial")
+                return False
+        return True

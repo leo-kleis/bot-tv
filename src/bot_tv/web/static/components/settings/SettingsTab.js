@@ -1,13 +1,14 @@
-import { html, useState, useEffect, useRef } from 'preact-setup';
-import { apiGet, apiPost } from '/static/components/api.js';
+import { html, useState } from 'preact-setup';
 import { ModelSection } from '/static/components/actions/ModelSection.js';
 import { DangerSection } from '/static/components/actions/DangerSection.js';
 
 const MIN_FONT = 12;
 const MAX_FONT = 22;
 const STEP = 0.5;
-const SLIDER_DEBOUNCE_MS = 250;
 
+/**
+ * @param {{ dispatch?: (action: Record<string, unknown>) => void }} props
+ */
 export function SettingsTab({ dispatch }) {
   const [fontSize, setFontSize] = useState(() => {
     const saved = localStorage.getItem('font-size');
@@ -20,20 +21,6 @@ export function SettingsTab({ dispatch }) {
     return 14.5; // Valor por defecto
   });
 
-  const [contextLimit, setContextLimit] = useState(0);
-  const [savingLimit, setSavingLimit] = useState(false);
-  const [limitSavedMsg, setLimitSavedMsg] = useState('');
-
-  const contextLimitTimerRef = useRef(null);
-  const limitSavedTimerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (contextLimitTimerRef.current) clearTimeout(contextLimitTimerRef.current);
-      if (limitSavedTimerRef.current) clearTimeout(limitSavedTimerRef.current);
-    };
-  }, []);
-
   const [hideBots, setHideBots] = useState(
     () => localStorage.getItem('hide-bot-messages') === 'true'
   );
@@ -42,39 +29,12 @@ export function SettingsTab({ dispatch }) {
     const val = e.target.checked;
     setHideBots(val);
     localStorage.setItem('hide-bot-messages', String(val));
-    window.dispatchEvent(new Event('storage-settings-changed'));
+    window.dispatchEvent(
+      new CustomEvent('storage-settings-changed', {
+        detail: { key: 'hide-bot-messages', value: val },
+      })
+    );
   };
-
-  useEffect(() => {
-    apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data) {
-        if (typeof d.data.context_limit === 'number') {
-          setContextLimit(d.data.context_limit);
-        }
-      }
-    });
-  }, []);
-
-  function handleContextLimitChange(newVal) {
-    const val = Math.max(0, parseInt(newVal, 10) || 0);
-    setContextLimit(val);
-    setLimitSavedMsg('');
-
-    if (contextLimitTimerRef.current) {
-      clearTimeout(contextLimitTimerRef.current);
-    }
-    contextLimitTimerRef.current = setTimeout(async () => {
-      contextLimitTimerRef.current = null;
-      setSavingLimit(true);
-      const res = await apiPost('/api/agent/context_limit', { limit: val });
-      setSavingLimit(false);
-      if (res.ok) {
-        setLimitSavedMsg('Guardado');
-        if (limitSavedTimerRef.current) clearTimeout(limitSavedTimerRef.current);
-        limitSavedTimerRef.current = setTimeout(() => setLimitSavedMsg(''), 2000);
-      }
-    }, SLIDER_DEBOUNCE_MS);
-  }
 
   const updateFontSize = newSize => {
     const size = Math.max(MIN_FONT, Math.min(MAX_FONT, newSize));
@@ -107,45 +67,6 @@ export function SettingsTab({ dispatch }) {
         <!-- Selección de Modelo -->
         <div style="margin-bottom: 20px;">
           <${ModelSection} />
-        </div>
-
-        <!-- Límite de Contexto -->
-        <div class="settings-control-group">
-          <label class="settings-label" for="context-limit-input">
-            Límite de Contexto de Conversación (Turnos)
-          </label>
-          <div
-            style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:6px;min-width:0;"
-          >
-            <input
-              id="context-limit-input"
-              type="number"
-              min="0"
-              max="100"
-              value=${contextLimit}
-              onInput=${e => handleContextLimitChange(e.target.value)}
-              style="width:100px;padding:6px 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;"
-            />
-            <span style="font-size:12px;color:var(--text-muted);">
-              ${
-                contextLimit === 0
-                  ? '0 = Sin Límite (Ilimitado)'
-                  : `Conserva los últimos ${contextLimit} turnos`
-              }
-            </span>
-            ${
-              savingLimit
-                ? html`<span class="spinner" style="border-top-color:var(--accent)"></span>`
-                : null
-            }
-            ${
-              limitSavedMsg
-                ? html`<span style="color:var(--success);font-size:12px;font-weight:600;"
-                    >${limitSavedMsg}</span
-                  >`
-                : null
-            }
-          </div>
         </div>
       </div>
 

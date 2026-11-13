@@ -1,31 +1,126 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any
+import sys
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
-from bot_tv.database.repositories.base import to_iso_str
+from bot_tv.database.repositories.base import to_iso_str, to_utc_datetime
+
+if TYPE_CHECKING:
+    import asyncpg
 
 LOGGER = logging.getLogger(__name__)
+
+_EPOCH_UTC = datetime.min.replace(tzinfo=UTC)
+_BOT_ROLES = frozenset({"bot", "bots"})
+_MOD_ROLES = frozenset({"moderator", "moderador", "mods", "mod"})
+_VIP_ROLES = frozenset({"vip", "vips"})
+_SUB_ROLES = frozenset({"subscriber", "suscriptor", "subscribers", "sub", "subs"})
+_FOLLOWER_STATES = frozenset({"follower", "not_follower", "unfollower"})
+
+
+@dataclass(slots=True)
+class _CachedUser:
+    """Representación compacta en memoria de un registro de usuario."""
+
+    user_id: str
+    username: str
+    display_name: str | None
+    is_bot: bool
+    nickname: str | None
+    profile_image_url: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Materializa el diccionario público esperado por los consumidores."""
+        return {
+            "user_id": self.user_id,
+            "username": self.username,
+            "display_name": self.display_name,
+            "is_bot": self.is_bot,
+            "nickname": self.nickname,
+            "profile_image_url": self.profile_image_url,
+        }
+
+
+@dataclass(slots=True)
+class _CachedChannelRole:
+    """Representación compacta en memoria de roles y seguimiento por canal."""
+
+    followed_at: datetime | None = None
+    unfollowed_at: datetime | None = None
+    is_moderator: bool = False
+    is_vip: bool = False
+    is_subscriber: bool = False
+    sub_tier: str | None = None
+    gifter_id: str | None = None
+
+
+def _role_rank(user: _CachedUser, roles: _CachedChannelRole | None) -> int:
+    """Calcula la prioridad numérica de rol para ordenamiento."""
+    if roles is not None:
+        if roles.is_moderator:
+            return 1
+        if roles.is_vip:
+            return 2
+        if roles.is_subscriber:
+            return 3
+    if user.is_bot:
+        return 4
+    return 5
+
+
+def _follow_sort_key(
+    roles: _CachedChannelRole | None,
+    username: str,
+    *,
+    reverse: bool,
+) -> tuple[int, datetime, str]:
+    """Construye la clave de ordenamiento por fecha manteniendo nulos al final."""
+    dt = (roles.unfollowed_at or roles.followed_at) if roles is not None else None
+    has_dt = 1 if dt is not None else 0
+    null_bucket = has_dt if reverse else (1 - has_dt)
+    return (null_bucket, dt or _EPOCH_UTC, username.lower())
 
 
 class UserMemoryCache:
     """Caché en memoria para identidades de usuarios y sus roles por canal."""
 
     def __init__(self) -> None:
-        # user_id -> {username, display_name, is_bot, nickname, profile_image_url}
-        self._users: dict[str, dict[str, Any]] = {}
-
-        # username.lower() -> user_id
+        self._users: dict[str, _CachedUser] = {}
         self._username_map: dict[str, str] = {}
+        # Agrupar por channel_id evita millones/miles de tuplas clave en memoria.
+        self._channel_roles: dict[str, dict[str, _CachedChannelRole]] = {}
 
-        # (channel_id, user_id) -> {is_moderator, is_vip, is_subscriber, sub_tier}
-        self._channel_roles: dict[tuple[str, str], dict[str, Any]] = {}
+    @property
+    def has_users(self) -> bool:
+        """Indica si la caché ya contiene usuarios precargados o insertados."""
+        return bool(self._users)
+
+    def _get_channel_map(
+        self, channel_id: str, *, create: bool = False
+    ) -> dict[str, _CachedChannelRole] | None:
+        """Obtiene (o inicializa) el mapa de roles de un canal internando su ID."""
+        channel_map = self._channel_roles.get(channel_id)
+        if channel_map is None and create:
+            interned_cid = sys.intern(channel_id)
+            channel_map = {}
+            self._channel_roles[interned_cid] = channel_map
+        return channel_map
+
+    def _get_role(self, channel_id: str, user_id: str) -> _CachedChannelRole | None:
+        """Busca los roles de un usuario dentro de un canal concreto."""
+        channel_map = self._channel_roles.get(channel_id)
+        if channel_map is None:
+            return None
+        return channel_map.get(user_id)
 
     def preload(
         self,
-        users_records: list[dict[str, Any]],
-        channel_user_records: list[dict[str, Any]],
+        users_records: Sequence[Mapping[str, Any] | asyncpg.Record],
+        channel_user_records: Sequence[Mapping[str, Any] | asyncpg.Record],
     ) -> None:
         """Carga masiva de la caché desde la base de datos al iniciar el bot."""
         self._users.clear()
@@ -34,42 +129,47 @@ class UserMemoryCache:
 
         for record in users_records:
             uid = str(record["user_id"])
-            uname = record["username"]
-            self._users[uid] = {
-                "user_id": uid,
-                "username": uname,
-                "display_name": record.get("display_name"),
-                "is_bot": bool(record.get("is_bot", False)),
-                "nickname": record.get("nickname"),
-                "profile_image_url": record.get("profile_image_url"),
-            }
+            uname = str(record["username"] or "")
+            self._users[uid] = _CachedUser(
+                user_id=uid,
+                username=uname,
+                display_name=record.get("display_name"),
+                is_bot=bool(record.get("is_bot", False)),
+                nickname=record.get("nickname"),
+                profile_image_url=record.get("profile_image_url"),
+            )
             if uname:
                 self._username_map[uname.lower()] = uid
 
+        total_roles = 0
         for record in channel_user_records:
             cid = str(record["channel_id"])
             uid = str(record["user_id"])
-            self._channel_roles[(cid, uid)] = {
-                "channel_id": cid,
-                "user_id": uid,
-                "followed_at": to_iso_str(record.get("followed_at")),
-                "unfollowed_at": to_iso_str(record.get("unfollowed_at")),
-                "is_moderator": bool(record.get("is_moderator", False)),
-                "is_vip": bool(record.get("is_vip", False)),
-                "is_subscriber": bool(record.get("is_subscriber", False)),
-                "sub_tier": record.get("sub_tier"),
-                "gifter_id": record.get("gifter_id"),
-            }
+            raw_tier = record.get("sub_tier")
+            sub_tier = sys.intern(raw_tier) if isinstance(raw_tier, str) else None
+            channel_map = self._get_channel_map(cid, create=True)
+            if channel_map is not None:
+                channel_map[uid] = _CachedChannelRole(
+                    followed_at=to_utc_datetime(record.get("followed_at")),
+                    unfollowed_at=to_utc_datetime(record.get("unfollowed_at")),
+                    is_moderator=bool(record.get("is_moderator", False)),
+                    is_vip=bool(record.get("is_vip", False)),
+                    is_subscriber=bool(record.get("is_subscriber", False)),
+                    sub_tier=sub_tier,
+                    gifter_id=record.get("gifter_id"),
+                )
+                total_roles += 1
 
         LOGGER.info(
             "Caché en memoria precargada con %d usuarios y %d asignaciones de roles.",
             len(self._users),
-            len(self._channel_roles),
+            total_roles,
         )
 
     def get_user(self, user_id: str) -> dict[str, Any] | None:
         """Devuelve la info de un usuario si existe en la caché."""
-        return self._users.get(user_id)
+        user = self._users.get(user_id)
+        return user.to_dict() if user is not None else None
 
     def get_user_id_by_name(self, username: str) -> str | None:
         """Busca el user_id por username en la caché."""
@@ -78,31 +178,41 @@ class UserMemoryCache:
     def is_user_bot(self, user_id: str) -> bool:
         """Indica si el usuario está marcado como bot."""
         user = self._users.get(user_id)
-        return user["is_bot"] if user else False
+        return user.is_bot if user is not None else False
 
     def get_user_nickname(self, user_id: str) -> str | None:
         """Devuelve el nickname del usuario."""
         user = self._users.get(user_id)
-        return user["nickname"] if user else None
+        return user.nickname if user is not None else None
 
     def get_profile_image_url(self, user_id: str) -> str | None:
         """Devuelve la URL del avatar del usuario."""
         user = self._users.get(user_id)
-        return user["profile_image_url"] if user else None
+        return user.profile_image_url if user is not None else None
 
     def get_user_roles(self, user_id: str, channel_id: str) -> dict[str, Any] | None:
         """Devuelve los roles del usuario en un canal dado."""
         if user_id not in self._users:
             return None
-        roles = self._channel_roles.get((channel_id, user_id))
-        if not roles:
+        roles = self._get_role(channel_id, user_id)
+        if roles is None:
             return {
                 "is_moderator": False,
                 "is_vip": False,
                 "is_subscriber": False,
                 "sub_tier": None,
             }
-        return dict(roles)
+        return {
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "followed_at": to_iso_str(roles.followed_at),
+            "unfollowed_at": to_iso_str(roles.unfollowed_at),
+            "is_moderator": roles.is_moderator,
+            "is_vip": roles.is_vip,
+            "is_subscriber": roles.is_subscriber,
+            "sub_tier": roles.sub_tier,
+            "gifter_id": roles.gifter_id,
+        }
 
     def get_display_role(
         self,
@@ -115,23 +225,22 @@ class UserMemoryCache:
             return "Visita"
 
         bid_str = str(broadcaster_id)
-
         if user_id == bid_str:
             return "Broadcaster"
 
         if (bot_id and user_id == bot_id) or self.is_user_bot(user_id):
             return "Bot"
 
-        roles = self.get_user_roles(user_id, bid_str)
-        if roles and roles.get("followed_at") and not roles.get("unfollowed_at"):
-            fat = roles.get("followed_at")
-            if isinstance(fat, str):
-                try:
-                    clean = fat.replace("Z", "+00:00")
-                    dt = datetime.fromisoformat(clean).astimezone()
-                    return dt.strftime("%d/%m/%y")
-                except Exception:
-                    return "Visita"
+        if user_id not in self._users:
+            return "Visita"
+
+        roles = self._get_role(bid_str, user_id)
+        if (
+            roles is not None
+            and roles.followed_at is not None
+            and roles.unfollowed_at is None
+        ):
+            return roles.followed_at.astimezone().strftime("%d/%m/%y")
 
         return "Visita"
 
@@ -143,21 +252,21 @@ class UserMemoryCache:
         if not uid:
             return None
         user = self._users.get(uid)
-        if not user:
+        if user is None:
             return None
-        roles = self._channel_roles.get((channel_id, uid), {})
+        roles = self._get_role(channel_id, uid)
         return {
             "user_id": uid,
-            "username": user.get("username", username),
-            "display_name": user.get("display_name"),
-            "nickname": user.get("nickname"),
-            "is_bot": bool(user.get("is_bot", False)),
-            "is_moderator": bool(roles.get("is_moderator", False)),
-            "is_vip": bool(roles.get("is_vip", False)),
-            "is_subscriber": bool(roles.get("is_subscriber", False)),
-            "sub_tier": roles.get("sub_tier"),
-            "followed_at": roles.get("followed_at"),
-            "unfollowed_at": roles.get("unfollowed_at"),
+            "username": user.username or username,
+            "display_name": user.display_name,
+            "nickname": user.nickname,
+            "is_bot": user.is_bot,
+            "is_moderator": roles.is_moderator if roles else False,
+            "is_vip": roles.is_vip if roles else False,
+            "is_subscriber": roles.is_subscriber if roles else False,
+            "sub_tier": roles.sub_tier if roles else None,
+            "followed_at": to_iso_str(roles.followed_at) if roles else None,
+            "unfollowed_at": to_iso_str(roles.unfollowed_at) if roles else None,
         }
 
     def search_users(
@@ -171,41 +280,53 @@ class UserMemoryCache:
         if not q_clean:
             return []
 
-        matches: list[dict[str, Any]] = []
-        for uid, user in self._users.items():
-            u_name = (user.get("username") or "").lower()
-            d_name = (user.get("display_name") or "").lower()
-            n_name = (user.get("nickname") or "").lower()
-            if q_clean in u_name or q_clean in d_name or q_clean in n_name:
-                roles: dict[str, Any] = {}
-                if channel_id:
-                    roles = self._channel_roles.get((channel_id, uid), {})
-                else:
-                    # Buscar el primer registro de canal disponible para este usuario
-                    for (_cid, r_uid), r_data in self._channel_roles.items():
-                        if r_uid == uid:
-                            roles = r_data
-                            break
+        channel_map = self._channel_roles.get(channel_id) if channel_id else None
+        matches: list[tuple[_CachedUser, _CachedChannelRole | None]] = []
 
-                is_follower = bool(
-                    roles.get("followed_at") and not roles.get("unfollowed_at")
-                )
-                matches.append(
-                    {
-                        "user_id": uid,
-                        "username": user.get("username", ""),
-                        "display_name": user.get("display_name"),
-                        "nickname": user.get("nickname") or "",
-                        "is_bot": bool(user.get("is_bot", False)),
-                        "is_moderator": bool(roles.get("is_moderator", False)),
-                        "is_vip": bool(roles.get("is_vip", False)),
-                        "is_subscriber": bool(roles.get("is_subscriber", False)),
-                        "is_follower": is_follower,
-                    }
-                )
+        for user in self._users.values():
+            u_name = user.username.lower()
+            d_name = (user.display_name or "").lower()
+            n_name = (user.nickname or "").lower()
+            if (
+                q_clean not in u_name
+                and q_clean not in d_name
+                and q_clean not in n_name
+            ):
+                continue
 
-        matches.sort(key=lambda r: (r.get("display_name") or r["username"]).lower())
-        return matches[: max(1, limit)]
+            roles: _CachedChannelRole | None = None
+            if channel_id:
+                if channel_map is not None:
+                    roles = channel_map.get(user.user_id)
+            else:
+                for ch_map in self._channel_roles.values():
+                    roles = ch_map.get(user.user_id)
+                    if roles is not None:
+                        break
+            matches.append((user, roles))
+
+        matches.sort(
+            key=lambda pair: (pair[0].display_name or pair[0].username).lower()
+        )
+        page = matches[: max(1, limit)]
+        return [
+            {
+                "user_id": user.user_id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "nickname": user.nickname or "",
+                "is_bot": user.is_bot,
+                "is_moderator": roles.is_moderator if roles else False,
+                "is_vip": roles.is_vip if roles else False,
+                "is_subscriber": roles.is_subscriber if roles else False,
+                "is_follower": (
+                    roles is not None
+                    and roles.followed_at is not None
+                    and roles.unfollowed_at is None
+                ),
+            }
+            for user, roles in page
+        ]
 
     def needs_user_update(
         self,
@@ -215,9 +336,9 @@ class UserMemoryCache:
     ) -> bool:
         """Determina si se requieren escrituras SQL en la tabla users."""
         user = self._users.get(user_id)
-        if not user:
+        if user is None:
             return True
-        return user["username"] != username or user["display_name"] != display_name
+        return user.username != username or user.display_name != display_name
 
     def needs_roles_update(
         self,
@@ -230,15 +351,15 @@ class UserMemoryCache:
         gifter_id: str | None = None,
     ) -> bool:
         """Determina si se requieren escrituras SQL en la tabla channel_users."""
-        roles = self._channel_roles.get((channel_id, user_id))
-        if not roles:
+        roles = self._get_role(channel_id, user_id)
+        if roles is None:
             return True
         return (
-            roles.get("is_moderator") != is_moderator
-            or roles.get("is_vip") != is_vip
-            or roles.get("is_subscriber") != is_subscriber
-            or roles.get("sub_tier") != sub_tier
-            or roles.get("gifter_id") != gifter_id
+            roles.is_moderator != is_moderator
+            or roles.is_vip != is_vip
+            or roles.is_subscriber != is_subscriber
+            or roles.sub_tier != sub_tier
+            or roles.gifter_id != gifter_id
         )
 
     def update_user(
@@ -252,29 +373,28 @@ class UserMemoryCache:
     ) -> None:
         """Actualiza o crea un registro de usuario en la caché."""
         user = self._users.get(user_id)
-        if not user:
-            user = {
-                "user_id": user_id,
-                "username": username,
-                "display_name": display_name,
-                "is_bot": is_bot if is_bot is not None else False,
-                "nickname": nickname,
-                "profile_image_url": profile_image_url,
-            }
-            self._users[user_id] = user
+        if user is None:
+            self._users[user_id] = _CachedUser(
+                user_id=user_id,
+                username=username,
+                display_name=display_name,
+                is_bot=is_bot if is_bot is not None else False,
+                nickname=nickname,
+                profile_image_url=profile_image_url,
+            )
         else:
-            old_username = user.get("username")
+            old_username = user.username
             if old_username and username and old_username.lower() != username.lower():
                 self._username_map.pop(old_username.lower(), None)
-            user["username"] = username
+            user.username = username
             if display_name is not None:
-                user["display_name"] = display_name
+                user.display_name = display_name
             if is_bot is not None:
-                user["is_bot"] = is_bot
+                user.is_bot = is_bot
             if nickname is not None:
-                user["nickname"] = nickname
+                user.nickname = nickname
             if profile_image_url is not None:
-                user["profile_image_url"] = profile_image_url
+                user.profile_image_url = profile_image_url
 
         if username:
             self._username_map[username.lower()] = user_id
@@ -290,75 +410,72 @@ class UserMemoryCache:
         gifter_id: str | None = None,
     ) -> None:
         """Actualiza los roles de un usuario para un canal en la caché."""
-        roles = self._channel_roles.get((channel_id, user_id))
-        if not roles:
-            roles = {
-                "channel_id": channel_id,
-                "user_id": user_id,
-                "followed_at": None,
-                "unfollowed_at": None,
-                "is_moderator": is_moderator,
-                "is_vip": is_vip,
-                "is_subscriber": is_subscriber,
-                "sub_tier": sub_tier,
-                "gifter_id": gifter_id,
-            }
-            self._channel_roles[(channel_id, user_id)] = roles
+        tier = sys.intern(sub_tier) if isinstance(sub_tier, str) else None
+        channel_map = self._get_channel_map(channel_id, create=True)
+        if channel_map is None:
+            return
+        roles = channel_map.get(user_id)
+        if roles is None:
+            channel_map[user_id] = _CachedChannelRole(
+                is_moderator=is_moderator,
+                is_vip=is_vip,
+                is_subscriber=is_subscriber,
+                sub_tier=tier,
+                gifter_id=gifter_id,
+            )
         else:
-            roles["is_moderator"] = is_moderator
-            roles["is_vip"] = is_vip
-            roles["is_subscriber"] = is_subscriber
-            roles["sub_tier"] = sub_tier
-            roles["gifter_id"] = gifter_id
+            roles.is_moderator = is_moderator
+            roles.is_vip = is_vip
+            roles.is_subscriber = is_subscriber
+            roles.sub_tier = tier
+            roles.gifter_id = gifter_id
 
     def set_nickname(self, user_id: str, nickname: str | None) -> None:
         """Establece o elimina el apodo en la caché."""
         user = self._users.get(user_id)
-        if user:
-            user["nickname"] = nickname
+        if user is not None:
+            user.nickname = nickname
 
     def set_user_bot(self, user_id: str, is_bot: bool) -> None:
         """Actualiza el estado is_bot en la caché."""
         user = self._users.get(user_id)
-        if user:
-            user["is_bot"] = is_bot
+        if user is not None:
+            user.is_bot = is_bot
 
     def set_profile_image_url(self, user_id: str, url: str) -> None:
         """Actualiza la URL del avatar en la caché."""
         user = self._users.get(user_id)
-        if user:
-            user["profile_image_url"] = url
+        if user is not None:
+            user.profile_image_url = url
 
     def get_follower_ids(self, channel_id: str) -> set[str]:
         """Devuelve el conjunto de user_id que siguen al canal en la caché."""
-        cid = channel_id
+        channel_map = self._channel_roles.get(channel_id)
+        if channel_map is None:
+            return set()
         return {
             uid
-            for (c, uid), roles in self._channel_roles.items()
-            if c == cid and roles.get("followed_at") and not roles.get("unfollowed_at")
+            for uid, roles in channel_map.items()
+            if roles.followed_at is not None and roles.unfollowed_at is None
         }
 
     def set_user_follow_status(
-        self, channel_id: str, user_id: str, followed_at: str | None
+        self, channel_id: str, user_id: str, followed_at: datetime | str | None
     ) -> None:
         """Actualiza el estado de seguimiento de un usuario en un canal en la caché."""
-        roles = self._channel_roles.get((channel_id, user_id))
-        if not roles:
-            roles = {
-                "channel_id": channel_id,
-                "user_id": user_id,
-                "followed_at": followed_at,
-                "unfollowed_at": None,
-                "is_moderator": False,
-                "is_vip": False,
-                "is_subscriber": False,
-                "sub_tier": None,
-                "gifter_id": None,
-            }
-            self._channel_roles[(channel_id, user_id)] = roles
+        dt_followed = to_utc_datetime(followed_at)
+        channel_map = self._get_channel_map(channel_id, create=True)
+        if channel_map is None:
+            return
+        roles = channel_map.get(user_id)
+        if roles is None:
+            channel_map[user_id] = _CachedChannelRole(
+                followed_at=dt_followed,
+                unfollowed_at=None,
+            )
         else:
-            roles["followed_at"] = followed_at
-            roles["unfollowed_at"] = None
+            roles.followed_at = dt_followed
+            roles.unfollowed_at = None
 
     def sync_followers(
         self,
@@ -368,39 +485,37 @@ class UserMemoryCache:
         now_iso: str | None = None,
     ) -> None:
         """Sincroniza los cambios de seguidores en la caché."""
-        cid = channel_id
+        channel_map = self._get_channel_map(channel_id, create=True)
+        if channel_map is None:
+            return
 
         if unfollowed_ids:
+            dt_now = to_utc_datetime(now_iso)
             for uid in unfollowed_ids:
-                roles = self._channel_roles.get((cid, uid))
-                if roles:
-                    roles["unfollowed_at"] = now_iso
+                roles = channel_map.get(uid)
+                if roles is not None:
+                    roles.unfollowed_at = dt_now
 
         if new_followers:
             for uid, uname, fat in new_followers:
                 self.update_user(uid, uname)
-                roles = self._channel_roles.get((cid, uid))
-                if not roles:
-                    self._channel_roles[(cid, uid)] = {
-                        "channel_id": cid,
-                        "user_id": uid,
-                        "followed_at": fat,
-                        "unfollowed_at": None,
-                        "is_moderator": False,
-                        "is_vip": False,
-                        "is_subscriber": False,
-                        "sub_tier": None,
-                        "gifter_id": None,
-                    }
+                dt_followed = to_utc_datetime(fat)
+                roles = channel_map.get(uid)
+                if roles is None:
+                    channel_map[uid] = _CachedChannelRole(
+                        followed_at=dt_followed,
+                        unfollowed_at=None,
+                    )
                 else:
-                    roles["followed_at"] = fat
-                    roles["unfollowed_at"] = None
+                    roles.followed_at = dt_followed
+                    roles.unfollowed_at = None
 
     def list_users_with_filters(
         self,
         channel_id: str,
         broadcaster_id: str | None = None,
         role: str | None = None,
+        has_nickname: bool | None = None,
         username_search: str | None = None,
         followed_after: str | None = None,
         followed_before: str | None = None,
@@ -412,43 +527,39 @@ class UserMemoryCache:
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
-        """Filtra y pagina los usuarios almacenados en la caché en memoria."""
-        cid = channel_id
-        matching_users: list[dict[str, Any]] = []
-
+        """Filtra y pagina usuarios materializando dicts solo para la página."""
+        channel_map = self._channel_roles.get(channel_id)
         role_clean = role.lower() if role else None
         search_clean = username_search.lower() if username_search else None
+        follower_filter = is_follower if is_follower in _FOLLOWER_STATES else None
+
+        dt_followed_after = to_utc_datetime(followed_after)
+        dt_followed_before = to_utc_datetime(followed_before)
+        dt_unfollowed_after = to_utc_datetime(unfollowed_after)
+        dt_unfollowed_before = to_utc_datetime(unfollowed_before)
+
+        matches: list[tuple[_CachedUser, _CachedChannelRole | None]] = []
 
         for uid, user in self._users.items():
-            roles = self._channel_roles.get((cid, uid), {})
+            roles = channel_map.get(uid) if channel_map is not None else None
 
-            # 1. Filtro por Rol
             if role_clean:
-                if role_clean in ("bot", "bots") and not user.get("is_bot"):
+                if role_clean in _BOT_ROLES and not user.is_bot:
                     continue
-                if role_clean in (
-                    "moderator",
-                    "moderador",
-                    "mods",
-                    "mod",
-                ) and not roles.get("is_moderator"):
+                if role_clean in _MOD_ROLES and not (roles and roles.is_moderator):
                     continue
-                if role_clean in ("vip", "vips") and not roles.get("is_vip"):
+                if role_clean in _VIP_ROLES and not (roles and roles.is_vip):
                     continue
-                if role_clean in (
-                    "subscriber",
-                    "suscriptor",
-                    "subscribers",
-                    "sub",
-                    "subs",
-                ) and not roles.get("is_subscriber"):
+                if role_clean in _SUB_ROLES and not (roles and roles.is_subscriber):
                     continue
 
-            # 2. Búsqueda por Nombre / Apodo
+            if has_nickname is not None and bool(user.nickname) != has_nickname:
+                continue
+
             if search_clean:
-                u_name = user.get("username", "").lower()
-                d_name = (user.get("display_name") or "").lower()
-                n_name = (user.get("nickname") or "").lower()
+                u_name = user.username.lower()
+                d_name = (user.display_name or "").lower()
+                n_name = (user.nickname or "").lower()
                 if (
                     search_clean not in u_name
                     and search_clean not in d_name
@@ -456,106 +567,84 @@ class UserMemoryCache:
                 ):
                     continue
 
-            followed_at = roles.get("followed_at")
-            unfollowed_at = roles.get("unfollowed_at")
+            followed_at = roles.followed_at if roles is not None else None
+            unfollowed_at = roles.unfollowed_at if roles is not None else None
 
-            # 3. Filtros por Fecha
-            if followed_after and (not followed_at or followed_at < followed_after):
-                continue
-            if followed_before and (not followed_at or followed_at > followed_before):
-                continue
-            if unfollowed_after and (
-                not unfollowed_at or unfollowed_at < unfollowed_after
+            if dt_followed_after is not None and (
+                followed_at is None or followed_at < dt_followed_after
             ):
                 continue
-            if unfollowed_before and (
-                not unfollowed_at or unfollowed_at > unfollowed_before
+            if dt_followed_before is not None and (
+                followed_at is None or followed_at > dt_followed_before
+            ):
+                continue
+            if dt_unfollowed_after is not None and (
+                unfollowed_at is None or unfollowed_at < dt_unfollowed_after
+            ):
+                continue
+            if dt_unfollowed_before is not None and (
+                unfollowed_at is None or unfollowed_at > dt_unfollowed_before
             ):
                 continue
 
-            # 4. Filtro por Estado de Seguidor
-            if is_follower and is_follower in (
-                "follower",
-                "not_follower",
-                "unfollower",
-            ):
+            if follower_filter is not None:
                 if broadcaster_id and uid == broadcaster_id:
                     continue
-
-                if is_follower == "follower":
-                    if not (followed_at and not unfollowed_at):
+                if follower_filter == "follower":
+                    if followed_at is None or unfollowed_at is not None:
                         continue
-                elif is_follower == "not_follower":
+                elif follower_filter == "not_follower":
                     if followed_at is not None:
                         continue
-                elif is_follower == "unfollower" and not unfollowed_at:
+                elif follower_filter == "unfollower" and unfollowed_at is None:
                     continue
 
-            matching_users.append(
-                {
-                    "user_id": uid,
-                    "username": user.get("username", ""),
-                    "display_name": user.get("display_name"),
-                    "nickname": user.get("nickname"),
-                    "is_bot": bool(user.get("is_bot", False)),
-                    "is_moderator": bool(roles.get("is_moderator", False)),
-                    "is_vip": bool(roles.get("is_vip", False)),
-                    "is_subscriber": bool(roles.get("is_subscriber", False)),
-                    "sub_tier": roles.get("sub_tier"),
-                    "followed_at": followed_at,
-                    "unfollowed_at": unfollowed_at,
-                }
-            )
+            matches.append((user, roles))
 
-        # Ordenar los usuarios según sort_by y sort_order
         rev = sort_order.lower() == "desc"
         sb = sort_by.lower()
 
         if sb == "role":
-
-            def _role_rank(u: dict[str, Any]) -> int:
-                if u.get("is_moderator"):
-                    return 1
-                if u.get("is_vip"):
-                    return 2
-                if u.get("is_subscriber"):
-                    return 3
-                if u.get("is_bot"):
-                    return 4
-                return 5
-
-            matching_users.sort(
-                key=lambda u: (_role_rank(u), u["username"].lower()),
+            matches.sort(
+                key=lambda pair: (
+                    _role_rank(pair[0], pair[1]),
+                    pair[0].username.lower(),
+                ),
                 reverse=rev,
             )
         elif sb == "follow_date":
-            if rev:
-                matching_users.sort(
-                    key=lambda u: (
-                        1 if (u.get("unfollowed_at") or u.get("followed_at")) else 0,
-                        u.get("unfollowed_at") or u.get("followed_at") or "",
-                        u["username"].lower(),
-                    ),
-                    reverse=True,
-                )
-            else:
-                matching_users.sort(
-                    key=lambda u: (
-                        0 if (u.get("unfollowed_at") or u.get("followed_at")) else 1,
-                        u.get("unfollowed_at") or u.get("followed_at") or "",
-                        u["username"].lower(),
-                    ),
-                    reverse=False,
-                )
+            matches.sort(
+                key=lambda pair: _follow_sort_key(
+                    pair[1], pair[0].username, reverse=rev
+                ),
+                reverse=rev,
+            )
         else:
-            matching_users.sort(
-                key=lambda u: (u.get("display_name") or u["username"]).lower(),
+            matches.sort(
+                key=lambda pair: (pair[0].display_name or pair[0].username).lower(),
                 reverse=rev,
             )
 
-        total_count = len(matching_users)
+        total_count = len(matches)
         limit_val = max(1, limit)
         offset_val = max(0, offset)
-        page_users = matching_users[offset_val : offset_val + limit_val]
+        page_refs = matches[offset_val : offset_val + limit_val]
+
+        page_users = [
+            {
+                "user_id": user.user_id,
+                "username": user.username,
+                "display_name": user.display_name,
+                "nickname": user.nickname,
+                "is_bot": user.is_bot,
+                "is_moderator": roles.is_moderator if roles else False,
+                "is_vip": roles.is_vip if roles else False,
+                "is_subscriber": roles.is_subscriber if roles else False,
+                "sub_tier": roles.sub_tier if roles else None,
+                "followed_at": to_iso_str(roles.followed_at) if roles else None,
+                "unfollowed_at": to_iso_str(roles.unfollowed_at) if roles else None,
+            }
+            for user, roles in page_refs
+        ]
 
         return page_users, total_count

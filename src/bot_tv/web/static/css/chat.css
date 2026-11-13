@@ -19,9 +19,7 @@
 
 .chat-panel-header {
   padding: 12px 20px;
-  background: rgba(18, 16, 23, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--surface-solid);
   border-bottom: 1px solid var(--border-2);
   font-size: 11px;
   font-weight: 800;
@@ -41,6 +39,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  min-height: var(--target-size-min);
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 600;
@@ -595,9 +594,7 @@
 /* Barra de Input de Chat con selector de cuenta */
 .chat-input-container {
   padding: 12px 16px;
-  background: rgba(18, 16, 23, 0.4);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--surface-solid);
   border-top: 1px solid var(--border-2);
   flex-shrink: 0;
 }
@@ -711,7 +708,7 @@
     max-width: 90px;
   }
   .chat-select-field .custom-select-trigger {
-    font-size: 0.75rem;
+    font-size: var(--font-xs);
     padding: 8px 6px;
   }
   .chat-input-field {
@@ -729,7 +726,7 @@
   .user-avatar--md {
     width: 28px;
     height: 28px;
-    font-size: 0.75rem;
+    font-size: var(--font-xs);
     flex-shrink: 0;
   }
   .chat-msg-cont {
@@ -766,7 +763,7 @@
     max-width: 95px;
   }
   .chat-select-field .custom-select-trigger {
-    font-size: 0.75rem;
+    font-size: var(--font-xs);
     padding: 6px 8px;
   }
   .chat-msg-cont {
@@ -914,6 +911,131 @@
 .chat-header-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Menú Popover de Preferencias Visuales (DisplaySettingsMenu) ── */
+.display-menu-btn {
+  flex-shrink: 0;
+}
+
+.display-menu-popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  isolation: isolate;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  width: min(290px, calc(100vw - 24px));
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transform-origin: top right;
+  animation: display-popover-in 0.2s var(--ease-spring);
+}
+
+@keyframes display-popover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.display-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.display-menu-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--font-sm);
+  color: var(--text-2);
+}
+
+.display-menu-row--inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.display-menu-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.display-menu-stepper .btn,
+.display-menu-stepper button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: var(--font-sm);
+}
+
+.display-menu-range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.display-menu-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 42px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.display-menu-toggle::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-2);
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-spring);
+}
+
+.display-menu-toggle:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.display-menu-toggle:checked::before {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+.display-menu-toggle:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
 /* ── Menú Contextual Flotante (ContextMenu) ── */

@@ -12,7 +12,6 @@ from bot_tv.actions.agent import (
     action_clear_agent_chat,
     action_get_models,
     action_get_rpm_status,
-    action_set_context_limit,
     action_switch_model,
     action_talk,
 )
@@ -66,32 +65,12 @@ async def endpoint_clear_agent_chat(request: Request) -> Response:
     return _ok({"message": "Historial de conversación limpiado."})
 
 
-async def endpoint_set_context_limit(request: Request) -> Response:
-    """Actualiza y persiste el límite de contexto del agente."""
-    agent: TalkAgent = request.app.state.agent
-    body = await _parse_body(request)
-    limit_val = body.get("limit", 0)
-    try:
-        limit = max(0, int(limit_val))
-    except ValueError, TypeError:
-        return _err("El campo 'limit' debe ser un número entero >= 0.")
-
-    await action_set_context_limit(agent, limit)
-    return _ok(
-        {
-            "message": f"Límite de contexto actualizado a {limit}.",
-            "context_limit": agent.context_limit,
-        }
-    )
-
-
 async def endpoint_get_rpm(request: Request) -> Response:
     agent: TalkAgent = request.app.state.agent
     show_all = request.query_params.get("all", "").lower() in ("1", "true", "yes")
     statuses = action_get_rpm_status(agent, show_all)
     return _ok(
         {
-            "context_limit": agent.context_limit,
             "statuses": [
                 {
                     "model": s.model,

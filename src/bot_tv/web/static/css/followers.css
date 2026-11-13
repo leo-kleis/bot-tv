@@ -2,6 +2,10 @@
    followers.css — Estilos de la Pestaña de Seguidores y Usuarios
    ========================================================================== */
 
+#followers-panel {
+  container-type: inline-size;
+}
+
 /* --------------------------------------------------------------------------
    1. Componente: FollowersSummary (Tarjetas de Estadísticas y Sincronización)
    -------------------------------------------------------------------------- */
@@ -146,6 +150,10 @@
   margin-bottom: 8px;
 }
 
+.filters-bar > * {
+  min-width: 0;
+}
+
 .filter-group {
   display: flex;
   flex-direction: column;
@@ -237,8 +245,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(14, 13, 18, 0.55);
-  backdrop-filter: blur(1px);
+  background: rgba(14, 13, 18, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -541,17 +548,201 @@
 }
 
 /* --------------------------------------------------------------------------
-   6. Media Queries & Diseño Responsivo
+   6. Container Queries & Diseño Responsivo
    -------------------------------------------------------------------------- */
-@media (max-width: 1480px) and (min-height: 481px) {
+@container (max-width: 1400px) {
   .filters-bar {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 1050px) and (min-height: 481px) {
+@container (max-width: 1000px) {
   .filters-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 720px) {
+  .filters-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px;
+  }
+  .filters-bar .filter-group-actions {
+    align-self: stretch;
+    width: 100%;
+  }
+  .filter-dates-row input[type='date'] {
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+  .filter-separator {
+    font-size: 11px;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    text-align: center;
+    padding: 12px 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .pagination-info {
+    font-size: 11.5px;
+  }
+
+  .pagination-buttons {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pagination-pages {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .pagination-pages .btn {
+    min-width: 28px;
+    height: 28px;
+    padding: 2px 4px;
+    font-size: 11px;
+  }
+
+  .pagination-buttons > .btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+@container (max-width: 680px) {
+  .users-table-wrapper {
+    min-height: auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .users-table,
+  .users-table thead,
+  .users-table tbody,
+  .users-table th,
+  .users-table td,
+  .users-table tr {
+    display: block;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .users-table thead {
+    display: none;
+  }
+
+  .users-table tr {
+    display: grid;
+    min-width: 0;
+    grid-template-areas:
+      'user actions'
+      'roles actions'
+      'status actions';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-2);
+  }
+
+  .users-table tr > * {
+    min-width: 0;
+  }
+
+  .users-table td {
+    border: none;
+    padding: 0;
+    display: block;
+    min-width: 0;
+  }
+
+  .users-table td::before {
+    display: none;
+  }
+
+  .users-table td[data-label='Usuario'] {
+    grid-area: user;
+  }
+
+  .users-table td[data-label='Roles'] {
+    grid-area: roles;
+  }
+
+  .users-table td[data-label='Seguimiento'] {
+    grid-area: status;
+  }
+
+  .users-table td[data-label='Acciones'] {
+    grid-area: actions;
+    align-self: center;
+  }
+
+  .user-info-cell,
+  .follow-status-wrap {
+    align-items: flex-start;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .user-display-name {
+    max-width: 100%;
+    font-size: 14px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .irc-user-badges {
+    justify-content: flex-start;
+    margin-top: 2px;
+  }
+
+  .follow-status-wrap {
+    margin-top: 2px;
+  }
+
+  .user-table-actions {
+    justify-content: flex-end;
+  }
+
+  .user-table-actions .btn {
+    padding: 5px 9px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
+
+@container (max-width: 450px) {
+  .followers-stat {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+  .stat-card {
+    padding: 8px 4px;
+  }
+  .stat-value {
+    font-size: 18px;
+  }
+  .stat-label {
+    font-size: var(--font-xs);
   }
 }
 
@@ -609,190 +800,5 @@
   }
   .filter-separator {
     font-size: var(--font-xs);
-  }
-}
-
-@media (max-width: 768px) and (min-height: 481px) {
-  .filters-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    padding: 12px;
-  }
-  .filters-bar .filter-group-actions {
-    align-self: stretch !important;
-    width: 100% !important;
-  }
-  .filter-dates-row input[type='date'] {
-    padding: 10px 12px;
-    font-size: 13.5px;
-  }
-  .filter-separator {
-    font-size: 11px;
-  }
-}
-
-@media (max-width: 720px) and (min-height: 481px) {
-  .pagination-bar {
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-    text-align: center;
-    padding: 12px 8px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-
-  .pagination-info {
-    font-size: 11.5px;
-  }
-
-  .pagination-buttons {
-    width: 100%;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .pagination-pages {
-    gap: 4px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .pagination-pages .btn {
-    min-width: 28px !important;
-    height: 28px !important;
-    padding: 2px 4px !important;
-    font-size: 11px !important;
-  }
-
-  .pagination-buttons > .btn {
-    padding: 5px 8px !important;
-    font-size: 11px !important;
-  }
-
-  .users-table-wrapper {
-    min-height: auto;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    overflow-x: hidden;
-  }
-
-  .users-table,
-  .users-table thead,
-  .users-table tbody,
-  .users-table th,
-  .users-table td,
-  .users-table tr {
-    display: block;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  .users-table thead {
-    display: none;
-  }
-
-  .users-table tr {
-    display: grid;
-    min-width: 0;
-    grid-template-areas:
-      'user actions'
-      'roles actions'
-      'status actions';
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto auto;
-    align-items: center;
-    gap: 4px 10px;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-2);
-  }
-
-  .users-table td {
-    border: none !important;
-    padding: 0 !important;
-    display: block !important;
-    min-width: 0;
-  }
-
-  .users-table td::before {
-    display: none !important;
-  }
-
-  .users-table td[data-label='Usuario'] {
-    grid-area: user;
-  }
-
-  .users-table td[data-label='Roles'] {
-    grid-area: roles;
-  }
-
-  .users-table td[data-label='Seguimiento'] {
-    grid-area: status;
-  }
-
-  .users-table td[data-label='Acciones'] {
-    grid-area: actions;
-    align-self: center;
-  }
-
-  .user-info-cell,
-  .follow-status-wrap {
-    align-items: flex-start !important;
-    text-align: left !important;
-    min-width: 0;
-  }
-
-  .user-display-name {
-    max-width: 100% !important;
-    font-size: 14px;
-    word-break: break-word;
-    overflow-wrap: break-word;
-  }
-
-  .irc-user-badges {
-    justify-content: flex-start !important;
-    margin-top: 2px;
-  }
-
-  .follow-status-wrap {
-    margin-top: 2px;
-  }
-
-  .user-table-actions {
-    justify-content: flex-end;
-  }
-
-  .user-table-actions .btn {
-    padding: 5px 9px !important;
-    font-size: 11px !important;
-    white-space: nowrap;
-  }
-
-  .filter-dates-row input[type='date'] {
-    padding: 10px 8px;
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 480px) and (min-height: 481px) {
-  .followers-stat {
-    display: flex;
-    flex-direction: row !important;
-    gap: 8px !important;
-  }
-  .stat-card {
-    padding: 8px 4px !important;
-  }
-  .stat-value {
-    font-size: 18px !important;
-  }
-  .stat-label {
-    font-size: var(--font-xs) !important;
   }
 }

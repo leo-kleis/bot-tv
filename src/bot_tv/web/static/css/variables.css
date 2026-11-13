@@ -69,6 +69,12 @@
   --font-sm: 12.5px;
   --font-base: 14.5px;
 
+  /* Curvas y transiciones Animate UI (sin blur) */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 0.16s var(--ease-out-smooth);
+  --transition-spring: 0.24s var(--ease-spring);
+
   /* Z-index scale */
   --z-floating: 20;
   --z-dropdown-wrap: 30;
@@ -159,6 +165,7 @@ button,
   .modal-info-box,
   .stream-modal-dialog,
   .conn-popover,
+  .display-menu-popover,
   .custom-select-dropdown,
   .category-dropdown-list,
   .context-menu,

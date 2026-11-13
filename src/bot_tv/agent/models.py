@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Final
 
 
 @dataclass(frozen=True)
@@ -13,7 +14,7 @@ class ModelConfig:
     enabled: bool
 
 
-AVAILABLE_MODELS: dict[str, ModelConfig] = {
+AVAILABLE_MODELS: Final[dict[str, ModelConfig]] = {
     "gemini-2.5-flash": ModelConfig(
         "gemini-2.5-flash", "Gemini 2.5 Flash", 15, 1_000_000, 1_500, True
     ),
@@ -34,7 +35,7 @@ AVAILABLE_MODELS: dict[str, ModelConfig] = {
     ),
 }
 
-DEFAULT_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_MODEL: Final[str] = "gemini-3.1-flash-lite"
 
 
 def get_enabled_models() -> dict[str, ModelConfig]:

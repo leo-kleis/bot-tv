@@ -1,7 +1,25 @@
 /**
- * chartTheme.js — Paleta y configuración base para gráficos con Chart.js
+ * chartTheme.js — Paleta, utilidades de formato y configuración base para gráficos con Chart.js
  * Basado en las variables CSS del proyecto (variables.css).
  */
+
+/**
+ * Formatea un timestamp ISO en hora local de 24h con formato DD/MM/AA HH:MM:SS.
+ * @param {string | null | undefined} iso
+ * @returns {string}
+ */
+export function formatShortDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(-2);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  const secs = String(d.getSeconds()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${mins}:${secs}`;
+}
 
 export function getChartTheme() {
   const root = typeof window !== 'undefined' ? getComputedStyle(document.documentElement) : null;

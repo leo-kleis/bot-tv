@@ -39,9 +39,7 @@
     padding-bottom: env(safe-area-inset-bottom);
     border-bottom: none;
     border-top: 1px solid var(--border);
-    background: rgba(12, 10, 16, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(12, 10, 16, 0.97);
     flex-shrink: 0;
   }
 
@@ -73,50 +71,6 @@
     padding: 10px 12px;
   }
 
-  /* Panel IRC como Drawer Flotante Absoluto sobre el Chat */
-  .irc-panel {
-    position: absolute;
-    top: 0;
-    right: -280px;
-    width: 270px;
-    height: 100%;
-    z-index: var(--z-irc-drawer);
-    isolation: isolate;
-    border-left: 1px solid var(--border);
-    border-top: none;
-    border-bottom: none;
-    background: rgba(18, 16, 23, 0.88);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: none;
-    border-radius: 20px 0 0 20px;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  /* Mostrar Drawer */
-  .chat-tab.irc-open-mobile .irc-panel {
-    transform: translateX(-280px);
-    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
-  }
-
-  /* Overlay de Vidrio Táctil */
-  .irc-overlay-mobile {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    z-index: calc(var(--z-irc-drawer) - 1);
-    animation: fade-in 0.25s ease-out;
-  }
-
-  .chat-panel {
-    border-right: none;
-  }
-
   /* Ajustes en formularios de móvil */
   .action-row {
     flex-direction: column;
@@ -128,6 +82,22 @@
   }
   .two-col {
     gap: 16px;
+  }
+
+  .composer-wrap {
+    padding: 8px 10px;
+  }
+  .composer-send-btn {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+  .composer-select {
+    max-width: 170px;
+  }
+  .display-menu-popover {
+    max-width: calc(100vw - 20px);
   }
 }
 
@@ -161,9 +131,7 @@
     width: 100%;
     height: 100%;
     flex-direction: column;
-    background: rgba(12, 10, 16, 0.95);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(12, 10, 16, 0.97);
     border-bottom: none;
     border-top: none;
     border-right: 1px solid var(--border);
@@ -253,8 +221,22 @@
   #app-root .section-body {
     gap: 10px;
   }
-  #app-root .agent-input-area {
-    padding: 6px 12px;
+  #app-root .composer-wrap {
+    padding: 6px 10px;
+  }
+  #app-root .composer-box {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  #app-root .composer-input {
+    max-height: 84px;
+    padding: 4px 2px;
+  }
+  .display-menu-popover {
+    padding: 10px 12px;
+    gap: 8px;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
   }
   #app-root .two-col {
     gap: 16px;
@@ -294,9 +276,11 @@
   .stream-modal-footer {
     padding: 8px 14px;
   }
+}
 
-  /* Panel IRC como Drawer deslizable en cualquier ancho de landscape (max-height: 480px) */
-  #app-root .irc-panel {
+/* DRAWER IRC COMPARTIDO (Mobile portrait, Tablet portrait y Landscape) */
+@media (max-width: 1024px) and (min-height: 481px), (max-height: 480px) {
+  .irc-panel {
     position: absolute;
     top: 0;
     right: -280px;
@@ -305,26 +289,32 @@
     z-index: var(--z-irc-drawer);
     isolation: isolate;
     border-left: 1px solid var(--border);
-    background: rgba(18, 16, 23, 0.92);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 16px 0 0 16px;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    border-top: none;
+    border-bottom: none;
+    background: rgba(18, 16, 23, 0.97);
+    box-shadow: none;
+    border-radius: 20px 0 0 20px;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  #app-root .chat-tab.irc-open-mobile .irc-panel {
+
+  .chat-tab.irc-open-mobile .irc-panel {
     transform: translateX(-280px);
     box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
   }
-  #app-root .irc-overlay-mobile {
+
+  .irc-overlay-mobile {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    background: rgba(0, 0, 0, 0.65);
     z-index: calc(var(--z-irc-drawer) - 1);
+    animation: fade-in 0.25s ease-out;
+  }
+
+  .chat-panel {
+    border-right: none;
   }
 }
 
@@ -348,47 +338,6 @@
 
 /* TABLETS Y PANTALLAS MEDIANAS (601px a 1024px) — IRC como Drawer Deslizable a demanda */
 @media (min-width: 601px) and (max-width: 1024px) and (min-height: 481px) {
-  .irc-panel {
-    position: absolute;
-    top: 0;
-    right: -280px;
-    width: 270px;
-    height: 100%;
-    z-index: var(--z-irc-drawer);
-    isolation: isolate;
-    border-left: 1px solid var(--border);
-    border-top: none;
-    border-bottom: none;
-    background: rgba(18, 16, 23, 0.92);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: none;
-    border-radius: 20px 0 0 20px;
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .chat-tab.irc-open-mobile .irc-panel {
-    transform: translateX(-280px);
-    box-shadow: -10px 0 35px rgba(0, 0, 0, 0.65);
-  }
-
-  .irc-overlay-mobile {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    z-index: calc(var(--z-irc-drawer) - 1);
-    animation: fade-in 0.25s ease-out;
-  }
-
-  .chat-panel {
-    border-right: none;
-  }
-
   .viewers-badge.clickable {
     cursor: pointer;
     pointer-events: auto;

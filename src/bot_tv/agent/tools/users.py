@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from bot_tv.agent.tools._helpers import format_user_details, get_broadcaster_id
+from bot_tv.agent.tools._helpers import (
+    AgentToolFn,
+    clamp_limit,
+    clamp_offset,
+    extract_user_roles,
+    format_user_details_row,
+    handle_tool_error,
+    normalize_role_filter,
+    normalize_username,
+    require_broadcaster_id,
+)
 
 if TYPE_CHECKING:
     from bot_tv.bot import Bot
@@ -12,7 +21,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
+def build_user_tools(bot: Bot) -> list[AgentToolFn]:
     """Construye las herramientas relacionadas con la consulta de usuarios
     generales y sus roles.
     """
@@ -24,41 +33,34 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
         Args:
             username: El nombre de usuario a consultar (ej: 'twitchdev').
         """
+        clean_username, user_err = normalize_username(username)
+        if user_err or clean_username is None:
+            return user_err or "El nombre de usuario no puede estar vacío."
+
         try:
-            channel_id = await get_broadcaster_id(bot)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+
             row = await bot.user_repo.get_user_detail_by_name(
-                username, channel_id, cache=bot.user_cache
+                clean_username, channel_id, cache=bot.ready_user_cache
             )
 
             if not row:
                 return (
                     f"No se encontró información del usuario "
-                    f"'{username}' en la base de datos."
+                    f"'{clean_username}' en la base de datos."
                 )
 
-            details = format_user_details(
-                row["username"],
-                row["display_name"],
-                row["nickname"],
-                row["followed_at"],
-                row["unfollowed_at"],
-            )
-
-            roles = []
-            if row["is_moderator"]:
-                roles.append("Moderador")
-            if row["is_vip"]:
-                roles.append("VIP")
-            if row["is_subscriber"]:
-                roles.append("Suscriptor")
-            if row["is_bot"]:
-                roles.append("Bot")
+            details = format_user_details_row(row)
+            roles = extract_user_roles(row, short=False)
             roles_str = ", ".join(roles) if roles else "Ninguno"
 
             return f"Información de usuario:\n{details}\nRoles en el canal: {roles_str}"
-        except Exception as e:
-            LOGGER.error("Error al obtener información detallada del usuario: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(
+                LOGGER, "Error al obtener información detallada del usuario", exc
+            )
 
     async def list_users(
         role: str | None = None,
@@ -76,18 +78,29 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
             limit: Cantidad de registros a retornar (por defecto: 10).
             offset: Desplazamiento para paginación (por defecto: 0).
         """
+        clean_role, role_err = normalize_role_filter(role)
+        if role_err:
+            return role_err
+
+        clean_search = search_term.strip() if search_term else None
+        if clean_search == "":
+            clean_search = None
+
         try:
-            channel_id = await get_broadcaster_id(bot)
-            limit = max(1, min(limit, 100))
-            offset = max(0, offset)
+            channel_id, ch_err = await require_broadcaster_id(bot)
+            if ch_err or channel_id is None:
+                return ch_err or "No hay ningún canal configurado en el bot."
+            safe_limit = clamp_limit(limit)
+            safe_offset = clamp_offset(offset)
+
             rows, _ = await bot.user_repo.list_users_with_filters(
                 channel_id=channel_id,
                 broadcaster_id=channel_id,
-                role=role,
-                username_search=search_term,
-                limit=limit,
-                offset=offset,
-                cache=bot.user_cache,
+                role=clean_role,
+                username_search=clean_search,
+                limit=safe_limit,
+                offset=safe_offset,
+                cache=bot.ready_user_cache,
             )
 
             if not rows:
@@ -96,32 +109,16 @@ def build_user_tools(bot: Bot) -> list[Callable[..., Any]]:
                     "con los filtros indicados."
                 )
 
-            lines = [f"Usuarios registrados ({len(rows)} en esta página):"]
+            lines: list[str] = [f"Usuarios registrados ({len(rows)} en esta página):"]
             for r in rows:
-                details = format_user_details(
-                    r["username"],
-                    r["display_name"],
-                    r["nickname"],
-                    r["followed_at"],
-                    r["unfollowed_at"],
-                )
-                roles = []
-                if r["is_moderator"]:
-                    roles.append("Mod")
-                if r["is_vip"]:
-                    roles.append("VIP")
-                if r["is_subscriber"]:
-                    roles.append("Sub")
-                if r["is_bot"]:
-                    roles.append("Bot")
-
+                details = format_user_details_row(r)
+                roles = extract_user_roles(r, short=True)
                 roles_str = f" [{', '.join(roles)}]" if roles else ""
                 lines.append(f"- {details}{roles_str}")
 
             return "\n".join(lines)
-        except Exception as e:
-            LOGGER.error("Error al listar usuarios: %s", e)
-            return f"Error al consultar base de datos: {e}"
+        except Exception as exc:
+            return handle_tool_error(LOGGER, "Error al listar usuarios", exc)
 
     return [
         get_user_info,

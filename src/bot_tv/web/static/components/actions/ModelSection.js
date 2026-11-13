@@ -1,4 +1,4 @@
-import { html, useState, useEffect } from 'preact-setup';
+import { html, useState, useEffect, useRef } from 'preact-setup';
 import { apiGet, apiPost } from '/static/components/api.js';
 import { CustomSelect } from '/static/components/CustomSelect.js';
 
@@ -8,22 +8,38 @@ export function ModelSection() {
   const [rpm, setRpm] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    apiGet('/api/models').then(d => {
-      if (d.ok && d.data) {
-        setModels(d.data.filter(m => m.enabled));
-      }
-    });
-    apiGet('/api/rpm').then(d => {
-      if (d.ok && d.data) {
-        const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
-        if (statuses?.length) {
-          setRpm(statuses[0]);
-          setSelected(statuses[0].model);
+    isMountedRef.current = true;
+    const controller = new AbortController();
+
+    apiGet('/api/models', { signal: controller.signal })
+      .then(d => {
+        if (controller.signal.aborted || !isMountedRef.current) return;
+        if (d.ok && d.data) {
+          setModels(d.data.filter(m => m.enabled));
         }
-      }
-    });
+      })
+      .catch(() => {});
+
+    apiGet('/api/rpm', { signal: controller.signal })
+      .then(d => {
+        if (controller.signal.aborted || !isMountedRef.current) return;
+        if (d.ok && d.data) {
+          const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+          if (statuses?.length) {
+            setRpm(statuses[0]);
+            setSelected(statuses[0].model);
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMountedRef.current = false;
+      controller.abort();
+    };
   }, []);
 
   async function switchModel() {
@@ -31,18 +47,22 @@ export function ModelSection() {
     setLoading(true);
     setResult(null);
     const data = await apiPost('/api/switch_model', { model: selected });
+    if (!isMountedRef.current) return;
     setLoading(false);
     if (data.ok) {
       setResult({ ok: true, msg: data.data.message });
       if (data.data.current_model) {
         setSelected(data.data.current_model);
       }
-      apiGet('/api/rpm').then(d => {
-        if (d.ok && d.data) {
-          const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
-          if (statuses?.length) setRpm(statuses[0]);
-        }
-      });
+      apiGet('/api/rpm')
+        .then(d => {
+          if (!isMountedRef.current) return;
+          if (d.ok && d.data) {
+            const statuses = Array.isArray(d.data) ? d.data : d.data.statuses;
+            if (statuses?.length) setRpm(statuses[0]);
+          }
+        })
+        .catch(() => {});
     } else {
       setResult({ ok: false, msg: data.error || 'Error.' });
     }

@@ -8,25 +8,26 @@ import { UserInfoTabPanel, UserRolesTabPanel, UserHistoryTabPanel } from './User
 const TAB_IDS = ['info', 'roles', 'history'];
 
 export function UserProfileDrawer({ user, onClose, dispatch }) {
-  if (!user) return null;
-
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info'); // 'info', 'roles', 'history'
 
   // Datos del usuario local & roles
-  const [userData, setUserData] = useState(user);
-  const [nickname, setNickname] = useState(user.nickname || '');
+  const [userData, setUserData] = useState(user || {});
+  const [nickname, setNickname] = useState(user?.nickname || '');
   const [editingNick, setEditingNick] = useState(false);
   const [savingNick, setSavingNick] = useState(false);
+  const [nickError, setNickError] = useState(null);
 
   const [tempRoles, setTempRoles] = useState({
-    is_bot: !!user.is_bot,
-    is_moderator: !!user.is_moderator,
-    is_vip: !!user.is_vip,
-    is_subscriber: !!user.is_subscriber,
+    is_bot: !!user?.is_bot,
+    is_moderator: !!user?.is_moderator,
+    is_vip: !!user?.is_vip,
+    is_subscriber: !!user?.is_subscriber,
   });
   const [syncingRoles, setSyncingRoles] = useState(false);
   const [savingRoles, setSavingRoles] = useState(false);
+  const [rolesError, setRolesError] = useState(null);
+  const [modError, setModError] = useState(null);
 
   // Modales de Confirmación de Moderación
   const [confirmBanOpen, setConfirmBanOpen] = useState(false);
@@ -44,6 +45,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
   const drawerRef = useRef(null);
   const triggerRef = useRef(null);
   const restoreInertRef = useRef(null);
+  const closeTimerRef = useRef(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const isClosingRef = useRef(false);
@@ -55,8 +57,20 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
   const confirmPurgeOpenRef = useRef(confirmPurgeOpen);
   confirmPurgeOpenRef.current = confirmPurgeOpen;
 
-  const username = user.username || user.display_name;
-  const displayName = userData.display_name || user.display_name || username;
+  const hasSyncedRoles = useRef(false);
+
+  const username = user ? user.username || user.display_name : '';
+  const displayName = userData.display_name || user?.display_name || username;
+
+  function scheduleCloseCallback() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (onCloseRef.current) onCloseRef.current();
+    }, 300);
+  }
 
   function handleClose() {
     if (isClosingRef.current) return;
@@ -69,9 +83,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     if (window.history.state && window.history.state.botDrawer === 'user-profile') {
       window.history.back();
     }
-    setTimeout(() => {
-      if (onCloseRef.current) onCloseRef.current();
-    }, 300);
+    scheduleCloseCallback();
   }
 
   function handlePopState() {
@@ -82,9 +94,7 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
       restoreInertRef.current();
       restoreInertRef.current = null;
     }
-    setTimeout(() => {
-      if (onCloseRef.current) onCloseRef.current();
-    }, 300);
+    scheduleCloseCallback();
   }
 
   function handleTabKeyDown(e, currentTabId) {
@@ -113,9 +123,15 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
   // Cargar datos consolidados de usuario (follow, roles, etc.) al abrir el drawer
   useEffect(() => {
+    if (!username) return;
+    const controller = new AbortController();
+
     async function loadUserDetails() {
       try {
-        const res = await apiGet(`/api/users/${encodeURIComponent(username)}/detail`);
+        const res = await apiGet(`/api/users/${encodeURIComponent(username)}/detail`, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
         if (res && res.ok && res.data) {
           setUserData(prev => ({
             ...prev,
@@ -133,14 +149,25 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           }));
         }
       } catch (e) {
-        console.error('Error cargando detalles de usuario:', e);
+        if (!controller.signal.aborted) {
+          console.error('Error cargando detalles de usuario:', e);
+        }
       }
     }
     loadUserDetails();
+    return () => controller.abort();
   }, [username]);
 
   // Animación de entrada, inert isolation, focus trap, tecla Esc y botón atrás
+  const isOpenUser = Boolean(user);
   useEffect(() => {
+    if (!isOpenUser) return;
+    isClosingRef.current = false;
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
     triggerRef.current = document.activeElement;
     restoreInertRef.current = setupInertIsolation(drawerRef.current);
 
@@ -180,6 +207,10 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
     window.addEventListener('popstate', handlePopState);
     return () => {
       cancelAnimationFrame(id);
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('popstate', handlePopState);
       if (restoreInertRef.current) {
@@ -191,20 +222,24 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
         prevEl.focus();
       }
     };
-  }, []);
-
-  const hasSyncedRoles = useRef(false);
+  }, [isOpenUser]);
 
   useEffect(() => {
     hasSyncedRoles.current = false;
+    setNickError(null);
+    setRolesError(null);
+    setModError(null);
   }, [username]);
 
   // Sincronizar roles desde Twitch una única vez al entrar a la pestaña 'roles'
   useEffect(() => {
-    if (activeTab !== 'roles' || hasSyncedRoles.current) return;
+    if (!username || activeTab !== 'roles' || hasSyncedRoles.current) return;
+    let active = true;
     async function syncRoles() {
       setSyncingRoles(true);
+      setRolesError(null);
       const res = await apiPost('/api/sync_user_roles', { username });
+      if (!active) return;
       setSyncingRoles(false);
       hasSyncedRoles.current = true;
       if (res && res.ok && res.data) {
@@ -214,9 +249,14 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           is_vip: !!res.data.is_vip,
           is_subscriber: !!res.data.is_subscriber,
         });
+      } else {
+        setRolesError((res && res.error) || 'No se pudieron sincronizar los roles.');
       }
     }
     syncRoles();
+    return () => {
+      active = false;
+    };
   }, [username, activeTab]);
 
   // Debounce para búsqueda de mensajes
@@ -257,19 +297,44 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
 
   async function handleSaveNickname() {
     setSavingNick(true);
+    setNickError(null);
     const res = await apiPost('/api/set_nickname', {
       username,
       nickname: nickname.trim() || null,
     });
     setSavingNick(false);
-    setEditingNick(false);
     if (res && res.ok) {
+      setEditingNick(false);
       setUserData(prev => ({ ...prev, nickname: res.data.nickname }));
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'success',
+            data: { message: `Apodo de ${displayName} actualizado.` },
+          },
+        });
+      }
+    } else {
+      const msg = (res && res.error) || 'No se pudo guardar el apodo.';
+      setNickError(msg);
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: msg },
+          },
+        });
+      }
     }
   }
 
   async function handleSaveRoles() {
     setSavingRoles(true);
+    setRolesError(null);
     const res = await apiPost('/api/update_user_roles', {
       username,
       is_bot: tempRoles.is_bot,
@@ -294,11 +359,25 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           },
         });
       }
+    } else {
+      const msg = (res && res.error) || 'No se pudieron guardar los roles.';
+      setRolesError(msg);
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: msg },
+          },
+        });
+      }
     }
   }
 
   async function handleExecuteBan(reason) {
     setActionInProgress(true);
+    setModError(null);
     const res = await apiPost('/api/moderation/ban', {
       username,
       reason: reason || undefined,
@@ -324,20 +403,25 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           },
         });
       }
-    } else if (dispatch) {
-      dispatch({
-        type: 'ADD_TOAST',
-        toast: {
-          id: Date.now().toString(),
-          type: 'api_error',
-          data: { message: res.error || 'No se pudo banear al usuario.' },
-        },
-      });
+    } else {
+      const msg = (res && res.error) || 'No se pudo banear al usuario.';
+      setModError(msg);
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: msg },
+          },
+        });
+      }
     }
   }
 
   async function handleExecuteUnban() {
     setActionInProgress(true);
+    setModError(null);
     const res = await apiPost('/api/moderation/unban', { username });
     setActionInProgress(false);
     setConfirmUnbanOpen(false);
@@ -360,20 +444,25 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           },
         });
       }
-    } else if (dispatch) {
-      dispatch({
-        type: 'ADD_TOAST',
-        toast: {
-          id: Date.now().toString(),
-          type: 'api_error',
-          data: { message: res.error || 'No se pudo desbanear al usuario.' },
-        },
-      });
+    } else {
+      const msg = (res && res.error) || 'No se pudo desbanear al usuario.';
+      setModError(msg);
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: msg },
+          },
+        });
+      }
     }
   }
 
   async function handleExecutePurge() {
     setActionInProgress(true);
+    setModError(null);
     const res = await apiPost('/api/moderation/purge', { username });
     setActionInProgress(false);
     setConfirmPurgeOpen(false);
@@ -389,17 +478,23 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           },
         });
       }
-    } else if (dispatch) {
-      dispatch({
-        type: 'ADD_TOAST',
-        toast: {
-          id: Date.now().toString(),
-          type: 'api_error',
-          data: { message: res.error || 'No se pudo purgar los mensajes.' },
-        },
-      });
+    } else {
+      const msg = (res && res.error) || 'No se pudo purgar los mensajes.';
+      setModError(msg);
+      if (dispatch) {
+        dispatch({
+          type: 'ADD_TOAST',
+          toast: {
+            id: Date.now().toString(),
+            type: 'api_error',
+            data: { message: msg },
+          },
+        });
+      }
     }
   }
+
+  if (!user) return null;
 
   return html`
     <div class="history-backdrop" onClick=${handleClose} />
@@ -530,10 +625,14 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
           ? html`
               <${UserInfoTabPanel}
                 editingNick=${editingNick}
-                setEditingNick=${setEditingNick}
+                setEditingNick=${val => {
+                  setNickError(null);
+                  setEditingNick(val);
+                }}
                 nickname=${nickname}
                 setNickname=${setNickname}
                 savingNick=${savingNick}
+                nickError=${nickError}
                 onSaveNickname=${handleSaveNickname}
                 userData=${userData}
                 total=${total}
@@ -547,6 +646,8 @@ export function UserProfileDrawer({ user, onClose, dispatch }) {
               <${UserRolesTabPanel}
                 syncingRoles=${syncingRoles}
                 savingRoles=${savingRoles}
+                rolesError=${rolesError}
+                modError=${modError}
                 tempRoles=${tempRoles}
                 setTempRoles=${setTempRoles}
                 onSaveRoles=${handleSaveRoles}

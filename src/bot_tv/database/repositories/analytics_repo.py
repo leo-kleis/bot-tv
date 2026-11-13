@@ -4,13 +4,16 @@ import contextlib
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any
-
-import asyncpg
+from typing import TYPE_CHECKING, Any
 
 from bot_tv.database.repositories.base import BaseRepository, to_utc_datetime
 
+if TYPE_CHECKING:
+    import asyncpg
+
 LOGGER = logging.getLogger(__name__)
+
+_MAX_SESSION_MESSAGES_LIMIT = 200
 
 
 class AnalyticsRepository(BaseRepository):
@@ -57,10 +60,15 @@ class AnalyticsRepository(BaseRepository):
                 peak_viewers,
                 close_reason;
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(
-                query, stream_id, channel_id, dt_started, title, category_name
-            )
+        row = await self._fetchrow(
+            query,
+            stream_id,
+            channel_id,
+            dt_started,
+            title,
+            category_name,
+            context_label="create_or_get_session",
+        )
         return dict(row) if row else {}
 
     async def update_session_viewers(self, stream_id: str, viewers: int) -> bool:
@@ -72,8 +80,9 @@ class AnalyticsRepository(BaseRepository):
                 peak_viewers = GREATEST(COALESCE(peak_viewers, 0), $2)
             WHERE stream_id = $1;
         """
-        async with self._db.acquire() as conn:
-            result = await conn.execute(query, stream_id, viewers)
+        result = await self._execute(
+            query, stream_id, viewers, context_label="update_session_viewers"
+        )
         return result == "UPDATE 1"
 
     async def close_session(
@@ -93,8 +102,9 @@ class AnalyticsRepository(BaseRepository):
                 is_live = FALSE
             WHERE stream_id = $3 AND ended_at IS NULL;
         """
-        async with self._db.acquire() as conn:
-            result = await conn.execute(query, dt_ended, reason, stream_id)
+        result = await self._execute(
+            query, dt_ended, reason, stream_id, context_label="close_session"
+        )
         return result == "UPDATE 1"
 
     async def save_viewer_snapshot(
@@ -114,10 +124,14 @@ class AnalyticsRepository(BaseRepository):
             VALUES ($1, $2, $3, $4)
             RETURNING id;
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(
-                query, channel_id, stream_id, viewer_count, dt_recorded
-            )
+        row = await self._fetchrow(
+            query,
+            channel_id,
+            stream_id,
+            viewer_count,
+            dt_recorded,
+            context_label="save_viewer_snapshot",
+        )
         return int(row["id"]) if row else None
 
     async def save_stream_event(
@@ -139,10 +153,15 @@ class AnalyticsRepository(BaseRepository):
             VALUES ($1, $2, $3, $4::jsonb, $5)
             RETURNING id;
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(
-                query, channel_id, stream_id, event_type, raw_json, dt_timestamp
-            )
+        row = await self._fetchrow(
+            query,
+            channel_id,
+            stream_id,
+            event_type,
+            raw_json,
+            dt_timestamp,
+            context_label="save_stream_event",
+        )
         return int(row["id"]) if row else None
 
     async def get_orphan_sessions(
@@ -166,8 +185,7 @@ class AnalyticsRepository(BaseRepository):
               AND ($1::text IS NULL OR channel_id = $1)
             ORDER BY started_at DESC;
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, channel_id)
+        rows = await self._fetch(query, channel_id, context_label="get_orphan_sessions")
         return [dict(row) for row in rows]
 
     async def close_orphan_session_fast(self, stream_id: str) -> dict[str, Any] | None:
@@ -218,8 +236,9 @@ class AnalyticsRepository(BaseRepository):
                 s.close_reason,
                 s.is_live;
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, stream_id)
+        row = await self._fetchrow(
+            query, stream_id, context_label="close_orphan_session_fast"
+        )
         return dict(row) if row else None
 
     async def get_chat_activity(
@@ -277,10 +296,13 @@ class AnalyticsRepository(BaseRepository):
                 LEFT JOIN binned_msgs b ON g.bucket_start = b.bucket_start
                 ORDER BY g.bucket_start ASC;
             """
-            async with self._db.acquire() as conn:
-                rows: list[asyncpg.Record] = await conn.fetch(
-                    query, stream_id, channel_id, safe_interval
-                )
+            rows = await self._fetch(
+                query,
+                stream_id,
+                channel_id,
+                safe_interval,
+                context_label="get_chat_activity",
+            )
         else:
             query = """
                 WITH bounds AS (
@@ -324,8 +346,12 @@ class AnalyticsRepository(BaseRepository):
                 LEFT JOIN binned_msgs b ON g.bucket_start = b.bucket_start
                 ORDER BY g.bucket_start ASC;
             """
-            async with self._db.acquire() as conn:
-                rows = await conn.fetch(query, channel_id, safe_interval)
+            rows = await self._fetch(
+                query,
+                channel_id,
+                safe_interval,
+                context_label="get_chat_activity",
+            )
 
         return [dict(row) for row in rows]
 
@@ -334,21 +360,27 @@ class AnalyticsRepository(BaseRepository):
         channel_id: str,
         since: datetime | str | None = None,
         limit: int = 10,
+        stream_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Devuelve los usuarios con más mensajes agrupados por CTE optimizado."""
-        dt_since = to_utc_datetime(since)
+        clean_stream_id = stream_id.strip() if stream_id and stream_id.strip() else None
+        if clean_stream_id is not None:
+            where_filter = "AND stream_id = $2"
+            filter_arg: datetime | str | None = clean_stream_id
+        else:
+            where_filter = (
+                "AND ($2::timestamptz IS NULL OR timestamp >= $2::timestamptz)"
+            )
+            filter_arg = to_utc_datetime(since)
 
-        query = """
+        query = f"""
             WITH top_senders AS (
                 SELECT 
                     user_id,
                     COUNT(*) AS msg_count
                 FROM chat_history
                 WHERE channel_id = $1
-                  AND (
-                      $2::timestamptz IS NULL 
-                      OR timestamp >= $2::timestamptz
-                  )
+                  {where_filter}
                 GROUP BY user_id
                 ORDER BY msg_count DESC
                 LIMIT $3
@@ -363,12 +395,85 @@ class AnalyticsRepository(BaseRepository):
             FROM top_senders ts
             LEFT JOIN users u ON ts.user_id = u.user_id
             ORDER BY ts.msg_count DESC;
-        """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(
-                query, channel_id, dt_since, limit
-            )
+        """  # noqa: S608
+        rows = await self._fetch(
+            query, channel_id, filter_arg, limit, context_label="get_top_chatters"
+        )
         return [dict(row) for row in rows]
+
+    async def get_viewer_stats(self, stream_id: str) -> dict[str, int | None]:
+        """Calcula promedio, pico y muestras de espectadores para una sesión."""
+        query = """
+            SELECT
+                ROUND(AVG(viewer_count))::int AS avg_viewers,
+                MAX(viewer_count)::int AS peak_viewers,
+                COUNT(*)::int AS sample_count
+            FROM viewer_snapshots
+            WHERE stream_id = $1;
+        """
+        row = await self._fetchrow(query, stream_id, context_label="get_viewer_stats")
+        sample_count = int(row["sample_count"] or 0) if row else 0
+        if not row or sample_count == 0:
+            return {
+                "avg_viewers": None,
+                "peak_viewers": None,
+                "sample_count": 0,
+            }
+        return {
+            "avg_viewers": (
+                int(row["avg_viewers"]) if row["avg_viewers"] is not None else None
+            ),
+            "peak_viewers": (
+                int(row["peak_viewers"]) if row["peak_viewers"] is not None else None
+            ),
+            "sample_count": sample_count,
+        }
+
+    async def get_followers_balance(
+        self,
+        channel_id: str,
+        start_at: datetime | str,
+        end_at: datetime | str | None = None,
+    ) -> dict[str, int]:
+        """Calcula altas, bajas y balance neto de seguidores en un rango temporal."""
+        dt_start = to_utc_datetime(start_at)
+        if dt_start is None:
+            return {"new_followers": 0, "lost_followers": 0, "net_followers": 0}
+        dt_end = to_utc_datetime(end_at)
+
+        query = """
+            SELECT
+                (
+                    SELECT COUNT(*)::int
+                    FROM channel_users
+                    WHERE channel_id = $1
+                      AND followed_at IS NOT NULL
+                      AND followed_at >= $2::timestamptz
+                      AND followed_at <= COALESCE($3::timestamptz, NOW())
+                ) AS new_followers,
+                (
+                    SELECT COUNT(*)::int
+                    FROM channel_users
+                    WHERE channel_id = $1
+                      AND unfollowed_at IS NOT NULL
+                      AND unfollowed_at >= $2::timestamptz
+                      AND unfollowed_at <= COALESCE($3::timestamptz, NOW())
+                ) AS lost_followers;
+        """
+        row = await self._fetchrow(
+            query,
+            channel_id,
+            dt_start,
+            dt_end,
+            context_label="get_followers_balance",
+        )
+        new_followers = int(row["new_followers"] or 0) if row else 0
+        lost_followers = int(row["lost_followers"] or 0) if row else 0
+        return {
+            "new_followers": new_followers,
+            "lost_followers": lost_followers,
+            "net_followers": new_followers - lost_followers,
+        }
 
     async def get_followers_growth(
         self,
@@ -421,10 +526,13 @@ class AnalyticsRepository(BaseRepository):
             GROUP BY period_start
             ORDER BY period_start ASC;
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(
-                query, channel_id, dt_since, safe_period
-            )
+        rows = await self._fetch(
+            query,
+            channel_id,
+            dt_since,
+            safe_period,
+            context_label="get_followers_growth",
+        )
         return [dict(row) for row in rows]
 
     async def get_viewer_timeline(
@@ -448,8 +556,9 @@ class AnalyticsRepository(BaseRepository):
             ORDER BY v.recorded_at ASC
             LIMIT $2;
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id, safe_limit)
+        rows = await self._fetch(
+            query, stream_id, safe_limit, context_label="get_viewer_timeline"
+        )
         return [dict(row) for row in rows]
 
     async def get_stream_session_by_id(
@@ -472,9 +581,8 @@ class AnalyticsRepository(BaseRepository):
             WHERE stream_id = $1
               AND ($2::text IS NULL OR channel_id = $2);
         """
-        row: asyncpg.Record | None = await self._with_retry(
-            lambda conn: conn.fetchrow(query, stream_id, channel_id),
-            "stream session",
+        row = await self._fetchrow(
+            query, stream_id, channel_id, context_label="stream session"
         )
         return dict(row) if row else None
 
@@ -485,8 +593,9 @@ class AnalyticsRepository(BaseRepository):
             FROM chat_history
             WHERE stream_id = $1;
         """
-        async with self._db.acquire() as conn:
-            row: asyncpg.Record | None = await conn.fetchrow(query, stream_id)
+        row = await self._fetchrow(
+            query, stream_id, context_label="get_stream_message_count"
+        )
         return int(row["total"]) if row else 0
 
     async def get_stream_sessions(
@@ -510,30 +619,45 @@ class AnalyticsRepository(BaseRepository):
             ORDER BY started_at DESC
             LIMIT $2;
         """
-        rows: list[asyncpg.Record] = await self._with_retry(
-            lambda conn: conn.fetch(query, channel_id, limit),
-            "stream sessions",
+        rows = await self._fetch(
+            query, channel_id, limit, context_label="stream sessions"
         )
         return [dict(row) for row in rows]
 
     async def get_stream_event_summary(self, stream_id: str) -> list[dict[str, Any]]:
-        """Agrupa métricas clave por tipo de evento en la sesión indicada."""
+        """Agrupa métricas clave por tipo de evento (y recompensa) en la sesión."""
         query = """
-            SELECT 
+            WITH classified AS (
+                SELECT
+                    event_type,
+                    event_data,
+                    CASE
+                        WHEN event_type = 'channel_points' THEN
+                            COALESCE(
+                                NULLIF(TRIM(event_data->>'reward_title'), ''),
+                                'Recompensa'
+                            )
+                        ELSE NULL
+                    END AS reward_title
+                FROM stream_events
+                WHERE stream_id = $1
+            )
+            SELECT
                 event_type,
+                reward_title,
                 COUNT(*)::int AS event_count,
-                CASE 
-                    WHEN event_type = 'raid' THEN 
+                CASE
+                    WHEN event_type = 'raid' THEN
                         SUM(
                             COALESCE(
                                 (event_data->>'viewer_count')::numeric, 0
                             )::int
                         )
-                    WHEN event_type = 'cheer' THEN 
+                    WHEN event_type = 'cheer' THEN
                         SUM(
                             COALESCE((event_data->>'bits')::numeric, 0)::int
                         )
-                    WHEN event_type = 'channel_points' THEN 
+                    WHEN event_type = 'channel_points' THEN
                         SUM(
                             COALESCE(
                                 (event_data->>'reward_cost')::numeric, 0
@@ -541,14 +665,201 @@ class AnalyticsRepository(BaseRepository):
                         )
                     ELSE NULL
                 END AS total_metric_value
-            FROM stream_events
-            WHERE stream_id = $1
-            GROUP BY event_type
-            ORDER BY event_count DESC;
+            FROM classified
+            GROUP BY event_type, reward_title
+            ORDER BY event_count DESC, reward_title ASC NULLS LAST;
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id)
+        rows = await self._fetch(
+            query, stream_id, context_label="get_stream_event_summary"
+        )
         return [dict(row) for row in rows]
+
+    async def get_session_messages(
+        self,
+        channel_id: str,
+        stream_id: str,
+        since: datetime | str | None = None,
+        until: datetime | str | None = None,
+        user_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Devuelve mensajes paginados de una sesión con filtros y total exacto."""
+        safe_limit = max(1, min(limit, _MAX_SESSION_MESSAGES_LIMIT))
+        safe_offset = max(0, offset)
+        dt_since = to_utc_datetime(since)
+        dt_until = to_utc_datetime(until)
+        clean_user_id = user_id.strip() if user_id and user_id.strip() else None
+
+        where_clauses = ["c.channel_id = $1", "c.stream_id = $2"]
+        params: list[Any] = [channel_id, stream_id]
+
+        def _p() -> str:
+            return f"${len(params) + 1}"
+
+        if dt_since is not None:
+            where_clauses.append(f"c.timestamp >= {_p()}::timestamptz")
+            params.append(dt_since)
+
+        if dt_until is not None:
+            where_clauses.append(f"c.timestamp < {_p()}::timestamptz")
+            params.append(dt_until)
+
+        if clean_user_id is not None:
+            where_clauses.append(f"c.user_id = {_p()}")
+            params.append(clean_user_id)
+
+        where_sql = " AND ".join(where_clauses)
+        count_query = f"""
+            SELECT COUNT(*)::int AS total
+            FROM chat_history c
+            WHERE {where_sql};
+        """  # noqa: S608
+        data_query = f"""
+            SELECT
+                c.id,
+                c.user_id,
+                COALESCE(u.username, c.user_id) AS username,
+                u.display_name,
+                u.nickname,
+                u.profile_image_url,
+                c.message,
+                c.timestamp
+            FROM chat_history c
+            LEFT JOIN users u ON c.user_id = u.user_id
+            WHERE {where_sql}
+            ORDER BY c.timestamp ASC, c.id ASC
+            LIMIT ${len(params) + 1} OFFSET ${len(params) + 2};
+        """  # noqa: S608
+
+        async def _fetch_messages(
+            conn: asyncpg.Connection,
+        ) -> tuple[int, list[asyncpg.Record]]:
+            count_row = await conn.fetchrow(count_query, *params)
+            total_count = int(count_row["total"] or 0) if count_row else 0
+            page_rows = await conn.fetch(
+                data_query, *params, safe_limit + 1, safe_offset
+            )
+            return total_count, page_rows
+
+        total, raw_rows = await self._with_retry(
+            _fetch_messages, context_label="get_session_messages"
+        )
+        has_more = len(raw_rows) > safe_limit
+        messages = [
+            {
+                "id": str(row["id"]),
+                "user_id": row["user_id"],
+                "username": row["username"],
+                "display_name": row["display_name"],
+                "nickname": row["nickname"],
+                "profile_image_url": row["profile_image_url"],
+                "message": row["message"],
+                "timestamp": row["timestamp"],
+            }
+            for row in raw_rows[:safe_limit]
+        ]
+        return {
+            "messages": messages,
+            "total": total,
+            "has_more": has_more,
+        }
+
+    async def get_session_follower_events(
+        self, channel_id: str, stream_id: str
+    ) -> dict[str, Any]:
+        """Obtiene los eventos individuales de follow/unfollow durante una sesión."""
+        session_query = """
+            SELECT
+                started_at,
+                COALESCE(ended_at, NOW()) AS end_bound
+            FROM stream_sessions
+            WHERE stream_id = $1 AND channel_id = $2;
+        """
+        events_query = """
+            SELECT
+                evt.user_id,
+                COALESCE(u.username, evt.user_id) AS username,
+                u.display_name,
+                u.nickname,
+                u.profile_image_url,
+                evt.event_kind,
+                evt.event_ts
+            FROM (
+                SELECT
+                    cu.user_id,
+                    'follow' AS event_kind,
+                    cu.followed_at AS event_ts
+                FROM channel_users cu
+                WHERE cu.channel_id = $1
+                  AND cu.followed_at IS NOT NULL
+                  AND cu.followed_at >= $2::timestamptz
+                  AND cu.followed_at <= $3::timestamptz
+
+                UNION ALL
+
+                SELECT
+                    cu.user_id,
+                    'unfollow' AS event_kind,
+                    cu.unfollowed_at AS event_ts
+                FROM channel_users cu
+                WHERE cu.channel_id = $1
+                  AND cu.unfollowed_at IS NOT NULL
+                  AND cu.unfollowed_at >= $2::timestamptz
+                  AND cu.unfollowed_at <= $3::timestamptz
+            ) evt
+            LEFT JOIN users u ON evt.user_id = u.user_id
+            ORDER BY
+                evt.event_ts DESC,
+                evt.event_kind ASC,
+                COALESCE(u.username, evt.user_id) ASC;
+        """
+
+        async def _fetch_events(
+            conn: asyncpg.Connection,
+        ) -> list[asyncpg.Record] | None:
+            session_row = await conn.fetchrow(session_query, stream_id, channel_id)
+            if not session_row:
+                return None
+            dt_start = to_utc_datetime(session_row["started_at"])
+            if dt_start is None:
+                return None
+            dt_end = to_utc_datetime(session_row["end_bound"]) or dt_start
+            if dt_end < dt_start:
+                dt_end = dt_start
+            return await conn.fetch(events_query, channel_id, dt_start, dt_end)
+
+        rows = await self._with_retry(
+            _fetch_events, context_label="get_session_follower_events"
+        )
+        if rows is None:
+            return {"events": [], "new_count": 0, "lost_count": 0}
+
+        events: list[dict[str, Any]] = []
+        new_count = 0
+        lost_count = 0
+        for row in rows:
+            event_kind = str(row["event_kind"])
+            if event_kind == "follow":
+                new_count += 1
+            else:
+                lost_count += 1
+            events.append(
+                {
+                    "user_id": row["user_id"],
+                    "username": row["username"],
+                    "display_name": row["display_name"],
+                    "nickname": row["nickname"],
+                    "profile_image_url": row["profile_image_url"],
+                    "event_kind": event_kind,
+                    "timestamp": row["event_ts"],
+                }
+            )
+        return {
+            "events": events,
+            "new_count": new_count,
+            "lost_count": lost_count,
+        }
 
     async def get_stream_event_timeline(
         self, stream_id: str, limit: int = 5000
@@ -572,8 +883,9 @@ class AnalyticsRepository(BaseRepository):
             ORDER BY e.timestamp ASC
             LIMIT $2;
         """
-        async with self._db.acquire() as conn:
-            rows: list[asyncpg.Record] = await conn.fetch(query, stream_id, safe_limit)
+        rows = await self._fetch(
+            query, stream_id, safe_limit, context_label="get_stream_event_timeline"
+        )
 
         results: list[dict[str, Any]] = []
         for row in rows:

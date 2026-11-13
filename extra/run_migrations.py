@@ -1,4 +1,4 @@
-"""Script utilitario para crear las tablas en PostgreSQL."""
+"""Script utilitario para inspeccionar las tablas en PostgreSQL."""
 
 import asyncio
 import sys
@@ -24,4 +24,5 @@ async def main() -> None:
     print("Listo.")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

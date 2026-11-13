@@ -1,17 +1,30 @@
 const FOCUSABLE_SELECTOR =
   'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Devuelve los elementos enfocables visibles dentro de un contenedor.
+ * @param {HTMLElement | null | undefined} container
+ * @returns {HTMLElement[]}
+ */
 export function getFocusableElements(container) {
   if (!container) return [];
-  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR));
+  const elements = Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+    el => el instanceof HTMLElement && !el.closest('[inert]')
+  );
   const visible = elements.filter(
     el => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
   );
   return visible.length > 0 ? visible : elements;
 }
 
+/**
+ * Mantiene el foco por teclado atrapado dentro de un diálogo o drawer.
+ * @param {HTMLElement | null | undefined} container
+ * @param {KeyboardEvent} e
+ * @returns {void}
+ */
 export function trapFocus(container, e) {
-  if (e.key !== 'Tab') return;
+  if (!container || e.key !== 'Tab') return;
 
   const focusables = getFocusableElements(container);
   if (focusables.length === 0) {
@@ -21,23 +34,28 @@ export function trapFocus(container, e) {
 
   const first = focusables[0];
   const last = focusables[focusables.length - 1];
+  const activeEl = document.activeElement;
 
   if (e.shiftKey) {
-    if (document.activeElement === first || !container.contains(document.activeElement)) {
+    if (activeEl === first || !(activeEl instanceof Node) || !container.contains(activeEl)) {
       e.preventDefault();
       last.focus();
     }
-  } else {
-    if (document.activeElement === last || !container.contains(document.activeElement)) {
-      e.preventDefault();
-      first.focus();
-    }
+  } else if (activeEl === last || !(activeEl instanceof Node) || !container.contains(activeEl)) {
+    e.preventDefault();
+    first.focus();
   }
 }
 
+/**
+ * Aplica `inert` a los elementos de fondo mientras un modal o drawer está abierto.
+ * @param {HTMLElement | null | undefined} modalElement
+ * @returns {() => void} Función para restaurar el estado previo.
+ */
 export function setupInertIsolation(modalElement) {
   if (!modalElement) return () => {};
 
+  /** @type {Element[]} */
   const inertedElements = [];
   const appRoot = document.getElementById('app-root');
 
@@ -47,6 +65,7 @@ export function setupInertIsolation(modalElement) {
       inertedElements.push(appRoot);
     }
   } else {
+    /** @type {HTMLElement | null} */
     let current = modalElement;
     while (current && current !== document.body && current !== document.documentElement) {
       const parent = current.parentElement;

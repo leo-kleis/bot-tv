@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from bot_tv.agent.tools._helpers import AgentToolFn
 from bot_tv.agent.tools.channel_users import build_channel_user_tools
 from bot_tv.agent.tools.chat import build_chat_tools
 from bot_tv.agent.tools.stream import build_stream_tools
@@ -12,11 +12,11 @@ if TYPE_CHECKING:
     from bot_tv.bot import Bot
 
 
-def build_agent_tools(bot: Bot) -> list[Callable[..., Any]]:
+def build_agent_tools(bot: Bot) -> list[AgentToolFn]:
     """Construye y consolida todas las herramientas del agente divididas
     por dominios.
     """
-    tools: list[Callable[..., Any]] = []
+    tools: list[AgentToolFn] = []
     tools.extend(build_stream_tools(bot))
     tools.extend(build_channel_user_tools(bot))
     tools.extend(build_user_tools(bot))

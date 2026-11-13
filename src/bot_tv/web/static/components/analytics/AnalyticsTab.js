@@ -5,31 +5,83 @@ import { AnalyticsSummaryCards } from './AnalyticsSummaryCards.js';
 import { ViewersTimelineChart } from './ViewersTimelineChart.js';
 import { ChatActivityChart } from './ChatActivityChart.js';
 import { TopChattersChart } from './TopChattersChart.js';
-import { FollowersGrowthChart } from './FollowersGrowthChart.js';
 import { StreamEventsChart } from './StreamEventsChart.js';
 import { AnalyticsSkeleton } from './AnalyticsSkeleton.js';
 import { AnalyticsEmptyState } from './AnalyticsEmptyState.js';
+import { AnalyticsMessagesDrawer } from './AnalyticsMessagesDrawer.js';
+import { AnalyticsFollowersDrawer } from './AnalyticsFollowersDrawer.js';
+import { formatShortDateTime } from './chartTheme.js';
+
+/**
+ * @typedef {{
+ *   stream_id?: string | null,
+ *   channel_id?: string | null,
+ *   title?: string | null,
+ *   category_name?: string | null,
+ *   started_at?: string | null,
+ *   ended_at?: string | null,
+ *   duration_seconds?: number,
+ *   is_live?: boolean,
+ *   peak_viewers?: number,
+ *   avg_viewers?: number | null,
+ *   total_messages?: number,
+ *   messages_per_minute?: number,
+ *   total_events?: number,
+ *   events_detail?: string,
+ *   new_followers?: number,
+ *   lost_followers?: number,
+ *   net_followers?: number,
+ * }} AnalyticsOverview
+ */
 
 export function AnalyticsTab() {
-  const [sessions, setSessions] = useState([]);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [sessions, setSessions] = useState(/** @type {Array<Record<string, unknown>>} */ ([]));
+  const [selectedSessionId, setSelectedSessionId] = useState('');
   const [chatInterval, setChatInterval] = useState(5);
-  const [period, setPeriod] = useState('24h');
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(/** @type {string | null} */ (null));
 
   // Estados de datos de analíticas
-  const [overview, setOverview] = useState(null);
-  const [viewersTimeline, setViewersTimeline] = useState([]);
-  const [chatActivity, setChatActivity] = useState([]);
-  const [topChatters, setTopChatters] = useState([]);
-  const [followersGrowth, setFollowersGrowth] = useState([]);
-  const [streamEvents, setStreamEvents] = useState(null);
+  const [overview, setOverview] = useState(/** @type {AnalyticsOverview | null} */ (null));
+  const [viewersTimeline, setViewersTimeline] = useState(
+    /** @type {Array<Record<string, unknown>>} */ ([])
+  );
+  const [chatActivity, setChatActivity] = useState(
+    /** @type {Array<Record<string, unknown>>} */ ([])
+  );
+  const [topChatters, setTopChatters] = useState(
+    /** @type {Array<Record<string, unknown>>} */ ([])
+  );
+  const [streamEvents, setStreamEvents] = useState(
+    /** @type {Record<string, unknown> | null} */ (null)
+  );
+  const [followersDrawerOpen, setFollowersDrawerOpen] = useState(false);
+  const [drawerState, setDrawerState] = useState(
+    /**
+     * @type {{
+     *   isOpen: boolean,
+     *   title: string,
+     *   subtitle: string,
+     *   since: string | null,
+     *   until: string | null,
+     *   userId: string | null,
+     * }}
+     */ ({
+      isOpen: false,
+      title: '',
+      subtitle: '',
+      since: null,
+      until: null,
+      userId: null,
+    })
+  );
 
   const isMountedRef = useRef(true);
-  const batchControllerRef = useRef(null);
+  const batchControllerRef = useRef(/** @type {AbortController | null} */ (null));
+  const chatIntervalControllerRef = useRef(/** @type {AbortController | null} */ (null));
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -37,19 +89,27 @@ export function AnalyticsTab() {
       if (batchControllerRef.current) {
         batchControllerRef.current.abort();
       }
+      if (chatIntervalControllerRef.current) {
+        chatIntervalControllerRef.current.abort();
+      }
     };
   }, []);
 
-  // Sesión actualmente seleccionada
+  // Sesión actualmente seleccionada (siempre comparada por stream_id string)
   const currentSession = useMemo(() => {
     if (!sessions || sessions.length === 0) return null;
-    if (selectedSessionId == null) return sessions[0] || null;
-    return sessions.find(s => s.id === selectedSessionId) || sessions[0] || null;
+    if (!selectedSessionId) return sessions[0] || null;
+    return sessions.find(s => String(s.stream_id) === String(selectedSessionId)) || sessions[0];
   }, [sessions, selectedSessionId]);
 
   // Carga de todas las métricas en paralelo
   const fetchAnalyticsData = useCallback(
-    async (sessionId, interval, currentPeriod, isBackground = false) => {
+    /**
+     * @param {string} sessionId
+     * @param {number} interval
+     * @param {boolean} [isBackground]
+     */
+    async (sessionId, interval, isBackground = false) => {
       if (!isMountedRef.current) return;
       if (batchControllerRef.current) {
         batchControllerRef.current.abort();
@@ -66,25 +126,26 @@ export function AnalyticsTab() {
       setError(null);
 
       try {
-        const streamParam = sessionId ? `?stream_id=${sessionId}` : '';
-        const chatParam = sessionId
-          ? `?stream_id=${sessionId}&interval_minutes=${interval}`
+        const encodedId = sessionId ? encodeURIComponent(String(sessionId)) : '';
+        const streamParam = encodedId ? `?stream_id=${encodedId}` : '';
+        const chatParam = encodedId
+          ? `?stream_id=${encodedId}&interval_minutes=${interval}`
           : `?interval_minutes=${interval}`;
-        const topChattersParam = `?period=${currentPeriod}&limit=10`;
-        const growthParam = `?period=day`;
+        const topChattersParam = encodedId
+          ? `?stream_id=${encodedId}&limit=10`
+          : `?period=24h&limit=10`;
 
-        const [overviewRes, timelineRes, chatRes, chattersRes, growthRes, eventsRes] =
+        const [overviewRes, timelineRes, chatRes, chattersRes, eventsRes] =
           await Promise.allSettled([
-            apiGet('/api/analytics/overview', { signal }),
-            sessionId
+            apiGet(`/api/analytics/overview${streamParam}`, { signal }),
+            encodedId
               ? apiGet(`/api/analytics/viewers_timeline${streamParam}`, { signal })
               : Promise.resolve(null),
-            sessionId
+            encodedId
               ? apiGet(`/api/analytics/chat_activity${chatParam}`, { signal })
               : Promise.resolve(null),
             apiGet(`/api/analytics/top_chatters${topChattersParam}`, { signal }),
-            apiGet(`/api/analytics/followers_growth${growthParam}`, { signal }),
-            sessionId
+            encodedId
               ? apiGet(`/api/analytics/stream_events${streamParam}`, { signal })
               : Promise.resolve(null),
           ]);
@@ -96,48 +157,49 @@ export function AnalyticsTab() {
           overviewRes.value &&
           overviewRes.value.ok !== false
         ) {
-          setOverview(overviewRes.value);
+          setOverview(overviewRes.value.data || overviewRes.value);
         }
+
         if (
           timelineRes.status === 'fulfilled' &&
           timelineRes.value &&
           timelineRes.value.ok !== false
         ) {
+          const payload = timelineRes.value.data ?? timelineRes.value;
           setViewersTimeline(
-            timelineRes.value.data || timelineRes.value.timeline || timelineRes.value || []
+            Array.isArray(payload) ? payload : payload.timeline || payload.data || []
           );
-        } else if (sessionId == null) {
+        } else if (!encodedId) {
           setViewersTimeline([]);
         }
+
         if (chatRes.status === 'fulfilled' && chatRes.value && chatRes.value.ok !== false) {
-          setChatActivity(chatRes.value.data || chatRes.value.activity || chatRes.value || []);
-        } else if (sessionId == null) {
+          const payload = chatRes.value.data ?? chatRes.value;
+          setChatActivity(
+            Array.isArray(payload) ? payload : payload.activity || payload.data || []
+          );
+        } else if (!encodedId) {
           setChatActivity([]);
         }
+
         if (
           chattersRes.status === 'fulfilled' &&
           chattersRes.value &&
           chattersRes.value.ok !== false
         ) {
-          setTopChatters(
-            chattersRes.value.chatters || chattersRes.value.data || chattersRes.value || []
-          );
+          const payload = chattersRes.value.data ?? chattersRes.value;
+          setTopChatters(Array.isArray(payload) ? payload : payload.chatters || payload.data || []);
         }
-        if (growthRes.status === 'fulfilled' && growthRes.value && growthRes.value.ok !== false) {
-          setFollowersGrowth(
-            growthRes.value.data || growthRes.value.growth || growthRes.value || []
-          );
-        }
+
         if (eventsRes.status === 'fulfilled' && eventsRes.value && eventsRes.value.ok !== false) {
-          setStreamEvents(
-            eventsRes.value.events || eventsRes.value.data || eventsRes.value || null
-          );
-        } else if (sessionId == null) {
+          setStreamEvents(eventsRes.value.data || eventsRes.value);
+        } else if (!encodedId) {
           setStreamEvents(null);
         }
       } catch (err) {
         if (isMountedRef.current && !signal.aborted) {
-          setError(err.message || 'Error al obtener datos analíticos');
+          const message = err instanceof Error ? err.message : 'Error al obtener datos analíticos';
+          setError(message);
         }
       } finally {
         if (isMountedRef.current && !signal.aborted) {
@@ -151,34 +213,36 @@ export function AnalyticsTab() {
 
   // Inicialización de sesiones
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function initSessions() {
       try {
-        const res = await apiGet('/api/analytics/stream_sessions');
-        if (!active) return;
+        const res = await apiGet('/api/analytics/stream_sessions?limit=50', {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || !isMountedRef.current) return;
 
         if (res && res.ok !== false) {
-          const list = res.sessions || res.data || (Array.isArray(res) ? res : []);
+          const raw = res.data ?? res;
+          const list = Array.isArray(raw) ? raw : raw.sessions || raw.data || [];
           setSessions(list);
 
           if (list.length > 0) {
-            // Priorizar sesión en vivo o la más reciente
             const live = list.find(s => Boolean(s.is_live));
-            const initialId = live ? live.id : list[0].id;
+            const initialItem = live || list[0];
+            const initialId = initialItem?.stream_id ? String(initialItem.stream_id) : '';
             setSelectedSessionId(initialId);
-            fetchAnalyticsData(initialId, chatInterval, period);
+            fetchAnalyticsData(initialId, chatInterval);
           } else {
-            // No hay sesiones de stream, consultar métricas generales
-            fetchAnalyticsData(null, chatInterval, period);
+            fetchAnalyticsData('', chatInterval);
           }
         } else {
-          // Si el endpoint de sesiones da error o está vacío, consultar de forma global
-          fetchAnalyticsData(null, chatInterval, period);
+          fetchAnalyticsData('', chatInterval);
         }
       } catch (err) {
-        if (active) {
-          setError(err.message || 'Error al conectar con el servidor');
+        if (!controller.signal.aborted && isMountedRef.current) {
+          const message = err instanceof Error ? err.message : 'Error al conectar con el servidor';
+          setError(message);
           setLoading(false);
         }
       }
@@ -187,62 +251,115 @@ export function AnalyticsTab() {
     initSessions();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [fetchAnalyticsData]);
 
   // Manejo de cambio de sesión
   const handleSelectSession = useCallback(
+    /** @param {string} newId */
     newId => {
-      setSelectedSessionId(newId);
-      fetchAnalyticsData(newId, chatInterval, period);
+      const normalized = newId ? String(newId) : '';
+      setSelectedSessionId(normalized);
+      setDrawerState(prev => (prev.isOpen ? { ...prev, isOpen: false } : prev));
+      setFollowersDrawerOpen(false);
+      fetchAnalyticsData(normalized, chatInterval);
     },
-    [chatInterval, period, fetchAnalyticsData]
+    [chatInterval, fetchAnalyticsData]
   );
 
-  // Manejo de cambio de intervalo
-  const handleChangeChatInterval = useCallback(
-    newInterval => {
-      setChatInterval(newInterval);
-      if (selectedSessionId) {
-        // Recargar actividad de chat
-        apiGet(
-          `/api/analytics/chat_activity?stream_id=${selectedSessionId}&interval_minutes=${newInterval}`
-        ).then(res => {
-          if (isMountedRef.current && res && res.ok !== false) {
-            setChatActivity(res.data || res.activity || res || []);
-          }
-        });
-      }
+  const handleSelectBucket = useCallback(
+    /**
+     * @param {{ since: string, until: string, label: string, count: number }} bucket
+     */
+    bucket => {
+      if (!selectedSessionId) return;
+      setDrawerState({
+        isOpen: true,
+        title: `Mensajes del intervalo ${bucket.label}`,
+        subtitle: `${formatShortDateTime(bucket.since)} — ${formatShortDateTime(bucket.until)}`,
+        since: bucket.since,
+        until: bucket.until,
+        userId: null,
+      });
     },
     [selectedSessionId]
   );
 
-  // Manejo de cambio de período
-  const handleChangePeriod = useCallback(newPeriod => {
-    setPeriod(newPeriod);
-    apiGet(`/api/analytics/top_chatters?period=${newPeriod}&limit=10`).then(res => {
-      if (isMountedRef.current && res && res.ok !== false) {
-        setTopChatters(res.chatters || res.data || res || []);
-      }
-    });
+  const handleSelectChatter = useCallback(
+    /**
+     * @param {{ userId: string, username: string, displayName: string, count: number }} chatter
+     */
+    chatter => {
+      if (!selectedSessionId || !chatter.userId) return;
+      setDrawerState({
+        isOpen: true,
+        title: `Mensajes de ${chatter.displayName}`,
+        subtitle:
+          chatter.username && chatter.displayName.toLowerCase() !== chatter.username.toLowerCase()
+            ? `@${chatter.username} · ${chatter.count} mensajes en la sesión`
+            : `${chatter.count} mensajes en la sesión`,
+        since: null,
+        until: null,
+        userId: chatter.userId,
+      });
+    },
+    [selectedSessionId]
+  );
+
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerState(prev => ({ ...prev, isOpen: false }));
   }, []);
+
+  // Manejo de cambio de intervalo desde la cabecera de ChatActivityChart
+  const handleChangeChatInterval = useCallback(
+    /** @param {number} newInterval */
+    newInterval => {
+      const intervalNum = Number(newInterval) || 5;
+      setChatInterval(intervalNum);
+      if (chatIntervalControllerRef.current) {
+        chatIntervalControllerRef.current.abort();
+      }
+      if (!selectedSessionId) return;
+
+      const controller = new AbortController();
+      chatIntervalControllerRef.current = controller;
+      const { signal } = controller;
+
+      apiGet(
+        `/api/analytics/chat_activity?stream_id=${encodeURIComponent(
+          selectedSessionId
+        )}&interval_minutes=${intervalNum}`,
+        { signal }
+      )
+        .then(res => {
+          if (isMountedRef.current && !signal.aborted && res && res.ok !== false) {
+            const payload = res.data ?? res;
+            setChatActivity(
+              Array.isArray(payload) ? payload : payload.activity || payload.data || []
+            );
+          }
+        })
+        .catch(() => {});
+    },
+    [selectedSessionId]
+  );
 
   // Refresco manual
   const handleRefresh = useCallback(() => {
-    fetchAnalyticsData(selectedSessionId, chatInterval, period, true);
-  }, [selectedSessionId, chatInterval, period, fetchAnalyticsData]);
+    fetchAnalyticsData(selectedSessionId, chatInterval, true);
+  }, [selectedSessionId, chatInterval, fetchAnalyticsData]);
 
   // Auto-refresco cada 30s si la sesión seleccionada está en vivo
   useEffect(() => {
     if (!currentSession || !currentSession.is_live) return;
 
     const timer = setInterval(() => {
-      fetchAnalyticsData(selectedSessionId, chatInterval, period, true);
+      fetchAnalyticsData(selectedSessionId, chatInterval, true);
     }, 30000);
 
     return () => clearInterval(timer);
-  }, [currentSession, selectedSessionId, chatInterval, period, fetchAnalyticsData]);
+  }, [currentSession, selectedSessionId, chatInterval, fetchAnalyticsData]);
 
   const hasData =
     sessions.length > 0 ||
@@ -253,28 +370,24 @@ export function AnalyticsTab() {
 
   return html`
     <div class="analytics-tab">
-      <!-- Barra superior fija de filtros y controles -->
       <${AnalyticsFilterBar}
         sessions=${sessions}
         selectedSessionId=${selectedSessionId}
         onSelectSession=${handleSelectSession}
-        chatInterval=${chatInterval}
-        onChangeChatInterval=${handleChangeChatInterval}
-        period=${period}
-        onChangePeriod=${handleChangePeriod}
         onRefresh=${handleRefresh}
         loading=${refreshing || loading}
       />
 
-      <!-- Área desplazable con scroll fluido -->
       <div class="analytics-tab-scrollable">
         ${
           error
             ? html`
-                <div class="analytics-error-banner">
-                  <i class="fas fa-exclamation-triangle"></i>
+                <div class="analytics-error-banner" role="alert">
+                  <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
                   <span>${error}</span>
-                  <button class="analytics-retry-btn" onClick=${handleRefresh}>Reintentar</button>
+                  <button type="button" class="analytics-retry-btn" onClick=${handleRefresh}>
+                    Reintentar
+                  </button>
                 </div>
               `
             : null
@@ -285,32 +398,50 @@ export function AnalyticsTab() {
             : !hasData
               ? html`<${AnalyticsEmptyState} onRefresh=${handleRefresh} />`
               : html`
-                  <!-- Tarjetas KPI Resumen -->
                   <${AnalyticsSummaryCards}
                     overview=${overview || {}}
                     currentSession=${currentSession}
+                    canOpenFollowersDetail=${Boolean(selectedSessionId)}
+                    onOpenFollowersDetail=${() => {
+                      if (selectedSessionId) setFollowersDrawerOpen(true);
+                    }}
                   />
 
-                  <!-- Rejilla de Gráficos de Analíticas -->
                   <div class="analytics-charts-grid">
-                    <!-- Gráfico 1: Evolución de Espectadores (Full Width) -->
                     <${ViewersTimelineChart} data=${viewersTimeline} session=${currentSession} />
-
-                    <!-- Gráfico 2: Actividad de Mensajes en el Chat -->
-                    <${ChatActivityChart} data=${chatActivity} interval=${chatInterval} />
-
-                    <!-- Gráfico 3: Top 10 Participantes del Chat -->
-                    <${TopChattersChart} data=${topChatters} period=${period} />
-
-                    <!-- Gráfico 4: Desglose de Eventos del Directo -->
-                    <${StreamEventsChart} data=${streamEvents} />
-
-                    <!-- Gráfico 5: Crecimiento Neto de Seguidores -->
-                    <${FollowersGrowthChart} data=${followersGrowth} period="day" />
+                    <${ChatActivityChart}
+                      data=${chatActivity}
+                      interval=${chatInterval}
+                      onIntervalChange=${handleChangeChatInterval}
+                      onSelectBucket=${handleSelectBucket}
+                    />
+                    <${TopChattersChart}
+                      data=${topChatters}
+                      onSelectChatter=${handleSelectChatter}
+                    />
+                    <${StreamEventsChart} data=${streamEvents} session=${currentSession} />
                   </div>
                 `
         }
       </div>
+
+      <${AnalyticsMessagesDrawer}
+        isOpen=${drawerState.isOpen}
+        onClose=${handleCloseDrawer}
+        streamId=${selectedSessionId}
+        title=${drawerState.title}
+        subtitle=${drawerState.subtitle}
+        since=${drawerState.since}
+        until=${drawerState.until}
+        userId=${drawerState.userId}
+      />
+
+      <${AnalyticsFollowersDrawer}
+        isOpen=${followersDrawerOpen}
+        onClose=${() => setFollowersDrawerOpen(false)}
+        streamId=${selectedSessionId}
+        sessionTitle=${currentSession && currentSession.title ? String(currentSession.title) : ''}
+      />
     </div>
   `;
 }

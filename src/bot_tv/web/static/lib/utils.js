@@ -1,7 +1,12 @@
+/** @type {Map<string, string>} */
 const RGB_CACHE = new Map();
 const MAX_RGB_CACHE = 2000;
 
-// Convierte color_rgb [r,g,b] a un color suave y altamente legible para tema oscuro (Dark Mode)
+/**
+ * Convierte `[r, g, b]` a un color legible para tema oscuro (Dark Mode).
+ * @param {number[] | null | undefined} rgb
+ * @returns {string}
+ */
 export function toRgb(rgb) {
   if (!rgb || rgb.length < 3) return 'var(--accent-text)';
 
@@ -37,20 +42,24 @@ export function toRgb(rgb) {
     h /= 6;
   }
 
-  // Normalización para tema oscuro:
-  // 1. Limitar saturación máxima para evitar colores de neón estridentes (máx 72%)
+  // Normalización para tema oscuro: limitar saturación y ajustar luminosidad
   s = Math.min(s, 0.72);
-  // 2. Ajustar luminosidad para visibilidad óptima (entre 68% y 80%)
   l = Math.max(0.68, Math.min(0.8, l));
 
-  const hue2rgb = (p, q, t) => {
+  /**
+   * @param {number} pVal
+   * @param {number} qVal
+   * @param {number} t
+   * @returns {number}
+   */
+  const hue2rgb = (pVal, qVal, t) => {
     let tVal = t;
     if (tVal < 0) tVal += 1;
     if (tVal > 1) tVal -= 1;
-    if (tVal < 1 / 6) return p + (q - p) * 6 * tVal;
-    if (tVal < 1 / 2) return q;
-    if (tVal < 2 / 3) return p + (q - p) * (2 / 3 - tVal) * 6;
-    return p;
+    if (tVal < 1 / 6) return pVal + (qVal - pVal) * 6 * tVal;
+    if (tVal < 1 / 2) return qVal;
+    if (tVal < 2 / 3) return pVal + (qVal - pVal) * (2 / 3 - tVal) * 6;
+    return pVal;
   };
 
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
@@ -69,21 +78,32 @@ export function toRgb(rgb) {
   return result;
 }
 
-// Formatea HH:MM desde ISO timestamp
+/**
+ * Formatea HH:MM desde un timestamp ISO.
+ * @param {string | number | Date | null | undefined} iso
+ * @returns {string}
+ */
 export function fmtTime(iso) {
+  if (!iso) return '';
   try {
     const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   } catch {
     return '';
   }
 }
 
-// Valida que una URL utilice protocolo http: o https:
+/**
+ * Valida que una URL utilice protocolo http: o https:.
+ * @param {string | null | undefined} url
+ * @returns {string}
+ */
 export function sanitizeHttpUrl(url) {
   if (!url || typeof url !== 'string') return '';
   try {
-    const parsed = new URL(url, window.location.origin);
+    const baseOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const parsed = new URL(url, baseOrigin);
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
       return parsed.href;
     }

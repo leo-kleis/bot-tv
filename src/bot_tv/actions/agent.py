@@ -49,8 +49,3 @@ async def action_talk(agent: TalkAgent, message: str) -> AgentTalkResult:
 def action_clear_agent_chat(agent: TalkAgent) -> None:
     """Limpia el historial conversacional del agente."""
     agent.clear_history()
-
-
-async def action_set_context_limit(agent: TalkAgent, limit: int) -> None:
-    """Establece y persiste el límite de contexto del agente."""
-    await agent.set_context_limit(limit)

@@ -18,6 +18,7 @@ export function StreamWidget({
   showIrcMobile,
   onToggleIrc,
   onOpenEditStream,
+  onRequestExit,
 }) {
   const { online, broadcasterName, title, category, viewerCount, startedAt } = stream;
   const [uptime, setUptime] = useState('');
@@ -56,6 +57,7 @@ export function StreamWidget({
         historyLoaded=${historyLoaded}
         ircConnected=${ircConnected}
         exited=${exited}
+        onRequestExit=${onRequestExit}
       />
 
       <div class="stream-info">

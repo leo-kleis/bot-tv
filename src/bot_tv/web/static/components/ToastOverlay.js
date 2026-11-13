@@ -1,17 +1,32 @@
 import { html, useEffect } from 'preact-setup';
 import { getEventDetails } from './event-config.js';
 
+/** @typedef {import('/static/state/types.js').AppDispatch} AppDispatch */
+/** @typedef {import('/static/state/types.js').ToastItem} ToastItem */
+
+const TOAST_AUTO_DISMISS_MS = 6000;
+
+/**
+ * Determina si un toast representa un fallo crítico que requiere anuncio inmediato.
+ * @param {ToastItem} toast
+ * @returns {boolean}
+ */
 function isCriticalToast(toast) {
   if (toast.isError === true) return true;
   const type = (toast.type || '').toLowerCase();
   return type === 'api_error' || type === 'error' || type === 'danger';
 }
 
-function ToastItem({ toast, dispatch }) {
+/**
+ * @param {Object} props
+ * @param {ToastItem} props.toast
+ * @param {AppDispatch} props.dispatch
+ */
+function ToastItemView({ toast, dispatch }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       dispatch({ type: 'REMOVE_TOAST', id: toast.id });
-    }, 6000);
+    }, TOAST_AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [toast.id, dispatch]);
 
@@ -27,24 +42,33 @@ function ToastItem({ toast, dispatch }) {
       aria-live=${ariaLive}
       aria-atomic="true"
     >
-      <div class="toast-icon">
+      <div class="toast-icon" aria-hidden="true">
         <i class="fa-solid ${details.icon || 'fa-circle-exclamation'}"></i>
       </div>
       <div class="toast-content">
         <div class="toast-title">${toast.title || details.toastTitle || 'Notificación'}</div>
-        <div class="toast-text">${toast.data?.message || details.toastText(toast.data)}</div>
+        <div class="toast-text">${toast.data?.message || details.toastText(toast.data || {})}</div>
       </div>
       <button
+        type="button"
         class="toast-close"
         aria-label="Cerrar notificación"
         onClick=${() => dispatch({ type: 'REMOVE_TOAST', id: toast.id })}
       >
-        <i class="fa-solid fa-xmark"></i>
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
     </div>
   `;
 }
 
+/**
+ * Superposición de notificaciones toast respetando prioridad de lector de pantalla.
+ *
+ * @param {Object} props
+ * @param {ToastItem[]} props.toasts
+ * @param {AppDispatch} props.dispatch
+ * @param {string} props.activeTab
+ */
 export function ToastOverlay({ toasts, dispatch, activeTab }) {
   // Descartar inmediatamente toasts de seguidores si se generan estando en la pestaña 'users'
   useEffect(() => {
@@ -87,7 +111,7 @@ export function ToastOverlay({ toasts, dispatch, activeTab }) {
   return html`
     <div class="toast-overlay" role="region" aria-label="Notificaciones del sistema">
       ${visibleToasts.map(
-        toast => html`<${ToastItem} key=${toast.id} toast=${toast} dispatch=${dispatch} />`
+        toast => html`<${ToastItemView} key=${toast.id} toast=${toast} dispatch=${dispatch} />`
       )}
     </div>
   `;
